@@ -1,0 +1,387 @@
+openapi: 3.1.0
+info:
+  title: US Patient App API
+  version: 0.1.0
+  description: |
+    Source-traceable patient-controlled organization API. The service stores
+    document metadata, immutable versions, reviewable facts, visit packs,
+    tasks, expiring share versions, upload jobs and audit events.
+    It does not diagnose, recommend treatment, interpret images, or write to an EHR.
+servers:
+  - url: https://api.example.invalid
+    description: Placeholder; deployment owns the real hostname.
+tags:
+  - name: documents
+  - name: facts
+  - name: visits
+  - name: tasks
+  - name: shares
+  - name: processing
+  - name: audit
+security:
+  - bearerAuth: [patient]
+paths:
+  /v1/documents:
+    post:
+      operationId: createDocument
+      tags: [documents]
+      security: [{bearerAuth: ['documents:write']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DocumentCreate'}
+      responses:
+        '201':
+          description: Document metadata created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Document'}}}
+        '409': {$ref: '#/components/responses/IdempotencyConflict'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      security: [{bearerAuth: ['documents:read']}]
+      responses:
+        '200':
+          description: Documents visible to the authenticated principal.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Document'}}
+  /v1/documents/{documentId}:
+    parameters: [{name: documentId, in: path, required: true, schema: {type: string, format: uuid}}]
+    get:
+      operationId: getDocument
+      tags: [documents]
+      security: [{bearerAuth: ['documents:read']}]
+      responses:
+        '200': {description: Document, content: {application/json: {schema: {$ref: '#/components/schemas/Document'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /v1/documents/{documentId}/processing-jobs:
+    post:
+      operationId: enqueueUploadProcessing
+      tags: [processing]
+      security: [{bearerAuth: ['documents:write']}]
+      parameters:
+        - {$ref: '#/components/parameters/DocumentId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job_type]
+              properties:
+                job_type: {$ref: '#/components/schemas/JobType'}
+      responses:
+        '202': {description: Job queued, content: {application/json: {schema: {$ref: '#/components/schemas/UploadProcessingJob'}}}}
+        '409': {$ref: '#/components/responses/IdempotencyConflict'}
+  /v1/facts:
+    post:
+      operationId: createFact
+      tags: [facts]
+      security: [{bearerAuth: ['facts:write']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FactCreate'}
+      responses:
+        '201': {description: Reviewable fact, content: {application/json: {schema: {$ref: '#/components/schemas/Fact'}}}}
+        '422': {$ref: '#/components/responses/ValidationError'}
+    get:
+      operationId: listFacts
+      tags: [facts]
+      security: [{bearerAuth: ['facts:read']}]
+      responses:
+        '200': {description: Facts, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Fact'}}}}}
+  /v1/facts/{factId}/review:
+    post:
+      operationId: reviewFact
+      tags: [facts]
+      security: [{bearerAuth: ['facts:write']}]
+      parameters:
+        - {name: factId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: If-Match-Version, in: header, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [review_status]
+              properties:
+                review_status: {$ref: '#/components/schemas/ReviewStatus'}
+      responses:
+        '200': {description: Updated fact, content: {application/json: {schema: {$ref: '#/components/schemas/Fact'}}}}
+        '409': {$ref: '#/components/responses/VersionConflict'}
+  /v1/topics:
+    post:
+      operationId: createTopic
+      tags: [visits]
+      security: [{bearerAuth: ['visits:write']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TopicCreate'}}}}
+      responses:
+        '201': {description: Topic, content: {application/json: {schema: {$ref: '#/components/schemas/Topic'}}}}
+  /v1/visits:
+    post:
+      operationId: createVisit
+      tags: [visits]
+      security: [{bearerAuth: ['visits:write']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VisitCreate'}}}}
+      responses:
+        '201': {description: Visit, content: {application/json: {schema: {$ref: '#/components/schemas/Visit'}}}}
+  /v1/tasks:
+    post:
+      operationId: createTask
+      tags: [tasks]
+      security: [{bearerAuth: ['tasks:write']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TaskCreate'}}}}
+      responses:
+        '201': {description: Task, content: {application/json: {schema: {$ref: '#/components/schemas/Task'}}}}
+  /v1/shares:
+    post:
+      operationId: createShareVersion
+      tags: [shares]
+      security: [{bearerAuth: ['shares:create']}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ShareCreate'}}}}
+      responses:
+        '201': {description: Share URL token returned once; token is never persisted in plaintext., content: {application/json: {schema: {$ref: '#/components/schemas/ShareReceipt'}}}}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /v1/shares/{shareId}/revoke:
+    post:
+      operationId: revokeShareVersion
+      tags: [shares]
+      security: [{bearerAuth: ['shares:revoke']}]
+      parameters: [{name: shareId, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        '200': {description: Revoked share, content: {application/json: {schema: {$ref: '#/components/schemas/ShareVersion'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /v1/shared/{token}:
+    get:
+      operationId: accessShare
+      tags: [shares]
+      security: []
+      parameters: [{name: token, in: path, required: true, schema: {type: string, minLength: 20}}]
+      responses:
+        '200': {description: Shared immutable version payload.}
+        '410': {description: Share expired or revoked; downloaded copies cannot be recalled.}
+        '404': {description: Invalid share token.}
+  /v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      tags: [audit]
+      security: [{bearerAuth: ['audit:read']}]
+      parameters:
+        - {name: resource_id, in: query, required: false, schema: {type: string}}
+      responses:
+        '200': {description: PHI-safe audit metadata, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/AuditEvent'}}}}}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The gateway authenticates the principal and maps token claims to scopes.
+        The service never logs bearer tokens or document contents.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 128}
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    Unauthorized: {description: Missing or invalid authentication.}
+    Forbidden: {description: Authenticated principal lacks scope or ownership.}
+    NotFound: {description: Resource not found within the principal boundary.}
+    ValidationError: {description: Contract validation failed.}
+    VersionConflict: {description: If-Match-Version did not match the latest immutable version.}
+    IdempotencyConflict: {description: Idempotency-Key was reused with a different request body.}
+  schemas:
+    SourceType:
+      type: string
+      enum: [uploaded_document, user_input, ocr, ehr_import, ai_extraction, translation, other]
+    ReviewStatus:
+      type: string
+      enum: [unreviewed, in_review, confirmed, rejected, superseded]
+    DocumentStatus:
+      type: string
+      enum: [uploaded, processing, ready, failed, deleted]
+    JobType:
+      type: string
+      enum: [ocr, extract_facts, translate, render_share]
+    JobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+    ShareStatus:
+      type: string
+      enum: [active, expired, revoked]
+    TaskStatus:
+      type: string
+      enum: [open, done, cancelled]
+    DocumentCreate:
+      type: object
+      additionalProperties: false
+      required: [filename, media_type, size_bytes, sha256]
+      properties:
+        filename: {type: string, minLength: 1, maxLength: 255}
+        media_type: {type: string, minLength: 1, maxLength: 128}
+        size_bytes: {type: integer, minimum: 0}
+        sha256: {type: string, pattern: '^[A-Fa-f0-9]{64}$'}
+    Document:
+      allOf:
+        - {$ref: '#/components/schemas/DocumentCreate'}
+        - type: object
+          required: [id, owner_id, source_type, status, version, created_at, updated_at]
+          properties:
+            id: {type: string, format: uuid}
+            owner_id: {type: string}
+            source_type: {$ref: '#/components/schemas/SourceType'}
+            status: {$ref: '#/components/schemas/DocumentStatus'}
+            version: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+            deleted_at: {type: string, format: date-time, nullable: true}
+    FactCreate:
+      type: object
+      additionalProperties: false
+      required: [label, value, source_ref, source_type, confidence]
+      properties:
+        label: {type: string, minLength: 1}
+        value: {type: string, minLength: 1}
+        source_ref: {type: string, minLength: 1, description: Page/region or user-input reference; required for confirmed facts.}
+        source_type: {$ref: '#/components/schemas/SourceType'}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        document_id: {type: string, format: uuid, nullable: true}
+        topic_id: {type: string, format: uuid, nullable: true}
+    Fact:
+      allOf:
+        - {$ref: '#/components/schemas/FactCreate'}
+        - type: object
+          required: [id, owner_id, review_status, version, created_at, updated_at]
+          properties:
+            id: {type: string, format: uuid}
+            owner_id: {type: string}
+            review_status: {$ref: '#/components/schemas/ReviewStatus'}
+            version: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    TopicCreate:
+      type: object
+      required: [name]
+      properties: {name: {type: string, minLength: 1}}
+    Topic:
+      allOf:
+        - {$ref: '#/components/schemas/TopicCreate'}
+        - type: object
+          required: [id, owner_id, version, created_at, updated_at]
+          properties:
+            id: {type: string, format: uuid}
+            owner_id: {type: string}
+            version: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    VisitCreate:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string, minLength: 1}
+        starts_at: {type: string, format: date-time, nullable: true}
+        topic_ids: {type: array, items: {type: string, format: uuid}}
+    Visit:
+      allOf:
+        - {$ref: '#/components/schemas/VisitCreate'}
+        - type: object
+          required: [id, owner_id, version, created_at, updated_at]
+          properties:
+            id: {type: string, format: uuid}
+            owner_id: {type: string}
+            version: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string, minLength: 1}
+        visit_id: {type: string, format: uuid, nullable: true}
+        due_at: {type: string, format: date-time, nullable: true}
+    Task:
+      allOf:
+        - {$ref: '#/components/schemas/TaskCreate'}
+        - type: object
+          required: [id, owner_id, status, version, created_at, updated_at]
+          properties:
+            id: {type: string, format: uuid}
+            owner_id: {type: string}
+            status: {$ref: '#/components/schemas/TaskStatus'}
+            version: {type: integer, minimum: 1}
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    ShareCreate:
+      type: object
+      required: [resource_type, resource_id, resource_version, expires_at]
+      properties:
+        resource_type: {type: string, enum: [document, fact, topic, visit, task]}
+        resource_id: {type: string, format: uuid}
+        resource_version: {type: integer, minimum: 1}
+        expires_at: {type: string, format: date-time, description: Must be in the future; revocation blocks new access before expiry.}
+    ShareVersion:
+      type: object
+      required: [id, owner_id, resource_type, resource_id, resource_version, expires_at, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        owner_id: {type: string}
+        resource_type: {type: string}
+        resource_id: {type: string}
+        resource_version: {type: integer, minimum: 1}
+        expires_at: {type: string, format: date-time}
+        status: {$ref: '#/components/schemas/ShareStatus'}
+        revoked_at: {type: string, format: date-time, nullable: true}
+        created_at: {type: string, format: date-time}
+      description: Token digests are internal and never returned.
+    ShareReceipt:
+      type: object
+      required: [share, token]
+      properties:
+        share: {$ref: '#/components/schemas/ShareVersion'}
+        token: {type: string, minLength: 20, description: Returned once over TLS; never logged or persisted in plaintext.}
+    UploadProcessingJob:
+      type: object
+      required: [id, owner_id, document_id, job_type, status, idempotency_key, attempt, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        owner_id: {type: string}
+        document_id: {type: string, format: uuid}
+        job_type: {$ref: '#/components/schemas/JobType'}
+        status: {$ref: '#/components/schemas/JobStatus'}
+        idempotency_key: {type: string}
+        attempt: {type: integer, minimum: 0}
+        error_code: {type: string, nullable: true}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AuditEvent:
+      type: object
+      required: [id, actor_id, action, resource_type, resource_id, request_id, occurred_at, metadata]
+      properties:
+        id: {type: string, format: uuid}
+        actor_id: {type: string}
+        action: {type: string}
+        resource_type: {type: string}
+        resource_id: {type: string}
+        request_id: {type: string}
+        occurred_at: {type: string, format: date-time}
+        metadata: {type: object, additionalProperties: {type: string}, description: Scalar operational metadata only; no PHI.}
