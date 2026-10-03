@@ -1,0 +1,86 @@
+{
+  "dataset_id": "patient-app-ai-synthetic",
+  "version": "1.0.0",
+  "data_classification": "synthetic",
+  "cases": [
+    {
+      "case_id": "synthetic-medication",
+      "data_classification": "synthetic",
+      "document": {
+        "source_ref": "synthetic:medication",
+        "source_type": "synthetic_medication_list",
+        "text": "FACT\t{\"claim_id\":\"synthetic-medication-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:status\",\"normalized_value\":\"active\",\"review_status\":\"accepted\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"text_en\":\"Example medication A is listed as active.\",\"text_zh\":\"示例药物 A 标记为正在使用。\"}\nFACT\t{\"claim_id\":\"synthetic-medication-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"accepted\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"text_en\":\"Example medication A is taken once daily.\",\"text_zh\":\"示例药物 A 每日服用一次。\"}"
+      },
+      "expected_claims": [
+        {
+          "claim_id": "synthetic-medication-001",
+          "text_en": "Example medication A is listed as active.",
+          "text_zh": "示例药物 A 标记为正在使用。",
+          "source_ref": "synthetic:medication:page-1",
+          "source_type": "synthetic_medication_list",
+          "confidence": 1.0,
+          "review_status": "accepted",
+          "normalized_key": "medication:example-a:status",
+          "normalized_value": "active",
+          "rewritten": false
+        },
+        {
+          "claim_id": "synthetic-medication-002",
+          "text_en": "Example medication A is taken once daily.",
+          "text_zh": "示例药物 A 每日服用一次。",
+          "source_ref": "synthetic:medication:page-1",
+          "source_type": "synthetic_medication_list",
+          "confidence": 1.0,
+          "review_status": "accepted",
+          "normalized_key": "medication:example-a:frequency",
+          "normalized_value": "once_daily",
+          "rewritten": false
+        }
+      ],
+      "expected_conflicts": []
+    },
+    {
+      "case_id": "synthetic-conflict",
+      "data_classification": "synthetic",
+      "document": {
+        "source_ref": "synthetic:conflict",
+        "source_type": "synthetic_visit_note",
+        "text": "FACT\t{\"claim_id\":\"synthetic-conflict-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-1\",\"source_type\":\"synthetic_visit_note\",\"text_en\":\"Example medication B is taken once daily.\",\"text_zh\":\"示例药物 B 每日服用一次。\"}\nFACT\t{\"claim_id\":\"synthetic-conflict-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"twice_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-2\",\"source_type\":\"synthetic_visit_note\",\"text_en\":\"Example medication B is taken twice daily.\",\"text_zh\":\"示例药物 B 每日服用两次。\"}"
+      },
+      "expected_claims": [
+        {
+          "claim_id": "synthetic-conflict-001",
+          "text_en": "Example medication B is taken once daily.",
+          "text_zh": "示例药物 B 每日服用一次。",
+          "source_ref": "synthetic:conflict:page-1",
+          "source_type": "synthetic_visit_note",
+          "confidence": 1.0,
+          "review_status": "needs_review",
+          "normalized_key": "medication:example-b:frequency",
+          "normalized_value": "once_daily",
+          "rewritten": false
+        },
+        {
+          "claim_id": "synthetic-conflict-002",
+          "text_en": "Example medication B is taken twice daily.",
+          "text_zh": "示例药物 B 每日服用两次。",
+          "source_ref": "synthetic:conflict:page-2",
+          "source_type": "synthetic_visit_note",
+          "confidence": 1.0,
+          "review_status": "needs_review",
+          "normalized_key": "medication:example-b:frequency",
+          "normalized_value": "twice_daily",
+          "rewritten": false
+        }
+      ],
+      "expected_conflicts": [
+        {
+          "conflict_id": "synthetic-conflict-frequency",
+          "claim_ids": ["synthetic-conflict-001", "synthetic-conflict-002"],
+          "severity": "high",
+          "reason": "The same synthetic medication has two source frequencies."
+        }
+      ]
+    }
+  ]
+}
