@@ -1,0 +1,37 @@
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/*/.build/
+.swiftpm/
+Package.resolved
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
+*.cer
+Secrets.swift
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime data and PHI: never commit
+*.pdf
+*.png
+*.jpg
+*.jpeg
+fixtures/private/
+tmp/
+coverage/
+
