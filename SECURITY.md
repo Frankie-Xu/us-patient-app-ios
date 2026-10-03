@@ -9,7 +9,8 @@ Use a private GitHub security advisory or contact the repository owner through a
 ## Product security rules
 
 - Treat documents, extracted facts, summaries, tasks, share links, and audit events as sensitive by default.
-- Keep PHI out of telemetry, crash reports, debug logs, fixtures, screenshots, and test names.
+- Keep PHI out of telemetry, crash reports, debug logs, fixtures, screenshots, analytics events, test names, release notes, and CI output.
+- Keep logs limited to request IDs, operation names, status, duration, counts, and stable non-reversible identifiers. Redact headers, query strings, filenames, exception payloads, OCR text, and document bodies at the logging boundary.
 - Use short-lived credentials, least-privilege service roles, encrypted transport and protected storage.
 - Revoke or rotate exposed credentials immediately; record the incident without copying the secret.
-
+- Run `scripts/validate-repo.sh` before committing. It checks credential patterns, clinical-document formats, and common PHI labels while redacting matched values in failure output.

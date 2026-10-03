@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-validation:
+    name: Repository validation
+    runs-on: ubuntu-latest
+    outputs:
+      ios-present: ${{ steps.detect-ios.outputs.present }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate repository contents
+        run: bash scripts/validate-repo.sh
+      - name: Check dependency manifests and versions
+        run: bash scripts/check-dependencies.sh
+      - name: Check patch formatting
+        run: git diff --check
+      - name: Detect iOS component
+        id: detect-ios
+        run: |
+          if find . -type f \( -name Package.swift -o -name project.pbxproj -o -name contents.xcworkspacedata \) -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  api-tests:
+    name: API tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Run API tests when present
+        run: bash scripts/run-python-tests.sh services/api
+
+  ai-tests:
+    name: AI tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Run AI tests when present
+        run: bash scripts/run-python-tests.sh services/ai
+
+  ios-tests:
+    name: iOS tests
+    needs: repository-validation
+    if: ${{ needs.repository-validation.outputs.ios-present == 'true' }}
+    runs-on: macos-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run iOS tests when present
+        run: bash scripts/run-ios-tests.sh
