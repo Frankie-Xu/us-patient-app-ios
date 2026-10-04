@@ -346,7 +346,14 @@ def aggregate_quality_metrics(
     values = tuple(results)
     if not values:
         raise ValueError("at least one staging worker result is required")
-    return StagingQualityMetrics.from_results(
-        (result.pipeline for result in values),
-        low_confidence_threshold=0.8,
-    )
+    counters = [sum(getattr(result.metrics, field_name) for result in values) for field_name in (
+        "case_count",
+        "claim_count",
+        "low_confidence_claim_count",
+        "missing_source_claim_count",
+        "conflict_case_count",
+        "conflict_claim_count",
+        "manual_review_claim_count",
+        "confirmation_block_case_count",
+    )]
+    return StagingQualityMetrics(*counters)
