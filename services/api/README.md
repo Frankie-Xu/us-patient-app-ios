@@ -86,3 +86,14 @@ job queue, protected cache and eligible backup targets. It records state only an
 never deletes bytes. Production adapters must replace it with a durable,
 auditable workflow that stops new work, fans out deletion, preserves legal holds,
 supports retry/resume and reports completion across every approved store.
+
+
+## Staging runtime composition (Phase 18)
+
+RuntimeDependencies is the provider-neutral dependency graph for local/staging:
+metadata store, object store, queue, retention policy and deletion coordinator.
+Its aggregate readiness is fail-closed and exposes one check per boundary. The
+build_local_runtime factory writes SQLite files only under the caller-provided
+local directory and wires the synthetic lifecycle adapters. It is intended for
+contract tests and staging rehearsals; production startup must inject approved
+provider implementations after Issue #37 decisions are accepted.
