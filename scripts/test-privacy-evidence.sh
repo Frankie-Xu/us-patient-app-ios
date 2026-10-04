@@ -60,7 +60,7 @@ test "$status" -eq 1
 python3 - "$tmp_dir/malformed-fail.json" <<'PY'
 import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())
-assert value["violation_codes"] == ["invalid_manifest"]
+assert value["violation_codes"] == ["input_unavailable", "invalid_manifest"]
 PY
 
 echo "privacy evidence regression passed"
