@@ -12,7 +12,7 @@ public struct DocumentVersion: Codable, Equatable, Hashable, Sendable, Identifia
     public let createdAt: Date
     public let updatedAt: Date
 
-    public var id: String { "(documentID.uuidString)-v(version)" }
+    public var id: String { "\(documentID.uuidString)-v\(version)" }
 
     public init(
         documentID: UUID,
