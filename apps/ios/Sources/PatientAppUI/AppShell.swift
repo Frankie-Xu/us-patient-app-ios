@@ -33,11 +33,22 @@ public final class AppShellModel: ObservableObject {
     @Published public var importFlow: ImportFlowModel
     @Published public var visitPreparation: VisitPreparationModel
     @Published public var accountHistory: AccountHistoryModel
+    public let protectedCache: any ProtectedCache
+    public let sessionStore: any SessionStore
 
-    public init(client: any PatientAPIClient = DeterministicMockAPIClient()) {
+    public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil) {
+        let store = sessionStore ?? InMemorySessionStore(cache: protectedCache)
+        self.protectedCache = protectedCache
+        self.sessionStore = store
         self.importFlow = ImportFlowModel(client: client)
-        self.visitPreparation = VisitPreparationModel(client: client)
-        self.accountHistory = AccountHistoryModel(client: client)
+        self.visitPreparation = VisitPreparationModel(client: client, sessionStore: store)
+        self.accountHistory = AccountHistoryModel(client: client, cache: protectedCache, sessionStore: store)
+    }
+
+    public func logout() async {
+        visitPreparation.invalidateSession()
+        accountHistory.invalidateSession()
+        await sessionStore.logout()
     }
 }
 
