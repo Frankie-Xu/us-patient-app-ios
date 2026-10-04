@@ -13,7 +13,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ../../services/api/migrations/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \\$STAGING_POSTGRES_USER -d \\$STAGING_POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 12
