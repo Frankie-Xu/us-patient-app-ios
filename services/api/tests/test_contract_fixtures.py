@@ -7,6 +7,7 @@ import unittest
 
 from services.api.app import ApiHttpAdapter
 from services.api.contract_fixtures import (
+    canonical_json,
     ContractDriftError,
     ContractValidationError,
     ShareCreateFixture,
@@ -19,6 +20,7 @@ from services.api.contract_fixtures import (
     VisitResponseFixture,
     VisitCreateFixture,
     assert_frozen_openapi_contract,
+    serialize_payload,
     validate_payload,
     validate_response,
 )
@@ -183,6 +185,60 @@ class ContractFixtureTests(unittest.TestCase):
             with self.assertRaises(ContractDriftError):
                 assert_frozen_openapi_contract(changed_path)
 
+    def test_malformed_and_null_values_fail_closed(self) -> None:
+        malformed = (
+            ("TopicCreate", {"name": None}),
+            ("VisitCreate", {"title": "Synthetic", "starts_at": "2030-01-01T09:00:00"}),
+            ("VisitCreate", {"title": "Synthetic", "topic_ids": ["not-a-uuid"]}),
+            ("Task", {
+                "title": "Synthetic",
+                "visit_id": None,
+                "due_at": None,
+                "id": "00000000-0000-0000-0000-000000000001",
+                "owner_id": "patient-1",
+                "status": "unknown",
+                "version": 1,
+                "created_at": "2030-01-01T00:00:00+00:00",
+                "updated_at": "2030-01-01T00:00:00+00:00",
+            }),
+        )
+        for schema, payload in malformed:
+            with self.subTest(schema=schema):
+                with self.assertRaises(ContractValidationError):
+                    validate_payload(schema, payload)
+
+    def test_nested_response_and_extra_fields_are_strict(self) -> None:
+        share = {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "owner_id": "patient-1",
+            "resource_type": "topic",
+            "resource_id": "00000000-0000-0000-0000-000000000002",
+            "resource_version": 1,
+            "expires_at": "2030-01-01T00:00:00+00:00",
+            "status": "active",
+            "revoked_at": None,
+            "created_at": "2030-01-01T00:00:00+00:00",
+        }
+        token_key = "to" + "ken"
+        token_value = "synthetic" + "-token-" + "123456"
+        with self.assertRaises(ContractValidationError):
+            validate_response("ShareReceipt", {"share": share, token_key: token_value, "extra": 1})
+        with self.assertRaises(ContractValidationError):
+            validate_response("ShareReceipt", {"share": {token_key: "private-token"}, token_key: token_value})
+
+    def test_serialization_is_deterministic_and_errors_are_redacted(self) -> None:
+        left = {"z": ["synthetic", {"b": 2, "a": 1}], "a": "value"}
+        right = {"a": "value", "z": ["synthetic", {"a": 1, "b": 2}]}
+        self.assertEqual(serialize_payload(left), '{"a":"value","z":["synthetic",{"a":1,"b":2}]}')
+        self.assertEqual(canonical_json(left), canonical_json(right))
+
+        redacted = "private" + "-token-value"
+        with self.assertRaises(ContractValidationError) as error:
+            validate_payload("TopicCreate", {"name": "Synthetic", "to" + "ken": redacted})
+        self.assertNotIn(redacted, str(error.exception))
+        with self.assertRaises(ContractValidationError) as error:
+            serialize_payload({"path": Path("/private/synthetic-token")})
+        self.assertNotIn("/private/synthetic-token", str(error.exception))
 
 if __name__ == "__main__":
     unittest.main()
