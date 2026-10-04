@@ -7,6 +7,9 @@ public enum MockFailurePoint: Equatable, Sendable {
     case facts
     case editFact
     case confirmFact
+    case listTopics
+    case listVisits
+    case listTasks
 }
 
 public struct MockImportScenario: Sendable {
@@ -16,6 +19,9 @@ public struct MockImportScenario: Sendable {
     public let terminalProcessingStatus: ProcessingStatus?
     public let failurePoint: MockFailurePoint?
     public let failuresRemaining: Int
+    public let topics: [Topic]
+    public let visits: [Visit]
+    public let tasks: [Task]
 
     public init(
         documentID: UUID = UUID(),
@@ -23,13 +29,19 @@ public struct MockImportScenario: Sendable {
         pollsBeforeReady: Int = 1,
         terminalProcessingStatus: ProcessingStatus? = nil,
         failurePoint: MockFailurePoint? = nil,
-        failuresRemaining: Int = 1
+        failuresRemaining: Int = 1,
+        topics: [Topic] = [],
+        visits: [Visit] = [],
+        tasks: [Task] = []
     ) {
         self.documentID = documentID
         self.pollsBeforeReady = max(0, pollsBeforeReady)
         self.terminalProcessingStatus = terminalProcessingStatus
         self.failurePoint = failurePoint
         self.failuresRemaining = max(0, failuresRemaining)
+        self.topics = topics
+        self.visits = visits
+        self.tasks = tasks
         self.facts = facts ?? [
             Fact(
                 documentID: documentID,
@@ -111,6 +123,21 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
 
     public func createTask(_ request: TaskCreateRequest) async throws -> Task {
         Task(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
+    }
+
+    public func listTopics() async throws -> [Topic] {
+        try failIfNeeded(at: .listTopics)
+        return scenario.topics
+    }
+
+    public func listVisits() async throws -> [Visit] {
+        try failIfNeeded(at: .listVisits)
+        return scenario.visits
+    }
+
+    public func listTasks() async throws -> [Task] {
+        try failIfNeeded(at: .listTasks)
+        return scenario.tasks
     }
 
     private func failIfNeeded(at point: MockFailurePoint) throws {

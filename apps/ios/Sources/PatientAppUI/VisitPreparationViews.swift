@@ -3,6 +3,7 @@ import PatientAppDomain
 
 struct VisitsView: View {
     @ObservedObject var model: VisitPreparationModel
+    @ObservedObject var history: AccountHistoryModel
     @State private var title = ""
     @State private var hasDate = false
     @State private var date = Date()
@@ -44,15 +45,32 @@ struct VisitsView: View {
                         }
                     }
                 }
+                Section("Account history") {
+                    if case let .loaded(snapshot) = history.state {
+                        if snapshot.visits.isEmpty {
+                            Text("No saved visits yet.").foregroundStyle(.secondary)
+                        } else {
+                            ForEach(snapshot.visits) { visit in
+                                HistoryVisitRow(visit: visit)
+                            }
+                        }
+                    } else {
+                        AccountHistoryStatusView(state: history.state) { await history.retry() }
+                    }
+                }
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Visits")
+            .task {
+                if case .idle = history.state { await history.load() }
+            }
         }
     }
 }
 
 struct TasksView: View {
     @ObservedObject var model: VisitPreparationModel
+    @ObservedObject var history: AccountHistoryModel
     @State private var title = ""
     @State private var visitID: UUID?
     @State private var hasDate = false
@@ -104,9 +122,25 @@ struct TasksView: View {
                         }
                     }
                 }
+                Section("Account history") {
+                    if case let .loaded(snapshot) = history.state {
+                        if snapshot.tasks.isEmpty {
+                            Text("No saved tasks yet.").foregroundStyle(.secondary)
+                        } else {
+                            ForEach(snapshot.tasks) { task in
+                                HistoryTaskRow(task: task, visits: snapshot.visits)
+                            }
+                        }
+                    } else {
+                        AccountHistoryStatusView(state: history.state) { await history.retry() }
+                    }
+                }
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Tasks")
+            .task {
+                if case .idle = history.state { await history.load() }
+            }
         }
     }
 }
@@ -125,12 +159,84 @@ private struct CreationFailureView: View {
     }
 }
 
+private struct AccountHistoryStatusView: View {
+    let state: AccountHistoryState
+    let retry: () async -> Void
+
+    var body: some View {
+        switch state {
+        case .idle:
+            ProgressView("Loading account history…")
+        case .loading:
+            ProgressView("Loading account history…")
+        case .empty:
+            Text("No account history yet.").foregroundStyle(.secondary)
+        case .loaded:
+            EmptyView()
+        case let .failed(error):
+            VStack(alignment: .leading, spacing: 8) {
+                Text(error.displayMessage).foregroundStyle(.red)
+                Button("Try again") { _Concurrency.Task { await retry() } }
+            }
+        }
+    }
+}
+
+private struct HistoryVisitRow: View {
+    let visit: Visit
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(visit.title).font(.headline)
+            if let scheduledAt = visit.scheduledAt {
+                Text(scheduledAt, format: .dateTime.month().day().hour().minute())
+            } else { Text("Appointment date not provided") }
+            Text("Account record · Version \(visit.version)").font(.caption)
+        }
+    }
+}
+
+private struct HistoryTaskRow: View {
+    let task: PatientAppDomain.Task
+    let visits: [Visit]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(task.title).font(.headline)
+            Text("Account record · \(task.status.displayName)").font(.caption)
+            if let dueAt = task.dueAt { Text(dueAt, format: .dateTime.month().day().year()) }
+            else { Text("Due date not provided") }
+            if let visit = visits.first(where: { $0.id == task.visitID }) {
+                Text("Visit: \(visit.title)")
+            }
+            Text("Version \(task.version)").font(.caption)
+        }
+    }
+}
+
 private extension TaskStatus {
     var displayName: String {
         switch self {
         case .open: "Open"
         case .completed: "Completed"
         case .cancelled: "Cancelled"
+        }
+    }
+}
+
+private extension PatientAPIClientError {
+    var displayMessage: String {
+        switch self {
+        case .invalidBaseURL, .invalidRequest: "The account history request is invalid."
+        case .missingBearerToken, .unauthorized: "Sign in to view your account history."
+        case .forbidden: "You do not have permission to view this account history."
+        case .notFound: "Account history is unavailable."
+        case .versionConflict: "Account history changed. Try again."
+        case .validation: "The account history request needs attention."
+        case .server: "The account history service is unavailable."
+        case .transport: "Could not load account history. Try again."
+        case .decoding: "The service returned unsupported account history."
+        case .unsupported: "Account history is unavailable with the current service."
         }
     }
 }

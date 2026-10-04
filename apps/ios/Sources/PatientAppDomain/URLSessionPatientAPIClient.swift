@@ -150,6 +150,21 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return try response.domainValue()
     }
 
+    public func listTopics() async throws -> [Topic] {
+        let response: [ContractTopicPayload] = try await send(path: "/v1/topics", method: "GET", body: Optional<EmptyBody>.none, idempotent: false)
+        return try response.map { try $0.domainValue() }
+    }
+
+    public func listVisits() async throws -> [Visit] {
+        let response: [ContractVisitPayload] = try await send(path: "/v1/visits", method: "GET", body: Optional<EmptyBody>.none, idempotent: false)
+        return try response.map { try $0.domainValue() }
+    }
+
+    public func listTasks() async throws -> [Task] {
+        let response: [ContractTaskPayload] = try await send(path: "/v1/tasks", method: "GET", body: Optional<EmptyBody>.none, idempotent: false)
+        return try response.map { try $0.domainValue() }
+    }
+
     private func send<Response: Decodable, Body: Encodable>(
         path: String,
         method: String,
