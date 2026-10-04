@@ -141,6 +141,32 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
         XCTAssertTrue(taskBody["due_at"] is NSNull)
     }
 
+    func testAccountHistoryListsDecodeArrayResponsesWithoutWriteHeaders() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let topicPayload = ContractTopicPayload(name: "Labs", id: UUID(), ownerID: "owner", version: 2, createdAt: now, updatedAt: now)
+        let visitPayload = ContractVisitPayload(title: "Follow-up", startsAt: nil, topicIDs: [topicPayload.id], id: UUID(), ownerID: "owner", version: 3, createdAt: now, updatedAt: now)
+        let taskPayload = ContractTaskPayload(title: "Bring questions", visitID: visitPayload.id, dueAt: nil, id: UUID(), ownerID: "owner", status: .open, version: 4, createdAt: now, updatedAt: now)
+        var requests: [URLRequest] = []
+        let client = try makeClient { request in
+            requests.append(request)
+            switch request.url?.path {
+            case "/v1/topics": return (200, try JSONEncoder.iso8601.encode([topicPayload]))
+            case "/v1/visits": return (200, try JSONEncoder.iso8601.encode([visitPayload]))
+            case "/v1/tasks": return (200, try JSONEncoder.iso8601.encode([taskPayload]))
+            default: return (404, Data())
+            }
+        }
+
+        let topics = try await client.listTopics()
+        let visits = try await client.listVisits()
+        let tasks = try await client.listTasks()
+        XCTAssertEqual(topics.first?.name, "Labs")
+        XCTAssertEqual(visits.first?.title, "Follow-up")
+        XCTAssertEqual(tasks.first?.title, "Bring questions")
+        XCTAssertEqual(requests.map(\.httpMethod), ["GET", "GET", "GET"])
+        XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "Idempotency-Key") == nil })
+    }
+
     private func makeClient(token: String? = "test-token", handler: @escaping (URLRequest) throws -> (Int, Data)) throws -> URLSessionPatientAPIClient {
         StubURLProtocol.handler = { request in
             do {

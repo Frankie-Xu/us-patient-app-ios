@@ -32,10 +32,12 @@ public final class AppShellModel: ObservableObject {
     @Published public var selection: AppSection = .home
     @Published public var importFlow: ImportFlowModel
     @Published public var visitPreparation: VisitPreparationModel
+    @Published public var accountHistory: AccountHistoryModel
 
     public init(client: any PatientAPIClient = DeterministicMockAPIClient()) {
         self.importFlow = ImportFlowModel(client: client)
         self.visitPreparation = VisitPreparationModel(client: client)
+        self.accountHistory = AccountHistoryModel(client: client)
     }
 }
 
@@ -51,8 +53,8 @@ public struct AppShellView: View {
             HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
             RecordsView(model: model.importFlow).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
-            VisitsView(model: model.visitPreparation).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
-            TasksView(model: model.visitPreparation).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
+            VisitsView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
+            TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
         }
     }
 }

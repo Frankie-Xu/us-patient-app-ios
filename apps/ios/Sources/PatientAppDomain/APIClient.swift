@@ -13,6 +13,9 @@ public protocol PatientAPIClient: Sendable {
     func createTopic(_ request: TopicCreateRequest) async throws -> Topic
     func createVisit(_ request: VisitCreateRequest) async throws -> Visit
     func createTask(_ request: TaskCreateRequest) async throws -> Task
+    func listTopics() async throws -> [Topic]
+    func listVisits() async throws -> [Visit]
+    func listTasks() async throws -> [Task]
 }
 
 public struct TopicCreateRequest: Codable, Equatable, Hashable, Sendable {
@@ -60,6 +63,18 @@ public extension PatientAPIClient {
 
     func createTask(_ request: TaskCreateRequest) async throws -> Task {
         throw PatientAPIClientError.unsupported(.taskCreationNotInClient)
+    }
+
+    func listTopics() async throws -> [Topic] {
+        throw PatientAPIClientError.unsupported(.topicListingNotInClient)
+    }
+
+    func listVisits() async throws -> [Visit] {
+        throw PatientAPIClientError.unsupported(.visitListingNotInClient)
+    }
+
+    func listTasks() async throws -> [Task] {
+        throw PatientAPIClientError.unsupported(.taskListingNotInClient)
     }
 }
 
