@@ -19,6 +19,10 @@ public struct AuthenticatedPatientAPIClient: PatientAPIClient, Sendable {
     public func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession {
         try await withAuthorization { try await client.uploadSessionContent(sessionID: sessionID, content: content) }
     }
+    public func listDocuments() async throws -> [Document] {
+        try await withAuthorization { try await client.listDocuments() }
+    }
+
     public func processingStatus(documentID: UUID) async throws -> ProcessingStatus { try await withAuthorization { try await client.processingStatus(documentID: documentID) } }
     public func facts(documentID: UUID) async throws -> [Fact] { try await withAuthorization { try await client.facts(documentID: documentID) } }
     public func editFact(_ command: FactEditCommand) async throws -> Fact { try await withAuthorization { try await client.editFact(command) } }

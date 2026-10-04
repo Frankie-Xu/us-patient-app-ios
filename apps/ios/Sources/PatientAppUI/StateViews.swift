@@ -81,10 +81,58 @@ struct HomeView: View {
 
 struct RecordsView: View {
     @ObservedObject var model: ImportFlowModel
+    @ObservedObject var history: DocumentHistoryModel
+
     var body: some View {
         NavigationStack {
-            FlowContent(model: model, allowsReview: false).navigationTitle("Records")
+            ScrollView {
+                VStack(spacing: 16) {
+                    FlowContent(model: model, allowsReview: false)
+                    Divider()
+                    DocumentHistoryContent(history: history)
+                }
+                .padding()
+            }
+            .navigationTitle("Records")
+            .refreshable { await history.load() }
+            .task {
+                if case .idle = history.state { await history.load() }
+            }
         }
+    }
+}
+
+private struct DocumentHistoryContent: View {
+    @ObservedObject var history: DocumentHistoryModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Imported records").font(.headline)
+            switch history.state {
+            case .idle, .loading:
+                ProgressView("Loading records…")
+            case .empty:
+                ContentUnavailableView("No imported records", systemImage: "doc.text", description: Text("Choose a record file on Home to get started."))
+            case let .loaded(documents):
+                ForEach(documents) { document in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(document.title).font(.body)
+                        Text(document.processingStatus.displayName)
+                            .font(.caption)
+                            .foregroundStyle(document.processingStatus == .failed ? .red : .secondary)
+                        Text("Version \(document.version) · Updated \(document.updatedAt, format: .dateTime.month().day().hour().minute())")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+            case let .failed(error):
+                Text(error.displayMessage).foregroundStyle(.red)
+                Button("Try again") { _Concurrency.Task { await history.retry() } }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -173,6 +221,32 @@ private struct FactReviewRow: View {
         }
         .onChange(of: fact.value) { _, newValue in value = newValue }
         .padding(.vertical, 6)
+    }
+}
+
+private extension DocumentProcessingStatus {
+    var displayName: String {
+        switch self {
+        case .uploaded: "Uploaded"
+        case .processing: "Processing"
+        case .ready: "Ready"
+        case .failed: "Processing failed"
+        case .deleted: "Deleted"
+        }
+    }
+}
+
+private extension PatientAPIClientError {
+    var displayMessage: String {
+        switch self {
+        case .unauthorized, .missingBearerToken: "Sign in to view imported records."
+        case .forbidden: "You do not have access to these records."
+        case .notFound: "The records are unavailable."
+        case .server: "The service could not load records. Try again."
+        case .transport: "The records could not be loaded. Try again."
+        case .decoding, .invalidRequest, .invalidBaseURL, .unsupported: "The service returned an unsupported record list."
+        case .versionConflict, .validation: "The records changed. Try again."
+        }
     }
 }
 

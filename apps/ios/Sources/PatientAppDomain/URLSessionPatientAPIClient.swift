@@ -135,6 +135,11 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return response.domainValue()
     }
 
+    public func listDocuments() async throws -> [Document] {
+        let response: [ContractDocumentPayload] = try await send(path: "/v1/documents", method: "GET", body: Optional<EmptyBody>.none, idempotent: false)
+        return try response.map { try $0.domainValue() }
+    }
+
     public func upload(_ request: UploadRequest) async throws -> UploadReceipt {
         let payload = ProcessingJobCreatePayload(jobType: .extractFacts)
         let response: ContractProcessingJobPayload = try await send(path: "/v1/documents/\(request.ticketID.uuidString)/processing-jobs", method: "POST", body: payload, idempotent: true)
