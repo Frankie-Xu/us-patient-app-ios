@@ -33,7 +33,7 @@ final class KeychainAndEncryptedCacheTests: XCTestCase {
         let document = Document(title: "Synthetic record", createdAt: now, processingStatus: .ready)
         let entry = OfflineDocumentCacheEntry(
             document: document,
-            facts: [Fact(documentID: document.id, value: "synthetic fact")],
+            facts: [Fact(documentID: document.id, value: "synthetic fact", createdAt: now, updatedAt: now)],
             cachedAt: now
         )
 
