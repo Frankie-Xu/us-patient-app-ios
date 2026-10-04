@@ -70,7 +70,7 @@ def _status(result: str) -> str:
 
 def _from_ci() -> dict[str, dict[str, Any]]:
     groups: dict[str, dict[str, Any]] = {}
-    for group in ("repository", "contract", "api", "ai", "ios"):
+    for group in ("repository", "contract", "api", "ai", "ios", "synthetic_gate"):
         raw = os.environ.get(f"RELEASE_EVIDENCE_{group.upper()}_RESULT")
         result = raw if raw in _ALLOWED_RESULT else "failure"
         groups[group] = {
@@ -115,6 +115,9 @@ def _local(repo_root: Path) -> dict[str, dict[str, Any]]:
         "ai": _run(repo_root, "ai", [
             ("ai.golden_regression", ["bash", "scripts/run-ai-golden-regression.sh", "services/ai"]),
             ("ai.tests", ["bash", "scripts/run-python-tests.sh", "services/ai"]),
+        ]),
+        "synthetic_gate": _run(repo_root, "repository", [
+            ("production_gate.synthetic", ["bash", "scripts/run-synthetic-evidence.sh"]),
         ]),
     }
     ios_markers = ("Package.swift", "project.pbxproj", "contents.xcworkspacedata")
