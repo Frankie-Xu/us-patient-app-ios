@@ -9,9 +9,8 @@ final class AccessibilityLocalizationTests: XCTestCase {
     }
 
     func testEnglishAndSimplifiedChineseResourcesShip() {
-        let module = Bundle.module
-        XCTAssertNotNil(module.url(forResource: "en", withExtension: "lproj"))
-        XCTAssertNotNil(module.url(forResource: "zh-Hans", withExtension: "lproj"))
+        XCTAssertTrue(PatientLocalization.hasResource("en"))
+        XCTAssertTrue(PatientLocalization.hasResource("zh-Hans"))
 
         XCTAssertEqual(
             PatientLocalization.localized("status.loading.title", locale: Locale(identifier: "en_US")),
