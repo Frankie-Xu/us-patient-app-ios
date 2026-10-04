@@ -5,6 +5,7 @@ struct VisitsView: View {
     @ObservedObject var model: VisitPreparationModel
     @ObservedObject var history: AccountHistoryModel
     @ObservedObject var share: ShareFlowModel
+    @ObservedObject var pack: VisitPackModel
     @State private var sharingVisit: Visit?
     @State private var title = ""
     @State private var hasDate = false
@@ -66,7 +67,7 @@ struct VisitsView: View {
             }
             .navigationTitle("Visits")
             .sheet(item: $sharingVisit) { visit in
-                ShareVisitSheet(visit: visit, model: share)
+                ShareVisitSheet(visit: visit, model: share, pack: pack)
             }
             .task {
                 if case .idle = history.state { await history.load() }
@@ -254,6 +255,7 @@ private extension PatientAPIClientError {
 private struct ShareVisitSheet: View {
     let visit: Visit
     @ObservedObject var model: ShareFlowModel
+    @ObservedObject var pack: VisitPackModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -265,6 +267,8 @@ private struct ShareVisitSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
+                VisitPackSection(model: pack)
 
                 switch model.state {
                 case .idle:
@@ -305,7 +309,51 @@ private struct ShareVisitSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .onAppear { model.reset() }
+            .onAppear {
+                model.reset()
+                pack.reset()
+            }
+            .task(id: visit.id) {
+                await pack.load(visitID: visit.id)
+            }
+        }
+    }
+}
+
+private struct VisitPackSection: View {
+    @ObservedObject var model: VisitPackModel
+
+    var body: some View {
+        Section("Preparation pack") {
+            switch model.state {
+            case .idle:
+                ProgressView("Preparing visit pack…")
+            case .loading:
+                ProgressView("Loading topics and tasks…")
+            case let .loaded(pack):
+                if pack.topics.isEmpty && pack.tasks.isEmpty {
+                    Text("No topics or follow-up tasks are attached yet.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    if !pack.topics.isEmpty {
+                        Text("Topics").font(.caption).foregroundStyle(.secondary)
+                        ForEach(pack.topics) { topic in
+                            Label(topic.name, systemImage: "tag")
+                        }
+                    }
+                    if !pack.tasks.isEmpty {
+                        Text("Follow-up tasks").font(.caption).foregroundStyle(.secondary)
+                        ForEach(pack.tasks) { task in
+                            Label(task.title, systemImage: "checklist")
+                        }
+                    }
+                }
+            case .failed:
+                if let error = model.error {
+                    Text(error.packMessage).foregroundStyle(.red)
+                }
+                Button("Try again") { _Concurrency.Task { await model.retry() } }
+            }
         }
     }
 }
@@ -335,6 +383,16 @@ private struct ShareCreationSection: View {
 }
 
 private extension PatientAPIClientError {
+    var packMessage: String {
+        switch self {
+        case .notFound: "This visit is no longer available."
+        case .unauthorized, .missingBearerToken: "Sign in to load visit preparation."
+        case .forbidden: "You do not have permission to load this visit."
+        case .unsupported: "Visit preparation is unavailable with the current service."
+        case .server, .transport, .decoding, .invalidBaseURL, .invalidRequest, .validation, .versionConflict: "Visit preparation could not be loaded."
+        }
+    }
+
     var shareMessage: String {
         switch self {
         case .invalidRequest, .validation: "The share request is no longer valid."

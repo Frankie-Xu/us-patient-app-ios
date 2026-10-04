@@ -33,6 +33,7 @@ public final class AppShellModel: ObservableObject {
     @Published public var importFlow: ImportFlowModel
     @Published public var visitPreparation: VisitPreparationModel
     @Published public var shareFlow: ShareFlowModel
+    @Published public var visitPack: VisitPackModel
     @Published public var accountHistory: AccountHistoryModel
     @Published public private(set) var authState: AuthState = .signedOut
     public let protectedCache: any ProtectedCache
@@ -55,12 +56,14 @@ public final class AppShellModel: ObservableObject {
         self.importFlow = ImportFlowModel(client: client)
         self.visitPreparation = VisitPreparationModel(client: client, sessionStore: store)
         self.shareFlow = ShareFlowModel(client: client)
+        self.visitPack = VisitPackModel(client: client)
         self.accountHistory = AccountHistoryModel(client: client, cache: protectedCache, sessionStore: store)
     }
 
     public func signIn(identifier: String) async -> AuthState {
         visitPreparation.invalidateSession()
         shareFlow.reset()
+        visitPack.reset()
         accountHistory.invalidateSession()
         authState = await authSession.signIn(identifier: identifier)
         return authState
@@ -69,6 +72,7 @@ public final class AppShellModel: ObservableObject {
     public func switchAccount(identifier: String) async -> AuthState {
         visitPreparation.invalidateSession()
         shareFlow.reset()
+        visitPack.reset()
         accountHistory.invalidateSession()
         authState = await authSession.switchAccount(identifier: identifier)
         return authState
@@ -84,6 +88,7 @@ public final class AppShellModel: ObservableObject {
     public func expireSession() async {
         visitPreparation.invalidateSession()
         shareFlow.reset()
+        visitPack.reset()
         accountHistory.invalidateSession()
         await authSession.expire()
         authState = await authSession.authState()
@@ -92,6 +97,7 @@ public final class AppShellModel: ObservableObject {
     public func logout() async {
         visitPreparation.invalidateSession()
         shareFlow.reset()
+        visitPack.reset()
         accountHistory.invalidateSession()
         await authSession.logout()
         authState = await authSession.authState()
@@ -110,7 +116,7 @@ public struct AppShellView: View {
             HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
             RecordsView(model: model.importFlow).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
-            VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
+            VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
         }
     }
