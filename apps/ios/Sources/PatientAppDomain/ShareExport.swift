@@ -84,3 +84,11 @@ public struct PDFExportUseCase: Sendable {
         return try await client.exportPDF(documentID: documentID, documentVersion: documentVersion)
     }
 }
+
+
+private extension PatientAPITransportResponse {
+    func header(named name: String) -> String? {
+        let wanted = name.lowercased()
+        return headers.first { key, _ in key.lowercased() == wanted }?.value
+    }
+}
