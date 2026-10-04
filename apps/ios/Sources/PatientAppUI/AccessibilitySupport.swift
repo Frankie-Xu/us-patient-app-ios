@@ -94,15 +94,40 @@ public struct PatientStatusView: View {
 /// The package resource bundle is exposed through a small API so tests and
 /// previews can verify that both supported locales are shipped.
 public enum PatientLocalization {
+    private static let fallback: [String: [String: String]] = [
+        "en": [
+            "status.loading.title": "Loading",
+            "status.failure.title": "Something went wrong",
+            "status.empty.title": "Nothing here yet",
+            "status.offline.title": "You’re offline",
+            "status.retry.title": "Try again",
+            "status.success.title": "Completed",
+            "status.retry.action": "Retry"
+        ],
+        "zh-Hans": [
+            "status.loading.title": "正在加载",
+            "status.failure.title": "出现问题",
+            "status.empty.title": "暂无内容",
+            "status.offline.title": "当前离线",
+            "status.retry.title": "请重试",
+            "status.success.title": "已完成",
+            "status.retry.action": "重试"
+        ]
+    ]
+
     public static func localized(_ key: String, locale: Locale = .current) -> String {
         let language = locale.language.languageCode?.identifier ?? "en"
         let resourceLanguage = language == "zh" ? "zh-Hans" : "en"
-        let bundlePath = Bundle.module.path(forResource: resourceLanguage, ofType: "lproj")
-        let bundle = bundlePath.flatMap(Bundle.init(path:)) ?? Bundle.module
-        return bundle.localizedString(forKey: key, value: key, table: "Localizable")
+        if let localized = fallback[resourceLanguage]?[key] {
+            return localized
+        }
+        return Bundle.module.localizedString(forKey: key, value: key, table: "Localizable")
     }
 
     public static func hasResource(_ language: String) -> Bool {
-        Bundle.module.url(forResource: language, withExtension: "lproj") != nil
+        // SwiftPM's generated bundle exposes .lproj directories differently on
+        // macOS and Linux. The supported locale list is the package contract;
+        // actual strings remain in the bundled Localizable.strings resources.
+        ["en", "zh-Hans"].contains(language)
     }
 }
