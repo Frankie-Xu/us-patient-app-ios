@@ -44,10 +44,11 @@ final class CacheLifecycleModelTests: XCTestCase {
         let cache = InMemoryProtectedCache()
         let store = InMemorySessionStore(cache: cache)
         _ = await store.beginSession(identifier: "account-a")
-        let model = AccountHistoryModel(repository: DelayedHistoryRepository(), cache: cache, sessionStore: store)
+        let repository = DelayedHistoryRepository()
+        let model = AccountHistoryModel(repository: repository, cache: cache, sessionStore: store)
 
         let request = _Concurrency.Task { await model.load() }
-        try? await _Concurrency.Task.sleep(for: .milliseconds(10))
+        await repository.waitUntilStarted()
         _ = await store.beginSession(identifier: "account-b")
         await request.value
 
@@ -69,17 +70,38 @@ final class CacheLifecycleModelTests: XCTestCase {
 }
 
 private actor DelayedHistoryRepository: AccountHistoryRepository {
+    private var hasStarted = false
+    private var startedWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func waitUntilStarted() async {
+        if hasStarted { return }
+        await withCheckedContinuation { continuation in
+            startedWaiters.append(continuation)
+        }
+    }
+
+    private func markStarted() {
+        guard !hasStarted else { return }
+        hasStarted = true
+        let waiters = startedWaiters
+        startedWaiters.removeAll(keepingCapacity: false)
+        waiters.forEach { $0.resume() }
+    }
+
     func topics() async throws -> [Topic] {
+        markStarted()
         try await _Concurrency.Task.sleep(for: .milliseconds(60))
         return []
     }
 
     func visits() async throws -> [Visit] {
+        markStarted()
         try await _Concurrency.Task.sleep(for: .milliseconds(60))
         return [Visit(title: "Old account visit")]
     }
 
     func tasks() async throws -> [PatientAppDomain.Task] {
+        markStarted()
         try await _Concurrency.Task.sleep(for: .milliseconds(60))
         return []
     }
