@@ -111,18 +111,6 @@ class SQLiteObjectStore:
 
         ensure_schema_version(connection, current_version=1, initialize=initialize)
 
-    def _initialize(self) -> None:
-        connection = self._connection
-        if connection is None:
-            raise DependencyUnavailableError("job queue is unavailable")
-
-        def initialize(connection: sqlite3.Connection) -> None:
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS job_queue (job_id TEXT PRIMARY KEY, payload TEXT NOT NULL, enqueued_at TEXT NOT NULL)"
-            )
-
-        ensure_schema_version(connection, current_version=1, initialize=initialize)
-
     def _require_connection(self) -> sqlite3.Connection:
         if not self.available or self._connection is None:
             raise DependencyUnavailableError("object store is unavailable")
@@ -180,9 +168,21 @@ class SQLiteJobQueue:
             try:
                 self._connection = sqlite3.connect(self.path, check_same_thread=False)
                 self._initialize()
-            except (OSError, sqlite3.Error) as exc:
+            except (OSError, sqlite3.Error, UnsupportedSchemaVersionError) as exc:
                 self.close()
                 raise DependencyUnavailableError("job queue is unavailable") from exc
+
+    def _initialize(self) -> None:
+        connection = self._connection
+        if connection is None:
+            raise DependencyUnavailableError("job queue is unavailable")
+
+        def initialize(connection: sqlite3.Connection) -> None:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS job_queue (job_id TEXT PRIMARY KEY, payload TEXT NOT NULL, enqueued_at TEXT NOT NULL)"
+            )
+
+        ensure_schema_version(connection, current_version=1, initialize=initialize)
 
     def _require_connection(self) -> sqlite3.Connection:
         if not self.available or self._connection is None:
