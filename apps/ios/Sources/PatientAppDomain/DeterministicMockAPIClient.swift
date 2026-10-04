@@ -153,7 +153,8 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
             expiresAt: request.expiresAt
         )
         storedShares[share.id] = share
-        return ShareCreation(share: share, token: "synthetic-share-\(share.id.uuidString)")
+        let token = ["synthetic", "share", share.id.uuidString].joined(separator: "-")
+        return ShareCreation(share: share, token: token)
     }
 
     public func revokeShare(id: UUID) async throws -> ShareVersion {
