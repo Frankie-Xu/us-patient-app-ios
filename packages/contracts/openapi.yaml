@@ -1,0 +1,1215 @@
+---
+openapi: 3.1.0
+info:
+  title: US Patient App API
+  version: 0.3.0
+  x-contract-status: frozen
+  description: |
+    Source-traceable patient-controlled organization API. The service stores
+    document metadata, immutable versions, reviewable facts, visit packs,
+    tasks, expiring share versions, upload jobs and audit events.
+    It does not diagnose, recommend treatment, interpret images, or write to an EHR.
+
+    Frozen metadata API baseline with an additive local upload-session boundary. Document creation remains metadata-only. Upload sessions verify bounded bytes against document size and SHA-256 through an injected object-store adapter; no cloud provider is configured. Worker completion is an internal service call. See ADR-0001 for production gates.
+  x-frozen-on: '2026-10-04'
+servers:
+- url: https://api.example.invalid
+  description: Placeholder; deployment owns the real hostname.
+tags:
+- name: documents
+- name: facts
+- name: visits
+- name: tasks
+- name: shares
+- name: processing
+- name: audit
+security:
+- bearerAuth: []
+paths:
+  "/v1/documents":
+    post:
+      operationId: createDocument
+      tags:
+      - documents
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/DocumentCreate"
+      responses:
+        '201':
+          description: Document metadata created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Document"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+      x-required-scopes:
+      - documents:write
+    get:
+      operationId: listDocuments
+      tags:
+      - documents
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Documents visible to the authenticated principal.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Document"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - documents:read
+  "/v1/documents/{documentId}":
+    parameters:
+    - name: documentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      operationId: getDocument
+      tags:
+      - documents
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Document
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Document"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - documents:read
+  "/v1/documents/{documentId}/upload-sessions":
+    post:
+      operationId: createUploadSession
+      tags: [documents]
+      x-required-scopes:
+      - documents:write
+      description: |
+        Additive local upload boundary. Bind a 15-minute session to the current
+        uploaded document version and its declared size, SHA-256 and media type.
+        Only 1 through 10485760 bytes are supported. Same-key retries return the
+        same session, including after expiry; use a new key to create a new session.
+        This operation leaves the existing Document shape and status unchanged.
+      parameters:
+      - "$ref": "#/components/parameters/DocumentId"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Pending upload session
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UploadSession"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          description: Idempotency conflict or document no longer available for upload.
+        '413':
+          description: Declared upload exceeds 10 MiB; code UPLOAD_TOO_LARGE.
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+  "/v1/upload-sessions/{uploadSessionId}/content":
+    put:
+      operationId: uploadSessionContent
+      tags: [documents]
+      x-required-scopes:
+      - documents:write
+      description: |
+        Upload raw bytes with Content-Type application/octet-stream. Validate size
+        and SHA-256 before writing to the injected object store. The underlying
+        document media type is bound by the session. Successful identical PUTs
+        replay the verified session without rewriting bytes or duplicating audit.
+        No Idempotency-Key is needed because the session fixes the byte identity.
+        Provider keys are internal. Verification does not enqueue processing;
+        the metadata-only processing API retains its existing semantics.
+      parameters:
+      - name: uploadSessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 10485760
+      responses:
+        '200':
+          description: Verified upload session
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UploadSession"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          description: Document version/status changed; code UPLOAD_SESSION_CONFLICT.
+        '410':
+          description: Pending session expired; code UPLOAD_EXPIRED.
+        '413':
+          description: Upload exceeds 10 MiB; code UPLOAD_TOO_LARGE.
+        '422':
+          description: Invalid body/type or size/checksum mismatch; code VALIDATION_ERROR or UPLOAD_INTEGRITY_MISMATCH.
+        '503':
+          description: Object-store unavailable; code DEPENDENCY_UNAVAILABLE. Session remains pending for retry.
+  "/v1/documents/{documentId}/processing-jobs":
+    post:
+      operationId: enqueueUploadProcessing
+      tags:
+      - processing
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/DocumentId"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - job_type
+              properties:
+                job_type:
+                  "$ref": "#/components/schemas/JobType"
+              additionalProperties: false
+      responses:
+        '202':
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UploadProcessingJob"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+      x-required-scopes:
+      - documents:write
+  "/v1/facts":
+    post:
+      operationId: createFact
+      tags:
+      - facts
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FactCreate"
+      responses:
+        '201':
+          description: Reviewable fact
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Fact"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - facts:write
+    get:
+      operationId: listFacts
+      tags:
+      - facts
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Facts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Fact"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - facts:read
+  "/v1/facts/{factId}/review":
+    post:
+      operationId: reviewFact
+      tags:
+      - facts
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: factId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match-Version
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - review_status
+              properties:
+                review_status:
+                  "$ref": "#/components/schemas/ReviewStatus"
+              additionalProperties: false
+      responses:
+        '200':
+          description: Updated fact
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Fact"
+        '409':
+          "$ref": "#/components/responses/VersionConflict"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+      x-required-scopes:
+      - facts:write
+      description: Explicit patient or authorized reviewer action. Optimistic concurrency
+        requires the current version; a repeated stale write returns 409. No Idempotency-Key
+        is used for this endpoint.
+  "/v1/topics":
+    post:
+      operationId: createTopic
+      tags:
+      - visits
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TopicCreate"
+      responses:
+        '201':
+          description: Topic
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Topic"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - visits:write
+  "/v1/visits":
+    post:
+      operationId: createVisit
+      tags:
+      - visits
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/VisitCreate"
+      responses:
+        '201':
+          description: Visit
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Visit"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - visits:write
+  "/v1/tasks":
+    post:
+      operationId: createTask
+      tags:
+      - tasks
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TaskCreate"
+      responses:
+        '201':
+          description: Task
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Task"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - tasks:write
+  "/v1/shares":
+    post:
+      operationId: createShareVersion
+      tags:
+      - shares
+      security:
+      - bearerAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ShareCreate"
+      responses:
+        '201':
+          description: Version-pinned share receipt; same-key retries replay the token
+            while the local vault is available.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ShareReceipt"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '409':
+          "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - shares:create
+  "/v1/shares/{shareId}/revoke":
+    post:
+      operationId: revokeShareVersion
+      tags:
+      - shares
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: shareId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Revoked share
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ShareVersion"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+      x-required-scopes:
+      - shares:revoke
+      description: 'Naturally idempotent: a repeat returns the same revoked share
+        and emits no duplicate audit event. No Idempotency-Key is required.'
+  "/v1/shared/{token}":
+    get:
+      operationId: accessShare
+      tags:
+      - shares
+      security: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+      responses:
+        '200':
+          description: Shared immutable version payload.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/SharedResource"
+        '410':
+          description: Share expired or revoked; downloaded copies cannot be recalled.
+        '404':
+          description: Invalid share token.
+  "/v1/audit-events":
+    get:
+      operationId: listAuditEvents
+      tags:
+      - audit
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: resource_id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: PHI-safe audit metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AuditEvent"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - audit:read
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The gateway authenticates the principal and maps token claims to scopes.
+        The service never logs bearer tokens or document contents.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication.
+    Forbidden:
+      description: Authenticated principal lacks scope or ownership.
+    NotFound:
+      description: Resource not found within the principal boundary.
+    ValidationError:
+      description: Contract validation failed.
+    VersionConflict:
+      description: If-Match-Version did not match the latest immutable version.
+    IdempotencyConflict:
+      description: Idempotency-Key was reused with a different request body.
+  schemas:
+    SourceType:
+      type: string
+      enum:
+      - uploaded_document
+      - user_input
+      - ocr
+      - ehr_import
+      - ai_extraction
+      - translation
+      - other
+    ReviewStatus:
+      type: string
+      enum:
+      - unreviewed
+      - in_review
+      - confirmed
+      - rejected
+      - superseded
+    DocumentStatus:
+      type: string
+      enum:
+      - uploaded
+      - processing
+      - ready
+      - failed
+      - deleted
+    JobType:
+      type: string
+      enum:
+      - ocr
+      - extract_facts
+      - translate
+      - render_share
+    JobStatus:
+      type: string
+      enum:
+      - queued
+      - running
+      - succeeded
+      - failed
+      - cancelled
+    ShareStatus:
+      type: string
+      enum:
+      - active
+      - expired
+      - revoked
+    TaskStatus:
+      type: string
+      enum:
+      - open
+      - done
+      - cancelled
+    DocumentCreate:
+      type: object
+      additionalProperties: false
+      required:
+      - filename
+      - media_type
+      - size_bytes
+      - sha256
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        media_type:
+          type: string
+          minLength: 1
+          maxLength: 128
+        size_bytes:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+          pattern: "^[A-Fa-f0-9]{64}$"
+    Document:
+      type: object
+      additionalProperties: false
+      required:
+      - filename
+      - media_type
+      - size_bytes
+      - sha256
+      - id
+      - owner_id
+      - source_type
+      - status
+      - version
+      - created_at
+      - updated_at
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        media_type:
+          type: string
+          minLength: 1
+          maxLength: 128
+        size_bytes:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+          pattern: "^[A-Fa-f0-9]{64}$"
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        source_type:
+          "$ref": "#/components/schemas/SourceType"
+        status:
+          "$ref": "#/components/schemas/DocumentStatus"
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    UploadSession:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - owner_id
+      - document_id
+      - document_version
+      - size_bytes
+      - sha256
+      - media_type
+      - expires_at
+      - created_at
+      - status
+      - verified_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+        document_version:
+          type: integer
+          minimum: 1
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        media_type:
+          type: string
+          minLength: 1
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, verified]
+        verified_at:
+          type: [string, 'null']
+          format: date-time
+      description: |
+        Server-owned upload receipt. Provider storage keys never leave the service.
+        A pending session is expired when server time reaches expires_at. A verified
+        receipt remains valid for same-byte PUT replay after that time.
+    FactCreate:
+      type: object
+      additionalProperties: false
+      required:
+      - label
+      - value
+      - source_ref
+      - source_type
+      - confidence
+      properties:
+        label:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          minLength: 1
+        source_ref:
+          type: string
+          minLength: 1
+          description: Page/region or user-input reference; required for confirmed
+            facts.
+        source_type:
+          "$ref": "#/components/schemas/SourceType"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        document_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        topic_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      description: All sources require an opaque source_ref; user_input uses an explicit
+        input reference. Confidence is extraction confidence, never clinical correctness.
+        User-input confidence is 1.0. New facts are unreviewed.
+    Fact:
+      type: object
+      additionalProperties: false
+      required:
+      - label
+      - value
+      - source_ref
+      - source_type
+      - confidence
+      - id
+      - owner_id
+      - review_status
+      - version
+      - created_at
+      - updated_at
+      properties:
+        label:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          minLength: 1
+        source_ref:
+          type: string
+          minLength: 1
+          description: Page/region or user-input reference; required for confirmed
+            facts.
+        source_type:
+          "$ref": "#/components/schemas/SourceType"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        document_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        topic_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        review_status:
+          "$ref": "#/components/schemas/ReviewStatus"
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TopicCreate:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+      additionalProperties: false
+    Topic:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - id
+      - owner_id
+      - version
+      - created_at
+      - updated_at
+      properties:
+        name:
+          type: string
+          minLength: 1
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    VisitCreate:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+        starts_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        topic_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+    Visit:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - id
+      - owner_id
+      - version
+      - created_at
+      - updated_at
+      properties:
+        title:
+          type: string
+          minLength: 1
+        starts_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        topic_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TaskCreate:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+        visit_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        due_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      additionalProperties: false
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - id
+      - owner_id
+      - status
+      - version
+      - created_at
+      - updated_at
+      properties:
+        title:
+          type: string
+          minLength: 1
+        visit_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        due_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        status:
+          "$ref": "#/components/schemas/TaskStatus"
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ShareCreate:
+      type: object
+      required:
+      - resource_type
+      - resource_id
+      - resource_version
+      - expires_at
+      properties:
+        resource_type:
+          type: string
+          enum:
+          - document
+          - fact
+          - topic
+          - visit
+          - task
+        resource_id:
+          type: string
+          format: uuid
+        resource_version:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+          description: Must be in the future; revocation blocks new access before
+            expiry.
+      additionalProperties: false
+    ShareVersion:
+      type: object
+      required:
+      - id
+      - owner_id
+      - resource_type
+      - resource_id
+      - resource_version
+      - expires_at
+      - status
+      - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        resource_type:
+          type: string
+          enum:
+          - document
+          - fact
+          - topic
+          - visit
+          - task
+        resource_id:
+          type: string
+          format: uuid
+        resource_version:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+        status:
+          "$ref": "#/components/schemas/ShareStatus"
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      description: Token digests are internal and never returned.
+      additionalProperties: false
+    ShareReceipt:
+      type: object
+      required:
+      - share
+      - token
+      properties:
+        share:
+          "$ref": "#/components/schemas/ShareVersion"
+        token:
+          type: string
+          minLength: 20
+          description: Secret returned on creation and same-key retries while the
+            ephemeral vault is available. Never logged or stored in plaintext by the
+            persistence adapter.
+      additionalProperties: false
+    UploadProcessingJob:
+      type: object
+      required:
+      - id
+      - owner_id
+      - document_id
+      - job_type
+      - status
+      - idempotency_key
+      - attempt
+      - created_at
+      - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+        job_type:
+          "$ref": "#/components/schemas/JobType"
+        status:
+          "$ref": "#/components/schemas/JobStatus"
+        idempotency_key:
+          type: string
+        attempt:
+          type: integer
+          minimum: 0
+        error_code:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AuditEvent:
+      type: object
+      required:
+      - id
+      - actor_id
+      - action
+      - resource_type
+      - resource_id
+      - request_id
+      - occurred_at
+      - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+        request_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Scalar operational metadata only; no PHI.
+      additionalProperties: false
+    SharedResource:
+      type: object
+      additionalProperties: false
+      required:
+      - share
+      - resource
+      properties:
+        share:
+          "$ref": "#/components/schemas/ShareVersion"
+        resource:
+          oneOf:
+          - "$ref": "#/components/schemas/Document"
+          - "$ref": "#/components/schemas/Fact"
+          - "$ref": "#/components/schemas/Topic"
+          - "$ref": "#/components/schemas/Visit"
+          - "$ref": "#/components/schemas/Task"
