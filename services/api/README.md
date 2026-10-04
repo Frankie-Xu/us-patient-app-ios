@@ -75,3 +75,14 @@ that sees a newer or unsupported version fails closed instead of silently
 changing the database. Production adapters must use an encrypted managed
 database/object store/queue with reviewed forward migrations, rollback plans,
 backup compatibility checks, and an operator evidence link.
+
+
+## Retention and deletion lifecycle boundary (Phase 17)
+
+The provider-neutral RetentionPolicy and DeletionCoordinator protocols make
+retention deadlines, legal holds, idempotent requests and cross-store completion
+explicit. The in-memory staging implementation covers metadata, object storage,
+job queue, protected cache and eligible backup targets. It records state only and
+never deletes bytes. Production adapters must replace it with a durable,
+auditable workflow that stops new work, fans out deletion, preserves legal holds,
+supports retry/resume and reports completion across every approved store.
