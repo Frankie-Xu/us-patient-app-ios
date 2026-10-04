@@ -15,6 +15,18 @@ Authentication is a gateway concern. The gateway validates bearer tokens and sup
 
 The service skeleton in `services/api` uses an in-memory adapter for local tests. A durable database, object store, job runner, identity provider, and PHI retention/deletion policy remain open deployment decisions.
 
+## Typed fixture compatibility (Phase 12)
+
+`services/api/contract_fixtures.py` contains dependency-free typed synthetic
+request fixtures for the visit pack (`TopicCreate`, `VisitCreate`, and
+`TaskCreate`) and sharing (`ShareCreate`). Response validators cover the
+corresponding account-history resources plus `ShareReceipt` and
+`SharedResource`. The fixture module snapshots the required and property field
+sets from this frozen OpenAPI file. Unknown fields, missing required fields, or
+schema drift fail closed in the API test suite, keeping a future generated
+client from silently accepting an incompatible payload. Fixtures contain no
+credentials or clinical records.
+
 ## Additive upload-session boundary (Phase 8)
 
 The frozen document metadata routes remain compatible. After registering metadata, create a session with `POST /v1/documents/{documentId}/upload-sessions` and `{}`. Send raw bytes to `PUT /v1/upload-sessions/{uploadSessionId}/content` with `Content-Type: application/octet-stream`. Each pending session lasts 15 minutes and supports 1–10 MiB inclusive. The server checks exact size and SHA-256 before writing; successful identical PUT retries return the original verified receipt.

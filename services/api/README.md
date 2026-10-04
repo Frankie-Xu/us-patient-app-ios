@@ -2,6 +2,13 @@
 
 The core in `models.py`, `store.py`, and `service.py` is typed with Python stdlib dataclasses and an explicit in-memory adapter. It provides the use-case boundary for documents, source-traceable facts, topics, visits, tasks, upload jobs, shares, idempotency, immutable version checks, and audit events.
 
+`contract_fixtures.py` is the dependency-free client-generation seam. It
+provides typed synthetic request fixtures for visit-pack and sharing writes,
+validates account-history and sharing responses against the frozen OpenAPI
+field sets, and fails closed on unknown fields, missing required fields, or
+contract drift. It is intentionally provider-neutral and does not parse
+credentials or carry real patient data.
+
 `app.py` is an optional FastAPI adapter. Install the dependencies declared in `pyproject.toml` to run HTTP routes; authentication remains a gateway concern and is represented in the core by `AuthContext` and scopes. Replace `InMemoryStore` with a transactional database/object-storage adapter before handling production PHI.
 
 Run the dependency-free tests from the repository root:
