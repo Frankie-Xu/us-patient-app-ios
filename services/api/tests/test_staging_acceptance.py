@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.staging.acceptance_smoke import run_acceptance
+from scripts.staging.acceptance_smoke import AcceptanceError, run_acceptance
 
 
 _RUNTIME = (
@@ -60,8 +60,14 @@ def test_full_flow_failure_identifies_the_stage(tmp_path: Path) -> None:
 
 def test_required_full_flow_missing_returns_blocked(tmp_path: Path) -> None:
     _runtime_fixture(tmp_path, include_flow=False)
-    summary = run_acceptance(tmp_path, require_full_flow=True, runner=lambda *_: {"ok": True})
-    assert summary["status"] == "blocked"
+
+    def runner(path: Path, functions: object) -> object:
+        if not path.is_file():
+            raise AcceptanceError("entrypoint_missing", {"entrypoint": path.name})
+        return {"ok": True}
+
+    summary = run_acceptance(tmp_path, require_full_flow=True, runner=runner)
+    assert summary["status"] == "failed"
     assert summary["failed_stage"] == "patient_flow"
     patient_flow = next(stage for stage in summary["stages"] if stage["name"] == "patient_flow")
     assert patient_flow["details"]["error_code"] == "entrypoint_missing"
