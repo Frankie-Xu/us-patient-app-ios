@@ -40,6 +40,8 @@ jobs:
         run: bash scripts/check-workflow-pins.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
+      - name: Run release evidence regression
+        run: bash scripts/test-release-evidence.sh
       - name: Check patch formatting
         run: git diff --check
       - name: Detect iOS component
@@ -145,3 +147,37 @@ jobs:
           persist-credentials: false
       - name: Run iOS tests when present
         run: bash scripts/run-ios-tests.sh apps/ios
+
+  release-evidence:
+    name: Release evidence
+    if: ${{ always() }}
+    needs: [repository-validation, contract-validation, api-tests, ai-tests, ios-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up validation Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Generate release evidence manifest
+        env:
+          RELEASE_EVIDENCE_WORKFLOW_VERSION: ci@1
+          RELEASE_EVIDENCE_REPOSITORY_RESULT: ${{ needs.repository-validation.result }}
+          RELEASE_EVIDENCE_CONTRACT_RESULT: ${{ needs.contract-validation.result }}
+          RELEASE_EVIDENCE_API_RESULT: ${{ needs.api-tests.result }}
+          RELEASE_EVIDENCE_AI_RESULT: ${{ needs.ai-tests.result }}
+          RELEASE_EVIDENCE_IOS_RESULT: ${{ needs.ios-tests.result }}
+          RELEASE_EVIDENCE_OUTPUT: artifacts/release-evidence.json
+        run: python scripts/release_evidence.py --from-ci --output "$RELEASE_EVIDENCE_OUTPUT"
+      - name: Upload release evidence manifest
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-evidence-manifest
+          path: artifacts/release-evidence.json
+          if-no-files-found: error
+          retention-days: 7
