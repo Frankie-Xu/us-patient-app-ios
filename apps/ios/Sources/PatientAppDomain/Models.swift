@@ -20,6 +20,25 @@ public enum PatientAppError: Error, Equatable, Sendable {
     case invalidContractData(ContractDataIssue)
 }
 
+public enum UnsupportedOperation: Equatable, Sendable {
+    case factEditNotInContract
+}
+
+public enum PatientAPIClientError: Error, Equatable, Sendable {
+    case invalidBaseURL
+    case missingBearerToken
+    case invalidRequest
+    case unsupported(UnsupportedOperation)
+    case unauthorized
+    case forbidden
+    case notFound
+    case versionConflict
+    case validation
+    case server(Int)
+    case transport
+    case decoding
+}
+
 public enum SourceType: String, Codable, CaseIterable, Sendable {
     case uploadedDocument = "uploaded_document"
     case userInput = "user_input"
@@ -360,11 +379,15 @@ public struct ImportRequest: Codable, Equatable, Hashable, Sendable {
     public let fileName: String
     public let title: String
     public let byteCount: Int
+    public let mediaType: String?
+    public let sha256: String?
 
-    public init(fileName: String, title: String, byteCount: Int = 1) {
+    public init(fileName: String, title: String, byteCount: Int = 1, mediaType: String? = nil, sha256: String? = nil) {
         self.fileName = fileName
         self.title = title
         self.byteCount = byteCount
+        self.mediaType = mediaType
+        self.sha256 = sha256
     }
 }
 
