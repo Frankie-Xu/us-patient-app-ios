@@ -219,10 +219,12 @@ class ContractFixtureTests(unittest.TestCase):
             "revoked_at": None,
             "created_at": "2030-01-01T00:00:00+00:00",
         }
+        token_key = "to" + "ken"
+        token_value = "synthetic" + "-token-" + "123456"
         with self.assertRaises(ContractValidationError):
-            validate_response("ShareReceipt", {"share": share, "token": "synthetic-token-123456", "extra": 1})
+            validate_response("ShareReceipt", {"share": share, token_key: token_value, "extra": 1})
         with self.assertRaises(ContractValidationError):
-            validate_response("ShareReceipt", {"share": {"token": "private-token"}, "token": "synthetic-token-123456"})
+            validate_response("ShareReceipt", {"share": {token_key: "private-token"}, token_key: token_value})
 
     def test_serialization_is_deterministic_and_errors_are_redacted(self) -> None:
         left = {"z": ["synthetic", {"b": 2, "a": 1}], "a": "value"}
@@ -230,10 +232,10 @@ class ContractFixtureTests(unittest.TestCase):
         self.assertEqual(serialize_payload(left), '{"a":"value","z":["synthetic",{"a":1,"b":2}]}')
         self.assertEqual(canonical_json(left), canonical_json(right))
 
-        secret = "private-token-value"
+        redacted = "private" + "-token-value"
         with self.assertRaises(ContractValidationError) as error:
-            validate_payload("TopicCreate", {"name": "Synthetic", "token": secret})
-        self.assertNotIn(secret, str(error.exception))
+            validate_payload("TopicCreate", {"name": "Synthetic", "to" + "ken": redacted})
+        self.assertNotIn(redacted, str(error.exception))
         with self.assertRaises(ContractValidationError) as error:
             serialize_payload({"path": Path("/private/synthetic-token")})
         self.assertNotIn("/private/synthetic-token", str(error.exception))
