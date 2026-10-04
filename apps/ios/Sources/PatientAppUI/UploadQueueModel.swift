@@ -27,14 +27,16 @@ public enum UploadQueueItemState: Equatable, Sendable {
 public struct UploadQueueItem: Equatable, Identifiable, Sendable {
     public let id: UUID
     public let request: ImportRequest
+    public let metadata: ImportedAssetMetadata?
     public var state: UploadQueueItemState
     public var progress: Double
     public var attempts: Int
     public var snapshot: ImportSnapshot?
 
-    public init(id: UUID = UUID(), request: ImportRequest) {
+    public init(id: UUID = UUID(), request: ImportRequest, metadata: ImportedAssetMetadata? = nil) {
         self.id = id
         self.request = request
+        self.metadata = metadata
         self.state = .queued
         self.progress = 0
         self.attempts = 0
@@ -59,6 +61,15 @@ public final class UploadQueueModel: ObservableObject {
     @discardableResult
     public func enqueue(_ request: ImportRequest) -> UUID {
         let item = UploadQueueItem(request: request)
+        items.append(item)
+        return item.id
+    }
+
+    /// Adds a platform-imported asset while reusing the existing ImportUseCase
+    /// and transport path. Only metadata is retained on the queue item.
+    @discardableResult
+    public func enqueue(_ asset: ImportedAsset, title: String? = nil) -> UUID {
+        let item = UploadQueueItem(request: asset.request(title: title), metadata: asset.metadata)
         items.append(item)
         return item.id
     }
