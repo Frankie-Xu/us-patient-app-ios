@@ -18,4 +18,4 @@ The package intentionally has no API payloads, authentication, real records, or 
 
 ## Visit sharing preview
 
-The Visits tab now includes a synthetic, version-pinned sharing flow for a saved visit. The preview creates a 24-hour share through the existing share contract, hands the returned token to the native iOS share sheet, and lets the patient revoke it from the same sheet. The deterministic mock keeps this flow available in local previews and tests; production provider and deployment choices remain tracked under issue #37.
+The Visits tab now includes a synthetic, version-pinned sharing flow for a saved visit, including visits loaded from account history. The preview creates a 24-hour share through the existing share contract, hands the returned token to the native iOS share sheet, and lets the patient revoke it from the same sheet. The deterministic mock keeps this flow available in local previews and tests; production provider and deployment choices remain tracked under issue #37.
