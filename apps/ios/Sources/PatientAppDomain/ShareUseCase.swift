@@ -21,4 +21,8 @@ public struct ShareUseCase: Sendable {
     public func revoke(id: UUID) async throws -> ShareVersion {
         try await client.revokeShare(id: id)
     }
+
+    public func status(id: UUID) async throws -> ShareAccessStatus {
+        try await client.shareStatus(id: id)
+    }
 }
