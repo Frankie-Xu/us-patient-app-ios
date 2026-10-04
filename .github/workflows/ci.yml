@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-validation:
+    name: Repository validation
+    runs-on: ubuntu-latest
+    outputs:
+      ios-present: ${{ steps.detect-ios.outputs.present }}
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up validation Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned validation tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Validate repository contents
+        run: bash scripts/validate-repo.sh
+      - name: Check dependency manifests and versions
+        run: bash scripts/check-dependencies.sh
+      - name: Check workflow action pins
+        run: bash scripts/check-workflow-pins.sh
+      - name: Run scanner regression tests
+        run: bash scripts/test-validate-repo.sh
+      - name: Check patch formatting
+        run: git diff --check
+      - name: Detect iOS component
+        id: detect-ios
+        run: |
+          if find apps/ios -type f \( -name Package.swift -o -name project.pbxproj -o -name contents.xcworkspacedata \) -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  contract-validation:
+    name: Contract validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up validation Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned validation tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Validate OpenAPI and JSON Schemas
+        run: bash scripts/check-openapi.sh
+
+  api-tests:
+    name: API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned test tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Discover HTTP route tests
+        run: bash scripts/discover-http-route-tests.sh services/api
+      - name: Run API and HTTP route tests when present
+        run: bash scripts/run-python-tests.sh services/api
+      - name: Run API readiness and health smoke
+        if: always()
+        env:
+          READINESS_ARTIFACT_PATH: artifacts/api-readiness.json
+        run: bash scripts/run-api-readiness.sh services/api
+      - name: Upload API readiness result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-readiness-result
+          path: artifacts/api-readiness.json
+          if-no-files-found: error
+          retention-days: 7
+
+  ai-tests:
+    name: AI tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned test tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Run AI golden-set regression report
+        env:
+          AI_GOLDEN_ARTIFACT_PATH: artifacts/ai-golden-regression.json
+        run: bash scripts/run-ai-golden-regression.sh services/ai
+      - name: Run AI tests when present
+        run: bash scripts/run-python-tests.sh services/ai
+      - name: Upload AI golden regression result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ai-golden-regression-result
+          path: artifacts/ai-golden-regression.json
+          if-no-files-found: error
+          retention-days: 7
+
+  ios-tests:
+    name: iOS tests
+    needs: repository-validation
+    if: ${{ needs.repository-validation.outputs.ios-present == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run iOS tests when present
+        run: bash scripts/run-ios-tests.sh apps/ios
