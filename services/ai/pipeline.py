@@ -131,6 +131,8 @@ class DeterministicStubPipeline:
                 continue
             source_ref = f"{case.document_source_ref}:line-{line_number}"
             source_type = case.document_source_type
+            evidence_text = text
+            page = 1
             if text.startswith("FACT\t"):
                 try:
                     payload = json.loads(text.split("\t", 1)[1])
@@ -142,9 +144,17 @@ class DeterministicStubPipeline:
                         raise ValueError("invalid reference")
                     if not isinstance(source_type, str) or not source_type.strip():
                         raise ValueError("invalid source type")
-                except (ValueError, TypeError):
+                    evidence_text = payload.get("text_en", "")
+                    if not isinstance(evidence_text, str):
+                        raise ValueError("invalid evidence text")
+                    page = payload.get("source_span", {}).get("page", 1)
+                    if type(page) is not int or page < 1:
+                        raise ValueError("invalid page")
+                except (ValueError, TypeError, AttributeError):
                     source_ref = f"{case.document_source_ref}:line-{line_number}"
                     source_type = case.document_source_type
+                    evidence_text = text
+                    page = 1
                     errors.append(
                         PipelineError(
                             code="ocr.fact_payload_invalid",
@@ -158,7 +168,8 @@ class DeterministicStubPipeline:
                     source_ref=source_ref,
                     source_type=source_type,
                     text=text,
-                    page=1,
+                    page=page,
+                    evidence_text=evidence_text,
                 )
             )
         if not blocks:

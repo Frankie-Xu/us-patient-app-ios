@@ -55,6 +55,7 @@ class OCRBlock:
     text: str
     page: int = 1
     block_id: str = ""
+    evidence_text: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_ref", _required_text(self.source_ref, "source_ref"))
@@ -64,6 +65,23 @@ class OCRBlock:
             raise ValueError("page must be a positive integer")
         if self.block_id:
             object.__setattr__(self, "block_id", _required_text(self.block_id, "block_id"))
+
+
+@dataclass(frozen=True)
+class SourceSpan:
+    """A character span inside a cited source block."""
+
+    start: int
+    end: int
+    page: int = 1
+
+    def __post_init__(self) -> None:
+        if type(self.start) is not int or type(self.end) is not int:
+            raise ValueError("source span offsets must be integers")
+        if self.start < 0 or self.end <= self.start:
+            raise ValueError("source span must have 0 <= start < end")
+        if type(self.page) is not int or self.page < 1:
+            raise ValueError("source span page must be a positive integer")
 
 
 @dataclass(frozen=True)
@@ -80,6 +98,7 @@ class Claim:
     normalized_key: str = ""
     normalized_value: str = ""
     rewritten: bool = False
+    source_span: SourceSpan | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("claim_id", "text_en", "text_zh", "source_ref", "source_type"):
@@ -98,6 +117,8 @@ class Claim:
             object.__setattr__(self, "normalized_value", _required_text(self.normalized_value, "normalized_value"))
         if not isinstance(self.rewritten, bool):
             raise ValueError("rewritten must be a boolean")
+        if self.source_span is not None and not isinstance(self.source_span, SourceSpan):
+            raise ValueError("source_span must be a SourceSpan or null")
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
@@ -216,11 +237,19 @@ class GoldenSet:
         }
 
 
-def claim_from_dict(value: Mapping[str, Any]) -> Claim:
+def claim_from_dict(value: Mapping[str, Any], *, require_source_span: bool = False) -> Claim:
     """Build a claim while preserving strict required-field validation."""
 
     required = {"claim_id", "text_en", "text_zh", "source_ref", "source_type", "confidence", "review_status"}
+    if require_source_span:
+        required.add("source_span")
     missing = sorted(required - set(value))
     if missing:
         raise ValueError(f"claim is missing required fields: {', '.join(missing)}")
-    return Claim(**dict(value))
+    payload = dict(value)
+    if payload.get("source_span") is not None:
+        span = payload["source_span"]
+        if not isinstance(span, Mapping):
+            raise ValueError("source_span must be an object")
+        payload["source_span"] = SourceSpan(**dict(span))
+    return Claim(**payload)

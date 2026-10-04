@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .schema import Claim, Conflict, GoldenCase, GoldenSet, claim_from_dict
+from .schema import Claim, Conflict, GoldenCase, GoldenSet, SourceSpan, claim_from_dict
 
 
 def _conflict_from_dict(value: Mapping[str, Any]) -> Conflict:
@@ -41,7 +41,7 @@ def golden_set_from_dict(value: Mapping[str, Any]) -> GoldenSet:
                 document_source_ref=document["source_ref"],
                 document_source_type=document["source_type"],
                 document_text=document["text"],
-                expected_claims=tuple(claim_from_dict(item) for item in raw_case.get("expected_claims", [])),
+                expected_claims=tuple(claim_from_dict(item, require_source_span=True) for item in raw_case.get("expected_claims", [])),
                 expected_conflicts=tuple(_conflict_from_dict(item) for item in raw_case.get("expected_conflicts", [])),
             )
         )
@@ -71,6 +71,7 @@ def _fact_line(claim: Claim) -> str:
         "review_status": claim.review_status.value,
         "normalized_key": claim.normalized_key,
         "normalized_value": claim.normalized_value,
+        "source_span": claim.to_dict()["source_span"],
     }
     return "FACT\t" + json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -85,9 +86,10 @@ def synthetic_golden_set() -> GoldenSet:
         source_ref="synthetic:medication:page-1",
         source_type="synthetic_medication_list",
         confidence=1.0,
-        review_status="accepted",
+        review_status="needs_review",
         normalized_key="medication:example-a:status",
         normalized_value="active",
+        source_span=SourceSpan(start=0, end=len("Example medication A is listed as active.")),
     )
     dose_a = Claim(
         claim_id="synthetic-medication-002",
@@ -96,9 +98,10 @@ def synthetic_golden_set() -> GoldenSet:
         source_ref="synthetic:medication:page-1",
         source_type="synthetic_medication_list",
         confidence=1.0,
-        review_status="accepted",
+        review_status="needs_review",
         normalized_key="medication:example-a:frequency",
         normalized_value="once_daily",
+        source_span=SourceSpan(start=0, end=len("Example medication A is taken once daily.")),
     )
     conflicting_old = Claim(
         claim_id="synthetic-conflict-001",
@@ -110,6 +113,7 @@ def synthetic_golden_set() -> GoldenSet:
         review_status="needs_review",
         normalized_key="medication:example-b:frequency",
         normalized_value="once_daily",
+        source_span=SourceSpan(start=0, end=len("Example medication B is taken once daily.")),
     )
     conflicting_new = Claim(
         claim_id="synthetic-conflict-002",
@@ -121,6 +125,7 @@ def synthetic_golden_set() -> GoldenSet:
         review_status="needs_review",
         normalized_key="medication:example-b:frequency",
         normalized_value="twice_daily",
+        source_span=SourceSpan(start=0, end=len("Example medication B is taken twice daily.")),
     )
     return GoldenSet(
         dataset_id="patient-app-ai-synthetic",

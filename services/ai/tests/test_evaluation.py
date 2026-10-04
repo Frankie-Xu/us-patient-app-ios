@@ -31,6 +31,11 @@ class EvaluationBoundaryTests(unittest.TestCase):
                 confidence=0.5,
                 review_status="needs_review",
             )
+
+        payload = synthetic_golden_set().to_dict()
+        del payload["cases"][0]["expected_claims"][0]["source_span"]
+        with self.assertRaises(ValueError):
+            golden_set_from_dict(payload)
         with self.assertRaises(ValueError):
             Claim(
                 claim_id="claim-1",

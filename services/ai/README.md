@@ -15,7 +15,14 @@ from an explicit review event outside this boundary.
 synthetic document. It is a repeatable contract test double, not a clinical
 parser. `evaluate_golden_set` returns per-case and aggregate fields for
 precision, recall, citation coverage, rewrite rate, rejection rate and
-per-case cost.
+per-case cost. `evaluate_extraction_output` additionally scores field values,
+source spans, confidence error and review-required precision/recall. Its
+`review_decisions` payload contains `claim_id`, `review_required`,
+`review_status` and stable error categories for the API review queue.
+
+`fixed_mock_predictions` supplies deterministic variants for value mismatch,
+source-span mismatch, low confidence, missing review, missing claims and
+unexpected claims. These fixtures are synthetic test inputs only.
 
 High and critical errors, unresolved conflicts, missing claims and provenance
 failures set `delivery_blocked=true`. A report can therefore be used as a

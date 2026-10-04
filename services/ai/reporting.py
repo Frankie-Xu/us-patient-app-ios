@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Any, Iterable
 
-from .pipeline import DeterministicStubPipeline, PipelineError, PipelineOutput
+from .pipeline import DeterministicStubPipeline, EvaluationPipeline, PipelineError, PipelineOutput
+from .output_evaluator import ExtractionEvaluation, evaluate_extraction_output
 from .schema import Claim, GoldenCase, GoldenSet, Severity
 
 
@@ -30,6 +32,7 @@ class CaseMetrics:
     per_case_cost: float
     errors: tuple[PipelineError, ...] = ()
     delivery_blocked: bool = False
+    extraction_evaluation: ExtractionEvaluation | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -42,6 +45,7 @@ class CaseMetrics:
             "per_case_cost": self.per_case_cost,
             "errors": [error.to_dict() for error in self.errors],
             "delivery_blocked": self.delivery_blocked,
+            "extraction_evaluation": self.extraction_evaluation.to_dict() if self.extraction_evaluation else None,
         }
 
 
@@ -74,6 +78,8 @@ def _claim_matches(expected: Claim, actual: Claim) -> bool:
         and expected.text_zh == actual.text_zh
         and expected.source_ref == actual.source_ref
         and expected.source_type == actual.source_type
+        and expected.normalized_key == actual.normalized_key
+        and expected.normalized_value == actual.normalized_value
     )
 
 
@@ -85,11 +91,16 @@ def evaluate_case(case: GoldenCase, output: PipelineOutput, per_case_cost: float
     """Compare a pipeline output to expected labels without calling a provider."""
 
     effective_cost = output.per_case_cost if per_case_cost is None else per_case_cost
-    if isinstance(effective_cost, bool) or not isinstance(effective_cost, (int, float)) or effective_cost < 0:
+    if isinstance(effective_cost, bool) or not isinstance(effective_cost, (int, float)) or not isfinite(effective_cost) or effective_cost < 0:
         raise ValueError("per_case_cost must be non-negative")
     expected_by_id = {claim.claim_id: claim for claim in case.expected_claims}
     actual_by_id = {claim.claim_id: claim for claim in output.extraction.claims}
     errors: list[PipelineError] = list(output.all_errors)
+    extraction_evaluation = evaluate_extraction_output(case, output.extraction.claims, ocr_blocks=output.ocr.blocks)
+    errors.extend(
+        _error(f"extraction.{error.category.value}", "extraction output failed a labeled check", error.severity, error.claim_id)
+        for error in extraction_evaluation.errors
+    )
     true_positives = 0
 
     for claim_id, expected in expected_by_id.items():
@@ -101,8 +112,8 @@ def evaluate_case(case: GoldenCase, output: PipelineOutput, per_case_cost: float
         else:
             errors.append(
                 _error(
-                    "regression.provenance_mismatch",
-                    "claim_id was emitted with a different citation",
+                    "regression.claim_mismatch",
+                    "claim value or provenance differs from the label",
                     Severity.HIGH,
                     claim_id,
                 )
@@ -161,6 +172,7 @@ def evaluate_case(case: GoldenCase, output: PipelineOutput, per_case_cost: float
         per_case_cost=float(effective_cost),
         errors=tuple(errors),
         delivery_blocked=delivery_blocked,
+        extraction_evaluation=extraction_evaluation,
     )
 
 
@@ -171,7 +183,7 @@ def _average(cases: Iterable[CaseMetrics], field_name: str) -> float:
 
 def evaluate_golden_set(
     golden_set: GoldenSet,
-    pipeline: DeterministicStubPipeline | None = None,
+    pipeline: EvaluationPipeline | None = None,
     per_case_cost: float | None = None,
 ) -> RegressionReport:
     """Run every case and return metrics plus any delivery blockers."""
@@ -179,6 +191,22 @@ def evaluate_golden_set(
     pipeline = pipeline or DeterministicStubPipeline()
     case_metrics = tuple(evaluate_case(case, pipeline.run(case), per_case_cost) for case in golden_set.cases)
     metrics = {field_name: _average(case_metrics, field_name) for field_name in METRIC_FIELDS}
+    extraction_metric_names = (
+        "field_value_accuracy",
+        "source_span_accuracy",
+        "confidence_mae",
+        "review_required_precision",
+        "review_required_recall",
+        "error_count",
+        "blocking_error_count",
+    )
+    for metric_name in extraction_metric_names:
+        values = [
+            float(getattr(case.extraction_evaluation.metrics, metric_name))
+            for case in case_metrics
+            if case.extraction_evaluation is not None
+        ]
+        metrics[metric_name] = sum(values) / len(values) if values else 0.0
     blocking_errors = tuple(
         error for case in case_metrics for error in case.errors if error.blocks_delivery
     )

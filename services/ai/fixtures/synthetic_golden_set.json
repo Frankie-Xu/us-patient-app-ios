@@ -9,7 +9,7 @@
       "document": {
         "source_ref": "synthetic:medication",
         "source_type": "synthetic_medication_list",
-        "text": "FACT\t{\"claim_id\":\"synthetic-medication-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:status\",\"normalized_value\":\"active\",\"review_status\":\"accepted\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"text_en\":\"Example medication A is listed as active.\",\"text_zh\":\"示例药物 A 标记为正在使用。\"}\nFACT\t{\"claim_id\":\"synthetic-medication-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"accepted\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"text_en\":\"Example medication A is taken once daily.\",\"text_zh\":\"示例药物 A 每日服用一次。\"}"
+        "text": "FACT\t{\"claim_id\":\"synthetic-medication-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:status\",\"normalized_value\":\"active\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"source_span\":{\"start\":0,\"end\":40,\"page\":1},\"text_en\":\"Example medication A is listed as active.\",\"text_zh\":\"示例药物 A 标记为正在使用。\"}\nFACT\t{\"claim_id\":\"synthetic-medication-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:medication:page-1\",\"source_type\":\"synthetic_medication_list\",\"source_span\":{\"start\":0,\"end\":41,\"page\":1},\"text_en\":\"Example medication A is taken once daily.\",\"text_zh\":\"示例药物 A 每日服用一次。\"}"
       },
       "expected_claims": [
         {
@@ -19,9 +19,10 @@
           "source_ref": "synthetic:medication:page-1",
           "source_type": "synthetic_medication_list",
           "confidence": 1.0,
-          "review_status": "accepted",
+          "review_status": "needs_review",
           "normalized_key": "medication:example-a:status",
           "normalized_value": "active",
+          "source_span": {"start": 0, "end": 40, "page": 1},
           "rewritten": false
         },
         {
@@ -31,9 +32,10 @@
           "source_ref": "synthetic:medication:page-1",
           "source_type": "synthetic_medication_list",
           "confidence": 1.0,
-          "review_status": "accepted",
+          "review_status": "needs_review",
           "normalized_key": "medication:example-a:frequency",
           "normalized_value": "once_daily",
+          "source_span": {"start": 0, "end": 41, "page": 1},
           "rewritten": false
         }
       ],
@@ -45,7 +47,7 @@
       "document": {
         "source_ref": "synthetic:conflict",
         "source_type": "synthetic_visit_note",
-        "text": "FACT\t{\"claim_id\":\"synthetic-conflict-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-1\",\"source_type\":\"synthetic_visit_note\",\"text_en\":\"Example medication B is taken once daily.\",\"text_zh\":\"示例药物 B 每日服用一次。\"}\nFACT\t{\"claim_id\":\"synthetic-conflict-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"twice_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-2\",\"source_type\":\"synthetic_visit_note\",\"text_en\":\"Example medication B is taken twice daily.\",\"text_zh\":\"示例药物 B 每日服用两次。\"}"
+        "text": "FACT\t{\"claim_id\":\"synthetic-conflict-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-1\",\"source_type\":\"synthetic_visit_note\",\"source_span\":{\"start\":0,\"end\":42,\"page\":1},\"text_en\":\"Example medication B is taken once daily.\",\"text_zh\":\"示例药物 B 每日服用一次。\"}\nFACT\t{\"claim_id\":\"synthetic-conflict-002\",\"confidence\":1.0,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"twice_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"synthetic:conflict:page-2\",\"source_type\":\"synthetic_visit_note\",\"source_span\":{\"start\":0,\"end\":43,\"page\":1},\"text_en\":\"Example medication B is taken twice daily.\",\"text_zh\":\"示例药物 B 每日服用两次。\"}"
       },
       "expected_claims": [
         {
@@ -58,6 +60,7 @@
           "review_status": "needs_review",
           "normalized_key": "medication:example-b:frequency",
           "normalized_value": "once_daily",
+          "source_span": {"start": 0, "end": 42, "page": 1},
           "rewritten": false
         },
         {
@@ -70,6 +73,7 @@
           "review_status": "needs_review",
           "normalized_key": "medication:example-b:frequency",
           "normalized_value": "twice_daily",
+          "source_span": {"start": 0, "end": 43, "page": 1},
           "rewritten": false
         }
       ],

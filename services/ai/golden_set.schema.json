@@ -44,7 +44,7 @@
   "$defs": {
     "claim": {
       "type": "object",
-      "required": ["claim_id", "text_en", "text_zh", "source_ref", "source_type", "confidence", "review_status"],
+      "required": ["claim_id", "text_en", "text_zh", "source_ref", "source_type", "confidence", "review_status", "source_span"],
       "additionalProperties": false,
       "properties": {
         "claim_id": {"type": "string", "minLength": 1},
@@ -56,7 +56,18 @@
         "review_status": {"enum": ["unreviewed", "needs_review", "accepted", "rejected"]},
         "normalized_key": {"type": "string"},
         "normalized_value": {"type": "string"},
-        "rewritten": {"type": "boolean"}
+        "rewritten": {"type": "boolean"},
+        "source_span": {"$ref": "#/$defs/source_span"}
+      }
+    },
+    "source_span": {
+      "type": "object",
+      "required": ["start", "end", "page"],
+      "additionalProperties": false,
+      "properties": {
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 1},
+        "page": {"type": "integer", "minimum": 1}
       }
     },
     "conflict": {

@@ -6,6 +6,15 @@ extraction implementations.
 """
 
 from .golden_set import load_golden_set, synthetic_golden_set
+from .mock_predictions import MockPredictionVariant, fixed_mock_predictions
+from .output_evaluator import (
+    ClassifiedError,
+    ErrorCategory,
+    ExtractionEvaluation,
+    ExtractionMetrics,
+    ReviewDecision,
+    evaluate_extraction_output,
+)
 from .pipeline import (
     CitationCoverageResult,
     ConflictDetectionResult,
@@ -24,25 +33,35 @@ from .schema import (
     GoldenSet,
     ReviewStatus,
     Severity,
+    SourceSpan,
 )
 
 __all__ = [
     "Claim",
+    "ClassifiedError",
     "CitationCoverageResult",
     "Conflict",
     "ConflictDetectionResult",
     "DeterministicStubPipeline",
+    "ErrorCategory",
     "EvaluationPipeline",
     "FactExtractionResult",
     "GoldenCase",
     "GoldenSet",
+    "ExtractionEvaluation",
+    "ExtractionMetrics",
+    "MockPredictionVariant",
     "OCRLayoutResult",
     "PipelineError",
     "PipelineOutput",
     "RegressionReport",
     "ReviewStatus",
+    "ReviewDecision",
     "Severity",
+    "SourceSpan",
     "evaluate_golden_set",
+    "evaluate_extraction_output",
+    "fixed_mock_predictions",
     "load_golden_set",
     "synthetic_golden_set",
 ]
