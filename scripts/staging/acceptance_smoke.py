@@ -71,7 +71,7 @@ def _shape(value: object) -> Mapping[str, object]:
     """Keep result metadata safe without copying arbitrary harness output."""
 
     if isinstance(value, Mapping):
-        return {"result_type": "mapping", "result_keys": sorted(str(key) for key in value)}
+        return {"result_type": "mapping", "field_count": len(value)}
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return {"result_type": "sequence", "result_length": len(value)}
     return {"result_type": type(value).__name__}
