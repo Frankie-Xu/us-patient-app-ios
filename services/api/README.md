@@ -5,9 +5,13 @@ The core in `models.py`, `store.py`, and `service.py` is typed with Python stdli
 `contract_fixtures.py` is the dependency-free client-generation seam. It
 provides typed synthetic request fixtures for visit-pack and sharing writes,
 validates account-history and sharing responses against the frozen OpenAPI
-field sets, and fails closed on unknown fields, missing required fields, or
-contract drift. It is intentionally provider-neutral and does not parse
-credentials or carry real patient data.
+field and value sets, and fails closed on unknown fields, malformed values,
+invalid nullability, missing required fields, nested shape drift, or contract
+drift. `serialize_payload`/`canonical_json` provide a sorted-key, compact JSON
+representation with non-finite and opaque values rejected. Validation and
+serialization errors never echo payload values, tokens, or filesystem paths.
+It is intentionally provider-neutral and does not parse credentials or carry
+real patient data.
 
 `app.py` is an optional FastAPI adapter. Install the dependencies declared in `pyproject.toml` to run HTTP routes; authentication remains a gateway concern and is represented in the core by `AuthContext` and scopes. Replace `InMemoryStore` with a transactional database/object-storage adapter before handling production PHI.
 

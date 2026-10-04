@@ -8,9 +8,12 @@ shapes have not drifted.  No fixture contains clinical data.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+import json
 from pathlib import Path
 import re
 from typing import Any, Mapping
+from uuid import UUID
 
 
 class ContractDriftError(ValueError):
@@ -26,6 +29,20 @@ class SchemaShape:
     required: frozenset[str]
     properties: frozenset[str]
     additional_properties: bool
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """Small, dependency-free subset of the frozen OpenAPI field contract."""
+
+    kind: str
+    nullable: bool = False
+    min_length: int | None = None
+    minimum: int | None = None
+    format: str | None = None
+    item_format: str | None = None
+    enum: frozenset[str] = frozenset()
+    nested_schema: str | None = None
 
 
 # These are the shapes consumed by the visit-pack, account-history and sharing
@@ -66,6 +83,78 @@ FROZEN_SHAPES: dict[str, SchemaShape] = {
     ),
     "ShareReceipt": SchemaShape(frozenset({"share", "token"}), frozenset({"share", "token"}), False),
     "SharedResource": SchemaShape(frozenset({"share", "resource"}), frozenset({"share", "resource"}), False),
+}
+
+
+# ``parse_openapi_shapes`` deliberately remains a field-set parser.  These
+# specs freeze the value-level rules needed by the synthetic fixtures without
+# pulling a YAML/JSON-schema dependency into the API test environment.
+FIELD_SPECS: dict[str, dict[str, FieldSpec]] = {
+    "TopicCreate": {"name": FieldSpec("string", min_length=1)},
+    "Topic": {
+        "name": FieldSpec("string", min_length=1),
+        "id": FieldSpec("string", format="uuid"),
+        "owner_id": FieldSpec("string", min_length=1),
+        "version": FieldSpec("integer", minimum=1),
+        "created_at": FieldSpec("string", format="date-time"),
+        "updated_at": FieldSpec("string", format="date-time"),
+    },
+    "VisitCreate": {
+        "title": FieldSpec("string", min_length=1),
+        "starts_at": FieldSpec("string", nullable=True, format="date-time"),
+        "topic_ids": FieldSpec("array", item_format="uuid"),
+    },
+    "Visit": {
+        "title": FieldSpec("string", min_length=1),
+        "starts_at": FieldSpec("string", nullable=True, format="date-time"),
+        "topic_ids": FieldSpec("array", item_format="uuid"),
+        "id": FieldSpec("string", format="uuid"),
+        "owner_id": FieldSpec("string", min_length=1),
+        "version": FieldSpec("integer", minimum=1),
+        "created_at": FieldSpec("string", format="date-time"),
+        "updated_at": FieldSpec("string", format="date-time"),
+    },
+    "TaskCreate": {
+        "title": FieldSpec("string", min_length=1),
+        "visit_id": FieldSpec("string", nullable=True, format="uuid"),
+        "due_at": FieldSpec("string", nullable=True, format="date-time"),
+    },
+    "Task": {
+        "title": FieldSpec("string", min_length=1),
+        "visit_id": FieldSpec("string", nullable=True, format="uuid"),
+        "due_at": FieldSpec("string", nullable=True, format="date-time"),
+        "id": FieldSpec("string", format="uuid"),
+        "owner_id": FieldSpec("string", min_length=1),
+        "status": FieldSpec("string", enum=frozenset({"open", "done", "cancelled"})),
+        "version": FieldSpec("integer", minimum=1),
+        "created_at": FieldSpec("string", format="date-time"),
+        "updated_at": FieldSpec("string", format="date-time"),
+    },
+    "ShareCreate": {
+        "resource_type": FieldSpec("string", enum=frozenset({"document", "fact", "topic", "visit", "task"})),
+        "resource_id": FieldSpec("string", format="uuid"),
+        "resource_version": FieldSpec("integer", minimum=1),
+        "expires_at": FieldSpec("string", format="date-time"),
+    },
+    "ShareVersion": {
+        "id": FieldSpec("string", format="uuid"),
+        "owner_id": FieldSpec("string", min_length=1),
+        "resource_type": FieldSpec("string", enum=frozenset({"document", "fact", "topic", "visit", "task"})),
+        "resource_id": FieldSpec("string", format="uuid"),
+        "resource_version": FieldSpec("integer", minimum=1),
+        "expires_at": FieldSpec("string", format="date-time"),
+        "status": FieldSpec("string", enum=frozenset({"active", "expired", "revoked"})),
+        "revoked_at": FieldSpec("string", nullable=True, format="date-time"),
+        "created_at": FieldSpec("string", format="date-time"),
+    },
+    "ShareReceipt": {
+        "share": FieldSpec("object", nested_schema="ShareVersion"),
+        "token": FieldSpec("string", min_length=20),
+    },
+    "SharedResource": {
+        "share": FieldSpec("object", nested_schema="ShareVersion"),
+        "resource": FieldSpec("object"),
+    },
 }
 
 
@@ -156,20 +245,112 @@ def assert_frozen_openapi_contract(path: Path | None = None) -> dict[str, Schema
     return actual
 
 
+def _invalid_value(schema_name: str, field: str) -> ContractValidationError:
+    # Do not include the offending value.  Fixtures may be reused with a
+    # secret-like token or a path, and validation errors are safe to expose in
+    # test logs and HTTP envelopes.
+    return ContractValidationError(f"{schema_name} contains an invalid value for {field}")
+
+
+def _validate_field(schema_name: str, field: str, value: Any, spec: FieldSpec) -> None:
+    if value is None:
+        if spec.nullable:
+            return
+        raise _invalid_value(schema_name, field)
+    if spec.kind == "string":
+        if not isinstance(value, str):
+            raise _invalid_value(schema_name, field)
+        if spec.min_length is not None and len(value) < spec.min_length:
+            raise _invalid_value(schema_name, field)
+        if spec.enum and value not in spec.enum:
+            raise _invalid_value(schema_name, field)
+        if spec.format == "uuid":
+            try:
+                UUID(value)
+            except (ValueError, AttributeError, TypeError) as exc:
+                raise _invalid_value(schema_name, field) from exc
+        if spec.format == "date-time":
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (ValueError, AttributeError) as exc:
+                raise _invalid_value(schema_name, field) from exc
+            if parsed.tzinfo is None:
+                raise _invalid_value(schema_name, field)
+        return
+    if spec.kind == "integer":
+        # bool is an int subclass but is never a valid OpenAPI integer value.
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise _invalid_value(schema_name, field)
+        if spec.minimum is not None and value < spec.minimum:
+            raise _invalid_value(schema_name, field)
+        return
+    if spec.kind == "array":
+        if not isinstance(value, list):
+            raise _invalid_value(schema_name, field)
+        for item in value:
+            if not isinstance(item, str):
+                raise _invalid_value(schema_name, field)
+            if spec.item_format == "uuid":
+                try:
+                    UUID(item)
+                except (ValueError, AttributeError, TypeError) as exc:
+                    raise _invalid_value(schema_name, field) from exc
+        return
+    if spec.kind == "object":
+        if not isinstance(value, Mapping):
+            raise _invalid_value(schema_name, field)
+        if spec.nested_schema is not None:
+            validate_response(spec.nested_schema, value)
+        return
+    raise _invalid_value(schema_name, field)
+
+
 def validate_payload(schema_name: str, payload: Mapping[str, Any], *, path: Path | None = None) -> None:
-    """Reject unknown and missing fields against the frozen OpenAPI shape."""
+    """Reject malformed, null-invalid, unknown and missing fields.
+
+    Error messages intentionally contain only schema/field labels and never
+    echo payload values, secrets, filesystem paths or request tokens.
+    """
     if not isinstance(payload, Mapping):
         raise ContractValidationError(f"{schema_name} must be an object")
     shapes = assert_frozen_openapi_contract(path)
     shape = shapes.get(schema_name)
     if shape is None:
         raise ContractValidationError(f"unsupported contract schema: {schema_name}")
-    unknown = sorted(set(payload) - shape.properties)
+    if any(not isinstance(key, str) for key in payload):
+        raise ContractValidationError(f"{schema_name} contains a non-string field name")
+    unknown = set(payload) - shape.properties
     if unknown:
-        raise ContractValidationError(f"{schema_name} has unknown field(s): {', '.join(unknown)}")
-    missing = sorted(shape.required - set(payload))
+        raise ContractValidationError(f"{schema_name} has unknown field(s)")
+    missing = shape.required - set(payload)
     if missing:
-        raise ContractValidationError(f"{schema_name} is missing required field(s): {', '.join(missing)}")
+        raise ContractValidationError(f"{schema_name} is missing required field(s)")
+    specs = FIELD_SPECS.get(schema_name)
+    if specs is None:
+        raise ContractValidationError(f"unsupported contract schema: {schema_name}")
+    for field, value in payload.items():
+        _validate_field(schema_name, field, value, specs[field])
+
+
+def serialize_payload(payload: Mapping[str, Any]) -> str:
+    """Return deterministic JSON without accepting non-finite or opaque values."""
+    if not isinstance(payload, Mapping):
+        raise ContractValidationError("payload must be an object")
+    try:
+        return json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ContractValidationError("payload is not deterministically serializable") from exc
+
+
+def canonical_json(payload: Mapping[str, Any]) -> str:
+    """Alias used by callers that name the canonical wire representation."""
+    return serialize_payload(payload)
 
 
 @dataclass(frozen=True)
