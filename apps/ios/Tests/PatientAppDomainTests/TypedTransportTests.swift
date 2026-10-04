@@ -132,7 +132,7 @@ final class TypedTransportTests: XCTestCase {
         let transport = BlockingTransport()
         let client = AuthenticatedPatientAPIClient(client: URLSessionPatientAPIClient(transport: transport), authSession: session)
 
-        let request = Task { try await client.listVisits() }
+        let request = _Concurrency.Task { try await client.listVisits() }
         await transport.waitUntilStarted()
         _ = await session.switchAccount(identifier: "patient-2")
         await transport.release()
