@@ -14,7 +14,12 @@ from .reporting import METRIC_FIELDS, evaluate_golden_set
 from .schema import GoldenSet
 
 
+REPORT_SCHEMA = "patient-app-ai/golden-regression-report"
+REPORT_SCHEMA_VERSION = "1.0.0"
+
 REPORT_FIELDS = (
+    "report_schema",
+    "schema_version",
     "api_version",
     "dataset_id",
     "dataset_version",
@@ -38,8 +43,14 @@ class GoldenSetRegressionReport:
     metrics: dict[str, float]
     error_categories: dict[str, int]
     delivery_blocked: bool
+    report_schema: str = REPORT_SCHEMA
+    schema_version: str = REPORT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
+        if self.report_schema != REPORT_SCHEMA:
+            raise ValueError(f"report requires schema {REPORT_SCHEMA}")
+        if self.schema_version != REPORT_SCHEMA_VERSION:
+            raise ValueError(f"report requires schema version {REPORT_SCHEMA_VERSION}")
         if self.api_version != API_VERSION:
             raise ValueError(f"report requires API version {API_VERSION}")
         if not isinstance(self.dataset_id, str) or not self.dataset_id.strip():
@@ -74,6 +85,8 @@ class GoldenSetRegressionReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "report_schema": self.report_schema,
+            "schema_version": self.schema_version,
             "api_version": self.api_version,
             "dataset_id": self.dataset_id,
             "dataset_version": self.dataset_version,
@@ -86,10 +99,17 @@ class GoldenSetRegressionReport:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "GoldenSetRegressionReport":
+        if not isinstance(value, Mapping):
+            raise ValueError("report must contain an object")
         missing = sorted(set(REPORT_FIELDS) - set(value))
         if missing:
             raise ValueError(f"report is missing fields: {', '.join(missing)}")
+        unknown = sorted(set(value) - set(REPORT_FIELDS))
+        if unknown:
+            raise ValueError(f"report has unknown fields: {', '.join(unknown)}")
         return cls(
+            report_schema=value["report_schema"],
+            schema_version=value["schema_version"],
             api_version=value["api_version"],
             dataset_id=value["dataset_id"],
             dataset_version=value["dataset_version"],
@@ -128,6 +148,8 @@ def generate_regression_report(
         for error in case.errors:
             error_categories[error.code] = error_categories.get(error.code, 0) + 1
     return GoldenSetRegressionReport(
+        report_schema=REPORT_SCHEMA,
+        schema_version=REPORT_SCHEMA_VERSION,
         api_version=API_VERSION,
         dataset_id=golden_set.dataset_id,
         dataset_version=golden_set.version,

@@ -6,11 +6,18 @@ from pathlib import Path
 
 from services.ai.golden_set import load_golden_set, synthetic_golden_set
 from services.ai.regression_cli import main
-from services.ai.regression_report import GoldenSetRegressionReport, generate_regression_report, generate_regression_report_from_json
+from services.ai.regression_report import (
+    REPORT_SCHEMA,
+    REPORT_SCHEMA_VERSION,
+    GoldenSetRegressionReport,
+    generate_regression_report,
+    generate_regression_report_from_json,
+)
 from services.ai.schema import GoldenSet
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthetic_golden_set.json"
+REPORT_SCHEMA_FILE = Path(__file__).parents[1] / "regression_report.schema.json"
 
 
 class RegressionReportTests(unittest.TestCase):
@@ -21,6 +28,8 @@ class RegressionReportTests(unittest.TestCase):
 
         self.assertEqual(first.to_json(), second.to_json())
         self.assertEqual(first.api_version, "0.2.0")
+        self.assertEqual(first.report_schema, REPORT_SCHEMA)
+        self.assertEqual(first.schema_version, REPORT_SCHEMA_VERSION)
         self.assertEqual(first.dataset_id, golden_set.dataset_id)
         self.assertEqual(first.sample_count, 2)
         self.assertIn("precision", first.metrics)
@@ -76,6 +85,31 @@ class RegressionReportTests(unittest.TestCase):
         report["sample_count"] = 0
         with self.assertRaises(ValueError):
             GoldenSetRegressionReport.from_dict(report)
+
+    def test_report_rejects_unknown_fields_and_version_drift(self) -> None:
+        report = generate_regression_report(synthetic_golden_set()).to_dict()
+        report["new_field"] = "drift"
+        with self.assertRaises(ValueError):
+            GoldenSetRegressionReport.from_dict(report)
+
+        for field_name, value in (
+            ("report_schema", "patient-app-ai/other-report"),
+            ("schema_version", "2.0.0"),
+            ("api_version", "0.3.0"),
+        ):
+            payload = generate_regression_report(synthetic_golden_set()).to_dict()
+            payload[field_name] = value
+            with self.assertRaises(ValueError):
+                GoldenSetRegressionReport.from_dict(payload)
+
+    def test_checked_in_report_contract_freezes_required_fields(self) -> None:
+        contract = json.loads(REPORT_SCHEMA_FILE.read_text(encoding="utf-8"))
+
+        self.assertFalse(contract["additionalProperties"])
+        self.assertEqual(contract["properties"]["report_schema"]["const"], REPORT_SCHEMA)
+        self.assertEqual(contract["properties"]["schema_version"]["const"], REPORT_SCHEMA_VERSION)
+        self.assertEqual(contract["properties"]["api_version"]["const"], "0.2.0")
+        self.assertTrue(set(contract["required"]) >= {"metrics", "error_categories", "delivery_blocked"})
 
     def test_report_json_rejects_non_object(self) -> None:
         with self.assertRaises(ValueError):

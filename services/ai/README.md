@@ -39,9 +39,11 @@ source-span mismatch, low confidence, missing review, missing claims and
 unexpected claims. These fixtures are synthetic test inputs only.
 
 `generate_regression_report` produces the offline pilot exit artifact. Its
-JSON contains `api_version`, dataset identity, `sample_count`, quality
-metrics, stable `error_categories` counts and `delivery_blocked`. The same
-entry point is available from the CLI:
+JSON is frozen by [`regression_report.schema.json`](regression_report.schema.json)
+and contains `report_schema`, `schema_version`, `api_version`, dataset
+identity, `sample_count`, quality metrics, stable `error_categories` counts
+and `delivery_blocked`. Deserialization rejects unknown fields and schema or
+API version drift. The same entry point is available from the CLI:
 
 ```sh
 python3 -m services.ai.regression_cli \
