@@ -108,6 +108,73 @@ class ApiServiceTests(unittest.TestCase):
         with self.assertRaises(ShareAccessError):
             self.service.access_share(expiring_token)
 
+    def test_upload_processing_facts_review_share_revoke_main_path(self) -> None:
+        document = self.service.create_document(
+            self.auth,
+            filename="synthetic-visit-note.pdf",
+            media_type="application/pdf",
+            size_bytes=24,
+            sha256="c" * 64,
+            idempotency_key="path-doc-001",
+        )
+        queued = self.service.enqueue_processing(
+            self.auth,
+            document_id=document.id,
+            job_type=JobType.OCR,
+            idempotency_key="path-job-001",
+        )
+        worker = AuthContext("worker", roles=frozenset({PrincipalRole.SERVICE}), request_id="path-worker")
+        completed = self.service.complete_processing(worker, queued.id, success=True)
+        ready_document = self.service.store.documents[document.id]
+        self.assertEqual(completed.status.value, "succeeded")
+        self.assertEqual(ready_document.status.value, "ready")
+        self.assertEqual(ready_document.version, 3)
+
+        fact = self.service.create_fact(
+            self.auth,
+            label="visit_reason",
+            value="Synthetic follow-up",
+            source_ref=f"{document.id}:page-1:region-1",
+            source_type=SourceType.AI_EXTRACTION,
+            confidence=0.81,
+            document_id=document.id,
+            idempotency_key="path-fact-001",
+        )
+        reviewed = self.service.review_fact(
+            self.auth,
+            fact.id,
+            review_status=ReviewStatus.CONFIRMED,
+            expected_version=fact.version,
+        )
+        self.assertEqual(reviewed.review_status, ReviewStatus.CONFIRMED)
+
+        share, token = self.service.create_share(
+            self.auth,
+            resource_type="document",
+            resource_id=document.id,
+            resource_version=ready_document.version,
+            expires_at=self.now + timedelta(hours=1),
+            idempotency_key="path-share-001",
+        )
+        accessed_share, accessed_document = self.service.access_share(token)
+        self.assertEqual(accessed_share.resource_version, ready_document.version)
+        self.assertEqual(accessed_document.id, document.id)
+        self.service.revoke_share(self.auth, share.id)
+        with self.assertRaises(ShareAccessError):
+            self.service.access_share(token)
+
+        actions = [event.action for event in self.service.store.audit_events]
+        for action in (
+            "document.created",
+            "upload_processing.queued",
+            "upload_processing.completed",
+            "fact.created",
+            "fact.reviewed",
+            "share.created",
+            "share.revoked",
+        ):
+            self.assertIn(action, actions)
+
     def test_audit_is_scalar_and_owner_scoped(self) -> None:
         self.service.create_topic(self.auth, name="Synthetic", idempotency_key="topic-key-002")
         events = self.service.list_audit(self.auth)

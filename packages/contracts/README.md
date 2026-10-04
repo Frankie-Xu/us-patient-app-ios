@@ -1,6 +1,6 @@
 # API contract
 
-`openapi.yaml` is the initial HTTP contract for the patient-controlled record organization service. It is intentionally versioned under `/v1` and defines the server-owned entities:
+The MVP `/v1` contract is frozen by [ADR-0001](../../docs/adr/adr-0001-api-contract-freeze.md). `openapi.yaml` is the initial HTTP contract for the patient-controlled record organization service. It is intentionally versioned under `/v1` and defines the server-owned entities:
 
 - documents and immutable document versions;
 - source-traceable facts with `source_ref`, `source_type`, `confidence`, and `review_status`;
