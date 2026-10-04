@@ -10,7 +10,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text("Synthetic record workspace").font(.title2)
+                Text("Record workspace").font(.title2)
                 Text("Choose a local record or use fictional content for preview.")
                 Button("Choose record file") {
                     isFileImporterPresented = true
@@ -98,6 +98,14 @@ struct RecordsView: View {
             .task {
                 if case .idle = history.state { await history.load() }
             }
+            .onChange(of: model.state) { _, newState in
+                switch newState {
+                case .reviewRequired, .empty, .completed:
+                    _Concurrency.Task { await history.load() }
+                case .idle, .uploading, .processing, .failed:
+                    break
+                }
+            }
         }
     }
 }
@@ -159,9 +167,9 @@ private struct FlowContent: View {
             case .idle:
                 ContentUnavailableView("No records", systemImage: "tray", description: Text("Start a synthetic import from Home."))
             case .uploading:
-                ProgressView("Uploading synthetic record…")
+                ProgressView("Uploading \\(model.currentImportTitle)…")
             case .processing:
-                ProgressView("Processing synthetic record…")
+                ProgressView("Processing \\(model.currentImportTitle)…")
             case let .reviewRequired(snapshot), let .completed(snapshot):
                 Text(snapshot.ticket.title).font(.headline)
                 if allowsReview {

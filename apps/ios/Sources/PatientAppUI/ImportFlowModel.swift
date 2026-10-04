@@ -24,6 +24,10 @@ public final class ImportFlowModel: ObservableObject {
         return error
     }
 
+    public var currentImportTitle: String {
+        lastRequest?.title ?? "record"
+    }
+
     public func start(_ request: ImportRequest) async {
         lastRequest = request
         state = .processing
