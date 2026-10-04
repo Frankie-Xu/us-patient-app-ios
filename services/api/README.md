@@ -39,3 +39,10 @@ Use synthetic bytes only. Production requires authenticated gateway limits, stre
 `ApiService` depends on the `MetadataStore` protocol rather than `InMemoryStore` internals. The protocol is limited to readiness, resource reads/lists, version-aware saves, actor-scoped idempotency receipts, and PHI-safe audit append/read operations. `InMemoryStore` remains the dependency-free test implementation and keeps its public collections for fixture assertions.
 
 Omitted constructor dependencies use the local in-memory doubles for offline tests. An explicitly missing dependency (`None`), a provider reporting unavailable, or a provider raising during `is_ready()` makes `/readyz` return `503` with `DEPENDENCY_UNAVAILABLE`; the service never claims readiness on an incomplete startup graph. No database, cloud provider, queue, credential, or PHI adapter is included.
+
+
+## Gateway claims boundary (Phase 11A)
+
+The gateway may pass a verified `GatewayClaims` mapping to `auth_context_from_gateway_claims`. The core accepts issuer, audience, subject, expiry, request ID, roles and scopes only after typed validation. Issuer and audience must match deployment configuration; expiry and provider-neutral revoked/disabled/inactive states fail closed; roles and scopes must map to the explicit `PrincipalRole` and `Scope` allowlists. Empty subjects/request IDs, malformed timestamps, unknown values and missing claims are rejected.
+
+The core does not parse JWTs, verify signatures, call an identity provider, or log token material. The existing temporary `Bearer subject|scopes|roles` adapter remains a local test seam and is intentionally separate from the gateway claim mapper.
