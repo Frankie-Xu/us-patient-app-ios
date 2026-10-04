@@ -29,7 +29,6 @@ public struct AccountView: View {
                     }
 
                     TextField("Account identifier", text: $identifier)
-                        .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
                     switch model.authState {
@@ -73,9 +72,9 @@ public struct AccountView: View {
             isWorking = true
             switch action {
             case .signIn:
-                await model.signIn(identifier: value)
+                _ = await model.signIn(identifier: value)
             case .switchAccount:
-                await model.switchAccount(identifier: value)
+                _ = await model.switchAccount(identifier: value)
             }
             isWorking = false
         }

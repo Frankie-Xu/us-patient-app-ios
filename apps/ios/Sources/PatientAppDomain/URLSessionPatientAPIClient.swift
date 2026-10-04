@@ -271,7 +271,7 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         method: String,
         body: Data
     ) async throws -> Response {
-        var headers = ["Content-Type": "application/octet-stream"]
+        let headers = ["Content-Type": "application/octet-stream"]
         do {
             let response = try await transport.send(
                 PatientAPITransportRequest(method: method, path: path, headers: headers, body: body, idempotent: false)
