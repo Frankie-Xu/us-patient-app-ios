@@ -33,12 +33,23 @@ public struct UploadQueueItem: Equatable, Identifiable, Sendable {
     public var snapshot: ImportSnapshot?
 
     public init(id: UUID = UUID(), request: ImportRequest) {
+        self.init(id: id, request: request, state: .queued, progress: 0, attempts: 0, snapshot: nil)
+    }
+
+    public init(
+        id: UUID,
+        request: ImportRequest,
+        state: UploadQueueItemState,
+        progress: Double,
+        attempts: Int,
+        snapshot: ImportSnapshot?
+    ) {
         self.id = id
         self.request = request
-        self.state = .queued
-        self.progress = 0
-        self.attempts = 0
-        self.snapshot = nil
+        self.state = state
+        self.progress = progress
+        self.attempts = attempts
+        self.snapshot = snapshot
     }
 }
 
@@ -63,6 +74,35 @@ public final class UploadQueueModel: ObservableObject {
         return item.id
     }
 
+    /// Restores queue metadata from injected persistence. File bytes are omitted
+    /// by design and can be reattached through OfflineUploadCoordinator.
+    public func restore(_ restoredItems: [UploadQueueItem]) {
+        guard !isRunning else { return }
+        items = restoredItems
+    }
+
+    /// Reattaches file bytes after a persisted queue record is restored.
+    public func attachContent(_ content: Data, for id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        let current = items[index]
+        let request = ImportRequest(
+            fileName: current.request.fileName,
+            title: current.request.title,
+            byteCount: current.request.byteCount,
+            mediaType: current.request.mediaType,
+            sha256: current.request.sha256,
+            content: content
+        )
+        items[index] = UploadQueueItem(
+            id: current.id,
+            request: request,
+            state: current.state,
+            progress: current.progress,
+            attempts: current.attempts,
+            snapshot: current.snapshot
+        )
+    }
+
     public func start() async {
         guard !isRunning else { return }
         isRunning = true
@@ -79,6 +119,7 @@ public final class UploadQueueModel: ObservableObject {
                 items[completedIndex].state = .ready
                 items[completedIndex].progress = 1
                 items[completedIndex].snapshot = snapshot
+                clearPayload(itemID: item.id)
             } catch let error as PatientAppError {
                 markFailed(itemID: item.id, error: error)
             } catch {
@@ -138,5 +179,27 @@ public final class UploadQueueModel: ObservableObject {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
         items[index].state = .failed(error)
         items[index].progress = 0
+    }
+
+    private func clearPayload(itemID: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }) else { return }
+        let current = items[index]
+        guard current.request.content != nil else { return }
+        let request = ImportRequest(
+            fileName: current.request.fileName,
+            title: current.request.title,
+            byteCount: current.request.byteCount,
+            mediaType: current.request.mediaType,
+            sha256: current.request.sha256,
+            content: nil
+        )
+        items[index] = UploadQueueItem(
+            id: current.id,
+            request: request,
+            state: current.state,
+            progress: current.progress,
+            attempts: current.attempts,
+            snapshot: current.snapshot
+        )
     }
 }
