@@ -1,0 +1,82 @@
+{
+  "schema": "patient-app-platform/openapi-route-inventory",
+  "version": "1.0.0",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/v1/audit-events"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/documents"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/documents"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/documents/{documentId}"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/documents/{documentId}/processing-jobs"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/documents/{documentId}/upload-sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/facts"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/facts"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/facts/{factId}/review"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shared/{token}"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shares"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/shares/{shareId}/revoke"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tasks"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/tasks"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/topics"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/topics"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/upload-sessions/{uploadSessionId}/content"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/visits"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/visits"
+    }
+  ]
+}

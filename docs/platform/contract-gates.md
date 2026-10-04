@@ -4,7 +4,7 @@ Phase 12 adds two offline checks to the frozen OpenAPI and release workflow. Bot
 
 ## OpenAPI drift
 
-`packages/contracts/openapi.yaml` is the contract source. `packages/contracts/openapi.routes.json` is a reviewed inventory of its method/path pairs. Run:
+`packages/contracts/openapi.yaml` is the contract source. `packages/contracts/contract.routes.json` is a reviewed inventory of its method/path pairs. Run:
 
 ```text
 bash scripts/check-openapi.sh

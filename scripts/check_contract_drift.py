@@ -68,7 +68,7 @@ def main() -> int:
 
         contract = yaml.safe_load((root / "packages/contracts/openapi.yaml").read_text(encoding="utf-8"))
         expected = _routes(contract)
-        snapshot = _snapshot(json.loads((root / "packages/contracts/openapi.routes.json").read_text(encoding="utf-8")))
+        snapshot = _snapshot(json.loads((root / "packages/contracts/contract.routes.json").read_text(encoding="utf-8")))
     except Exception:
         print("OpenAPI contract drift check failed; inspect the contract inventory locally.", file=sys.stderr)
         return 1
