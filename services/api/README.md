@@ -57,3 +57,10 @@ Omitted constructor dependencies use the local in-memory doubles for offline tes
 The gateway may pass a verified `GatewayClaims` mapping to `auth_context_from_gateway_claims`. The core accepts issuer, audience, subject, expiry, request ID, roles and scopes only after typed validation. Issuer and audience must match deployment configuration; expiry and provider-neutral revoked/disabled/inactive states fail closed; roles and scopes must map to the explicit `PrincipalRole` and `Scope` allowlists. Empty subjects/request IDs, malformed timestamps, unknown values and missing claims are rejected.
 
 The core does not parse JWTs, verify signatures, call an identity provider, or log token material. The existing temporary `Bearer subject|scopes|roles` adapter remains a local test seam and is intentionally separate from the gateway claim mapper.
+
+
+## Durable development adapters
+
+Phase 14 adds restart-safe SQLite adapters behind the existing MetadataStore, ObjectStore, and JobQueue protocols. They are intended for local development and staging contract tests: the app still fails closed when an adapter is unavailable, and queued payloads remain metadata-only.
+
+The SQLite adapters do not claim production PHI compliance. A production deployment must replace them with encrypted managed storage, reviewed migrations, backup/restore controls, access logging, and a durable worker with an explicit data-processing agreement. Keep database paths outside the repository and never use real patient data in local fixtures.
