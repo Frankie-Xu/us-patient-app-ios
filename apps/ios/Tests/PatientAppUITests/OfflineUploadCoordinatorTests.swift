@@ -82,7 +82,7 @@ final class OfflineUploadCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(coordinator.items.first?.id, id)
         XCTAssertEqual(coordinator.items.first?.state, .ready)
-        XCTAssertTrue(await scheduler.identifiers.contains(OfflineUploadCoordinator.backgroundTaskIdentifier))
+        let identifiers = await scheduler.identifiers\n        XCTAssertTrue(identifiers.contains(OfflineUploadCoordinator.backgroundTaskIdentifier))
         let events = await notifications.events
         XCTAssertTrue(events.contains(.wentOffline))
         XCTAssertTrue(events.contains(.networkRecovered))
