@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-app.invalid/schemas/doctor-brief.json",
+  "title": "Patient App doctor brief projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["brief_schema", "schema_version", "api_version", "visit_id", "facts", "user_goals", "user_tasks"],
+  "properties": {
+    "brief_schema": {"const": "patient-app-ai/doctor-brief"},
+    "schema_version": {"const": "1.0.0"},
+    "api_version": {"const": "0.2.0"},
+    "visit_id": {"type": "string", "minLength": 1},
+    "facts": {"type": "array", "maxItems": 12, "items": {"$ref": "#/$defs/content"}},
+    "user_goals": {"type": "array", "maxItems": 4, "items": {"$ref": "#/$defs/content"}},
+    "user_tasks": {"type": "array", "maxItems": 6, "items": {"type": "object", "additionalProperties": false,
+      "required": ["task_id", "status", "due_at", "content"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["open", "done", "cancelled"]},
+        "due_at": {"type": ["string", "null"]},
+        "content": {"$ref": "#/$defs/content"}
+      }}}},
+  "additionalProperties": false,
+  "$defs": {
+    "content": {
+      "type": "object", "additionalProperties": false,
+      "required": ["claim_id", "text_en", "text_zh", "review_status", "source_ref", "source_type", "source_span"],
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "text_en": {"type": "string", "minLength": 1},
+        "text_zh": {"type": "string", "minLength": 1},
+        "review_status": {"const": "confirmed"},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_type": {"type": "string", "minLength": 1},
+        "source_span": {"type": "object", "required": ["start", "end", "page"], "additionalProperties": false,
+          "properties": {"start": {"type": "integer", "minimum": 0}, "end": {"type": "integer", "minimum": 1}, "page": {"type": "integer", "minimum": 1}}}
+      }
+    }
+  }
+}

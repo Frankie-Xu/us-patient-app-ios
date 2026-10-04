@@ -14,6 +14,15 @@ from .doctor_view import (
     DoctorViewGateResult,
     evaluate_doctor_view,
 )
+from .doctor_brief import (
+    BRIEF_SCHEMA,
+    BRIEF_SCHEMA_VERSION,
+    DoctorBrief,
+    DoctorBriefBlocked,
+    DoctorBriefScope,
+    DoctorBriefTask,
+    project_doctor_brief,
+)
 from .api_projection import (
     API_VERSION,
     ApiProjection,
@@ -81,6 +90,10 @@ __all__ = [
     "DoctorViewDecision",
     "DoctorViewErrorCategory",
     "DoctorViewGateResult",
+    "DoctorBrief",
+    "DoctorBriefBlocked",
+    "DoctorBriefScope",
+    "DoctorBriefTask",
     "ErrorCategory",
     "EvaluationPipeline",
     "FactExtractionResult",
@@ -90,6 +103,8 @@ __all__ = [
     "GoldenSet",
     "GATE_SCHEMA",
     "GATE_SCHEMA_VERSION",
+    "BRIEF_SCHEMA",
+    "BRIEF_SCHEMA_VERSION",
     "ExtractionEvaluation",
     "ExtractionMetrics",
     "MockPredictionVariant",
@@ -119,5 +134,6 @@ __all__ = [
     "generate_regression_report",
     "generate_regression_report_from_json",
     "evaluate_doctor_view",
+    "project_doctor_brief",
     "synthetic_golden_set",
 ]

@@ -60,6 +60,18 @@ only facts with `review_status=confirmed`, a complete `source_ref` and
 excluded claim IDs, stable `doctor_view.*` error categories and
 `delivery_blocked`; the gate never changes a claim into `confirmed`.
 
+`project_doctor_brief` is the bounded one-page projection on top of that gate.
+It emits only verbatim, confirmed content with source spans, and preserves
+patient goals and tasks when they are confirmed user-input claims. The caller
+must provide an authenticated owner/visit scope and an authorization mapping
+for every claim; missing mappings, scope mismatches, unresolved conflicts,
+unconfirmed facts and missing provenance reject the whole brief. The fixed
+budget is 12 facts, 4 goals, 6 tasks and 4,000 bilingual text characters;
+overflow rejects rather than truncates. The projection never invents a
+diagnosis, treatment, recommendation or priority. Its response is PHI and
+must stay in the authorized response channel, out of logs and regression
+artifacts. See [`doctor_brief.schema.json`](doctor_brief.schema.json).
+
 High and critical errors, unresolved conflicts, missing claims and provenance
 failures set `delivery_blocked=true`. A report can therefore be used as a
 delivery gate without treating a metric average as a safety decision.
