@@ -32,6 +32,8 @@ public enum UnsupportedOperation: Equatable, Sendable {
     case taskListingNotInClient
     case shareCreationNotInClient
     case shareRevocationNotInClient
+    case shareStatusNotInClient
+    case pdfExportNotInClient
     case uploadSessionCreationNotInClient
     case uploadContentNotInClient
     case documentListingNotInClient
