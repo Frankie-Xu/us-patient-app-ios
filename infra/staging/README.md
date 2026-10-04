@@ -38,3 +38,25 @@ provider-neutral and are not production API or worker implementations.
 run-smoke.sh also invokes the existing scripts/staging_e2e.py when that file
 is present in the checkout. It deliberately does not duplicate or replace the
 end-to-end workflow.
+
+## Acceptance entrypoint
+
+Use the composed acceptance entrypoint after the existing full workflow harness
+is present:
+
+       bash scripts/staging/run-acceptance.sh
+
+It verifies the runtime composition contract, invokes the existing retry and
+idempotency harness, and invokes scripts/staging_e2e.py for the upload through
+revoke flow. It emits a redacted JSON summary, identifies the failing stage,
+and returns a non-zero status on a failed or blocked stage. The entrypoint only
+orchestrates existing harnesses; it does not reimplement API or AI business
+logic and never logs document bytes or patient data.
+
+A checkout that intentionally omits scripts/staging_e2e.py can rehearse the
+runtime and resilience stages with:
+
+       STAGING_ACCEPTANCE_ALLOW_MISSING_FULL_FLOW=1 bash scripts/staging/run-acceptance.sh
+
+That mode marks the patient flow as deferred so it cannot be mistaken for a
+complete acceptance.
