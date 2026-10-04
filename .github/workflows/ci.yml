@@ -40,6 +40,8 @@ jobs:
         run: bash scripts/check-workflow-pins.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
+      - name: Run production configuration contract regression
+        run: bash scripts/test-production-config.sh
       - name: Run release evidence regression
         run: bash scripts/test-release-evidence.sh
       - name: Run contract drift regression
