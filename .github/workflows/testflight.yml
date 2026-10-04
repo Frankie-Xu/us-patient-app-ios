@@ -55,9 +55,9 @@ jobs:
             echo "configured=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          for required in IOS_XCODE_SCHEME IOS_EXPORT_OPTIONS; do
+          for required in IOS_XCODE_SCHEME IOS_EXPORT_OPTIONS APPLE_TEAM_ID; do
             if [[ -z "${!required:-}" ]]; then
-              echo "::error::Missing repository variable $required"
+              echo "::error::Missing release configuration $required"
               exit 1
             fi
           done
