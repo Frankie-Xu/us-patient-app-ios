@@ -33,3 +33,9 @@ Use synthetic bytes only. Production requires authenticated gateway limits, stre
 ## Account-history reads
 
 `GET /v1/topics` and `GET /v1/visits` require `visits:read`; `GET /v1/tasks` requires `tasks:read`. They reuse the existing owner/reviewer/service visibility rule, return `200` with an empty array for an empty account, and sort by server creation time ascending with an ID tie-breaker. The adapter never accepts a client sort expression or exposes records from another owner without reviewer/service authorization.
+
+## Provider-neutral metadata boundary (Phase 10A)
+
+`ApiService` depends on the `MetadataStore` protocol rather than `InMemoryStore` internals. The protocol is limited to readiness, resource reads/lists, version-aware saves, actor-scoped idempotency receipts, and PHI-safe audit append/read operations. `InMemoryStore` remains the dependency-free test implementation and keeps its public collections for fixture assertions.
+
+Omitted constructor dependencies use the local in-memory doubles for offline tests. An explicitly missing dependency (`None`), a provider reporting unavailable, or a provider raising during `is_ready()` makes `/readyz` return `503` with `DEPENDENCY_UNAVAILABLE`; the service never claims readiness on an incomplete startup graph. No database, cloud provider, queue, credential, or PHI adapter is included.

@@ -34,7 +34,7 @@ from .models import (
     Visit,
     utc_now,
 )
-from .store import IdempotencyConflictError, InMemoryStore, NotFoundError, VersionConflictError
+from .store import IdempotencyConflictError, InMemoryStore, MetadataStore, NotFoundError, VersionConflictError
 
 
 class ServiceError(RuntimeError):
@@ -56,6 +56,7 @@ class UploadSessionError(ServiceError):
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 UPLOAD_SESSION_TTL = timedelta(minutes=15)
+_DEPENDENCY_UNSET = object()
 
 
 class ApiService:
@@ -63,15 +64,17 @@ class ApiService:
 
     def __init__(
         self,
-        store: InMemoryStore | None = None,
+        store: MetadataStore | None | object = _DEPENDENCY_UNSET,
         clock: Callable[[], datetime] = utc_now,
-        object_store: ObjectStore | None = None,
-        job_queue: JobQueue | None = None,
+        object_store: ObjectStore | None | object = _DEPENDENCY_UNSET,
+        job_queue: JobQueue | None | object = _DEPENDENCY_UNSET,
     ) -> None:
-        self.store = store or InMemoryStore()
+        # Omitted dependencies retain the offline in-memory defaults. Explicit
+        # None is preserved so readiness fails closed for misconfigured startup.
+        self.store: MetadataStore | None = InMemoryStore() if store is _DEPENDENCY_UNSET else store  # type: ignore[assignment]
         self.clock = clock
-        self.object_store = object_store if object_store is not None else InMemoryObjectStore()
-        self.job_queue = job_queue if job_queue is not None else InMemoryJobQueue()
+        self.object_store: ObjectStore | None = InMemoryObjectStore() if object_store is _DEPENDENCY_UNSET else object_store  # type: ignore[assignment]
+        self.job_queue: JobQueue | None = InMemoryJobQueue() if job_queue is _DEPENDENCY_UNSET else job_queue  # type: ignore[assignment]
         # Raw share tokens live only in this process memory for idempotent replay.
         # The store receives only a digest, so a durable adapter never persists a token.
         self._ephemeral_share_tokens: dict[str, str] = {}
@@ -81,14 +84,16 @@ class ApiService:
 
     def readiness(self) -> dict[str, object]:
         checks: dict[str, bool] = {
-            "metadata_store": True,
+            "metadata_store": self._dependency_ready(self.store),
             "object_store": self._dependency_ready(self.object_store),
             "job_queue": self._dependency_ready(self.job_queue),
         }
         return {"status": "ready" if all(checks.values()) else "not_ready", "checks": checks}
 
     @staticmethod
-    def _dependency_ready(dependency: ObjectStore | JobQueue) -> bool:
+    def _dependency_ready(dependency: MetadataStore | ObjectStore | JobQueue | None) -> bool:
+        if dependency is None:
+            return False
         try:
             return bool(dependency.is_ready())
         except Exception:
@@ -107,7 +112,9 @@ class ApiService:
             occurred_at=self.clock(),
             metadata={str(k): str(v) for k, v in metadata.items()},
         )
-        self.store.audit_events.append(event)
+        if self.store is None:
+            raise DependencyUnavailableError("metadata store is unavailable")
+        self.store.append_audit(event)
 
     def _idempotent(self, auth: AuthContext, key: str, payload: Mapping[str, Any]) -> Any | None:
         if not key.strip():
@@ -138,21 +145,21 @@ class ApiService:
         payload = {"filename": filename, "media_type": media_type, "size_bytes": size_bytes, "sha256": sha256}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.documents, replay["value"]["id"])
+            return self.store.get_resource("documents", replay["value"]["id"])
         document = Document(self._id(), auth.subject_id, filename, media_type, size_bytes, sha256, created_at=self.clock(), updated_at=self.clock())
-        self.store.put(self.store.documents, document)
+        self.store.save_resource("documents", document)
         self._audit(auth, "document.created", "document", document.id)
         self._remember(auth, idempotency_key, payload, {"id": document.id})
         return document
 
     def create_upload_session(self, auth: AuthContext, *, document_id: str, idempotency_key: str) -> UploadSession:
         require_scope(auth, Scope.DOCUMENTS_WRITE)
-        document = self.store.get(self.store.documents, document_id)
+        document = self.store.get_resource("documents", document_id)
         require_owner(auth, document.owner_id)
         payload = {"operation": "create_upload_session", "document_id": document_id}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.upload_sessions, replay["value"]["id"])
+            return self.store.get_resource("upload_sessions", replay["value"]["id"])
         if document.status != DocumentStatus.UPLOADED:
             raise UploadSessionError(409, "UPLOAD_SESSION_CONFLICT", "document is not available for upload")
         if document.size_bytes > MAX_UPLOAD_BYTES:
@@ -163,14 +170,14 @@ class ApiService:
         session = UploadSession(self._id(), document.owner_id, document.id, document.version,
                                 document.size_bytes, document.sha256.lower(), document.media_type,
                                 now + UPLOAD_SESSION_TTL, now)
-        self.store.upload_sessions[session.id] = session
+        self.store.save_resource("upload_sessions", session)
         self._audit(auth, "upload_session.created", "upload_session", session.id)
         self._remember(auth, idempotency_key, payload, {"id": session.id}, status=201)
         return session
 
     def upload_content(self, auth: AuthContext, session_id: str, content: bytes) -> UploadSession:
         require_scope(auth, Scope.DOCUMENTS_WRITE)
-        session = self.store.get(self.store.upload_sessions, session_id)
+        session = self.store.get_resource("upload_sessions", session_id)
         require_owner(auth, session.owner_id)
         if not isinstance(content, bytes):
             raise UploadSessionError(422, "VALIDATION_ERROR", "binary request body is required")
@@ -184,26 +191,28 @@ class ApiService:
             return session
         if self.clock() >= session.expires_at:
             raise UploadSessionError(410, "UPLOAD_EXPIRED", "upload session has expired")
-        document = self.store.get(self.store.documents, session.document_id)
+        document = self.store.get_resource("documents", session.document_id)
         if document.version != session.document_version or document.status != DocumentStatus.UPLOADED:
             raise UploadSessionError(409, "UPLOAD_SESSION_CONFLICT", "document changed after upload session creation")
         # The generated key is opaque and internal. Provider failures leave the session pending.
         try:
+            if self.object_store is None:
+                raise UploadSessionError(503, "DEPENDENCY_UNAVAILABLE", "object store is unavailable")
             object_key = self.object_store.put(f"uploads/{session.id}", content, media_type=session.media_type)
         except DependencyUnavailableError as exc:
             raise UploadSessionError(503, "DEPENDENCY_UNAVAILABLE", "object store is unavailable") from exc
         verified = replace(session, status=UploadStatus.VERIFIED, verified_at=self.clock(), object_key=object_key)
-        self.store.upload_sessions[session.id] = verified
+        self.store.save_resource("upload_sessions", verified)
         self._audit(auth, "upload_session.verified", "upload_session", session.id)
         return verified
 
     def list_documents(self, auth: AuthContext) -> list[Document]:
         require_scope(auth, Scope.DOCUMENTS_READ)
-        return [document for document in self.store.documents.values() if document.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
+        return [document for document in self.store.list_resources("documents") if document.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
 
     def get_document(self, auth: AuthContext, document_id: str) -> Document:
         require_scope(auth, Scope.DOCUMENTS_READ)
-        document = self.store.get(self.store.documents, document_id)
+        document = self.store.get_resource("documents", document_id)
         require_owner(auth, document.owner_id)
         return document
 
@@ -217,30 +226,30 @@ class ApiService:
     ) -> UploadProcessingJob:
         require_scope(auth, Scope.DOCUMENTS_WRITE)
         job_type = JobType(job_type)
-        document = self.store.get(self.store.documents, document_id)
+        document = self.store.get_resource("documents", document_id)
         require_owner(auth, document.owner_id)
         payload = {"document_id": document_id, "job_type": job_type.value}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.jobs, replay["value"]["id"])
+            return self.store.get_resource("jobs", replay["value"]["id"])
         now = self.clock()
         job = UploadProcessingJob(self._id(), auth.subject_id, document_id, job_type, idempotency_key=idempotency_key, created_at=now, updated_at=now)
         self.job_queue.enqueue(job.id, {"document_id": document_id, "job_type": job_type.value})
-        self.store.jobs[job.id] = job
-        self.store.documents[document_id] = replace(document, status=DocumentStatus.PROCESSING, version=document.version + 1, updated_at=now)
+        self.store.save_resource("jobs", job)
+        self.store.save_resource("documents", replace(document, status=DocumentStatus.PROCESSING, version=document.version + 1, updated_at=now), expected_version=document.version)
         self._audit(auth, "upload_processing.queued", "upload_processing_job", job.id, job_type=job_type.value)
         self._remember(auth, idempotency_key, payload, {"id": job.id}, status=202)
         return job
 
     def complete_processing(self, auth: AuthContext, job_id: str, *, success: bool, error_code: str | None = None) -> UploadProcessingJob:
         require_role(auth, PrincipalRole.SERVICE)
-        job = self.store.get(self.store.jobs, job_id)
+        job = self.store.get_resource("jobs", job_id)
         now = self.clock()
         status = JobStatus.SUCCEEDED if success else JobStatus.FAILED
         updated = replace(job, status=status, attempt=job.attempt + 1, error_code=error_code, updated_at=now)
-        self.store.jobs[job_id] = updated
-        document = self.store.get(self.store.documents, job.document_id)
-        self.store.documents[document.id] = replace(document, status=DocumentStatus.READY if success else DocumentStatus.FAILED, version=document.version + 1, updated_at=now)
+        self.store.save_resource("jobs", updated)
+        document = self.store.get_resource("documents", job.document_id)
+        self.store.save_resource("documents", replace(document, status=DocumentStatus.READY if success else DocumentStatus.FAILED, version=document.version + 1, updated_at=now), expected_version=document.version)
         self._audit(auth, "upload_processing.completed", "upload_processing_job", job_id, status=status.value)
         return updated
 
@@ -266,29 +275,29 @@ class ApiService:
         payload = {"label": label, "value": value, "source_ref": source_ref, "source_type": source_type.value, "confidence": confidence, "document_id": document_id, "topic_id": topic_id}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.facts, replay["value"]["id"])
+            return self.store.get_resource("facts", replay["value"]["id"])
         now = self.clock()
         fact = Fact(self._id(), auth.subject_id, label, value, source_ref, source_type, confidence, document_id=document_id, topic_id=topic_id, created_at=now, updated_at=now)
-        self.store.facts[fact.id] = fact
+        self.store.save_resource("facts", fact)
         self._audit(auth, "fact.created", "fact", fact.id, source_type=source_type.value, review_status=fact.review_status.value)
         self._remember(auth, idempotency_key, payload, {"id": fact.id})
         return fact
 
     def list_facts(self, auth: AuthContext) -> list[Fact]:
         require_scope(auth, Scope.FACTS_READ)
-        return [fact for fact in self.store.facts.values() if fact.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
+        return [fact for fact in self.store.list_resources("facts") if fact.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
 
     def review_fact(self, auth: AuthContext, fact_id: str, *, review_status: ReviewStatus, expected_version: int) -> Fact:
         require_scope(auth, Scope.FACTS_WRITE)
         review_status = ReviewStatus(review_status)
         require_role(auth, PrincipalRole.PATIENT, PrincipalRole.REVIEWER)
-        fact = self.store.get(self.store.facts, fact_id)
+        fact = self.store.get_resource("facts", fact_id)
         require_owner(auth, fact.owner_id)
         if review_status == ReviewStatus.CONFIRMED and not fact.source_ref:
             raise ServiceError("cannot confirm a fact without source_ref")
         now = self.clock()
         updated = replace(fact, review_status=review_status, version=fact.version + 1, updated_at=now)
-        self.store.put(self.store.facts, updated, expected_version=expected_version)
+        self.store.save_resource("facts", updated, expected_version=expected_version)
         self._audit(auth, "fact.reviewed", "fact", fact_id, review_status=review_status.value)
         return updated
 
@@ -303,24 +312,24 @@ class ApiService:
 
     def list_topics(self, auth: AuthContext) -> list[Topic]:
         require_scope(auth, Scope.VISITS_READ)
-        return self._created_order([topic for topic in self.store.topics.values() if self._visible(auth, topic.owner_id)])
+        return self._created_order([topic for topic in self.store.list_resources("topics") if self._visible(auth, topic.owner_id)])
 
     def list_visits(self, auth: AuthContext) -> list[Visit]:
         require_scope(auth, Scope.VISITS_READ)
-        return self._created_order([visit for visit in self.store.visits.values() if self._visible(auth, visit.owner_id)])
+        return self._created_order([visit for visit in self.store.list_resources("visits") if self._visible(auth, visit.owner_id)])
 
     def list_tasks(self, auth: AuthContext) -> list[Task]:
         require_scope(auth, Scope.TASKS_READ)
-        return self._created_order([task for task in self.store.tasks.values() if self._visible(auth, task.owner_id)])
+        return self._created_order([task for task in self.store.list_resources("tasks") if self._visible(auth, task.owner_id)])
 
     def create_topic(self, auth: AuthContext, *, name: str, idempotency_key: str) -> Topic:
         require_scope(auth, Scope.VISITS_WRITE)
         payload = {"name": name}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.topics, replay["value"]["id"])
+            return self.store.get_resource("topics", replay["value"]["id"])
         topic = Topic(self._id(), auth.subject_id, name, created_at=self.clock(), updated_at=self.clock())
-        self.store.topics[topic.id] = topic
+        self.store.save_resource("topics", topic)
         self._audit(auth, "topic.created", "topic", topic.id)
         self._remember(auth, idempotency_key, payload, {"id": topic.id})
         return topic
@@ -330,9 +339,9 @@ class ApiService:
         payload = {"title": title, "starts_at": starts_at, "topic_ids": topic_ids}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.visits, replay["value"]["id"])
+            return self.store.get_resource("visits", replay["value"]["id"])
         visit = Visit(self._id(), auth.subject_id, title, starts_at, topic_ids, created_at=self.clock(), updated_at=self.clock())
-        self.store.visits[visit.id] = visit
+        self.store.save_resource("visits", visit)
         self._audit(auth, "visit.created", "visit", visit.id)
         self._remember(auth, idempotency_key, payload, {"id": visit.id})
         return visit
@@ -342,9 +351,9 @@ class ApiService:
         payload = {"title": title, "visit_id": visit_id, "due_at": due_at}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            return self.store.get(self.store.tasks, replay["value"]["id"])
+            return self.store.get_resource("tasks", replay["value"]["id"])
         task = Task(self._id(), auth.subject_id, title, visit_id=visit_id, due_at=due_at, created_at=self.clock(), updated_at=self.clock())
-        self.store.tasks[task.id] = task
+        self.store.save_resource("tasks", task)
         self._audit(auth, "task.created", "task", task.id)
         self._remember(auth, idempotency_key, payload, {"id": task.id})
         return task
@@ -360,14 +369,14 @@ class ApiService:
         payload = {"resource_type": resource_type, "resource_id": resource_id, "resource_version": resource_version, "expires_at": expires_at}
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
-            share = self.store.get(self.store.shares, replay["value"]["id"])
+            share = self.store.get_resource("shares", replay["value"]["id"])
             token = self._ephemeral_share_tokens.get(share.id)
             if token is None:
                 raise ServiceError("share idempotency replay is unavailable after the ephemeral token vault was restarted")
             return share, token
         token = secrets.token_urlsafe(32)
         share = ShareVersion(self._id(), auth.subject_id, resource_type, resource_id, resource_version, expires_at, hashlib.sha256(token.encode()).hexdigest(), created_at=self.clock())
-        self.store.shares[share.id] = share
+        self.store.save_resource("shares", share)
         self._ephemeral_share_tokens[share.id] = token
         self._audit(auth, "share.created", "share_version", share.id, shared_resource_type=resource_type)
         self._remember(auth, idempotency_key, payload, {"id": share.id, "token_digest": share.token_digest})
@@ -375,18 +384,18 @@ class ApiService:
 
     def revoke_share(self, auth: AuthContext, share_id: str) -> ShareVersion:
         require_scope(auth, Scope.SHARES_REVOKE)
-        share = self.store.get(self.store.shares, share_id)
+        share = self.store.get_resource("shares", share_id)
         require_owner(auth, share.owner_id)
         if share.status == ShareStatus.REVOKED:
             return share
         revoked = replace(share, status=ShareStatus.REVOKED, revoked_at=self.clock())
-        self.store.shares[share_id] = revoked
+        self.store.save_resource("shares", revoked)
         self._audit(auth, "share.revoked", "share_version", share_id)
         return revoked
 
     def access_share(self, token: str) -> tuple[ShareVersion, Any]:
         digest = hashlib.sha256(token.encode()).hexdigest()
-        for share in self.store.shares.values():
+        for share in self.store.list_resources("shares"):
             if share.token_digest != digest:
                 continue
             status = share.effective_status(self.clock())
@@ -398,13 +407,13 @@ class ApiService:
     def list_audit(self, auth: AuthContext, *, resource_id: str | None = None) -> list[AuditEvent]:
         require_scope(auth, Scope.AUDIT_READ)
         require_role(auth, PrincipalRole.PATIENT, PrincipalRole.REVIEWER, PrincipalRole.SERVICE)
-        events = self.store.audit_events
+        events = self.store.list_audit_events()
         if resource_id is not None:
             events = [event for event in events if event.resource_id == resource_id]
         return [event for event in events if PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles or event.actor_id == auth.subject_id]
 
     def _resource(self, resource_type: str, resource_id: str) -> Any:
-        collections = {"document": self.store.documents, "fact": self.store.facts, "topic": self.store.topics, "visit": self.store.visits, "task": self.store.tasks}
-        if resource_type not in collections:
+        resource_types = {"document": "documents", "fact": "facts", "topic": "topics", "visit": "visits", "task": "tasks"}
+        if resource_type not in resource_types:
             raise ServiceError(f"unsupported share resource_type: {resource_type}")
-        return self.store.get(collections[resource_type], resource_id)
+        return self.store.get_resource(resource_types[resource_type], resource_id)
