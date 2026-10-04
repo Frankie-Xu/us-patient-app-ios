@@ -178,6 +178,8 @@ class ApiHttpAdapter:
                     idempotency_key=self._idempotency(headers),
                 )
                 return HttpResponse(202, to_jsonable(job))
+            if method == "GET" and route == "/v1/topics":
+                return HttpResponse(200, [to_jsonable(item) for item in self.service.list_topics(auth)])
             if method == "POST" and route == "/v1/topics":
                 data = self._body(body)
                 _required(data, "name")
@@ -188,6 +190,8 @@ class ApiHttpAdapter:
                     idempotency_key=self._idempotency(headers),
                 )
                 return HttpResponse(201, to_jsonable(topic))
+            if method == "GET" and route == "/v1/visits":
+                return HttpResponse(200, [to_jsonable(item) for item in self.service.list_visits(auth)])
             if method == "POST" and route == "/v1/visits":
                 data = self._body(body)
                 _required(data, "title")
@@ -201,6 +205,8 @@ class ApiHttpAdapter:
                     idempotency_key=self._idempotency(headers),
                 )
                 return HttpResponse(201, to_jsonable(visit))
+            if method == "GET" and route == "/v1/tasks":
+                return HttpResponse(200, [to_jsonable(item) for item in self.service.list_tasks(auth)])
             if method == "POST" and route == "/v1/tasks":
                 data = self._body(body)
                 _required(data, "title")

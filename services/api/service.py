@@ -292,6 +292,27 @@ class ApiService:
         self._audit(auth, "fact.reviewed", "fact", fact_id, review_status=review_status.value)
         return updated
 
+    @staticmethod
+    def _created_order(items: list[Any]) -> list[Any]:
+        """Return creation chronology with an ID tie-breaker for deterministic pages."""
+        return sorted(items, key=lambda item: (item.created_at, item.id))
+
+    @staticmethod
+    def _visible(auth: AuthContext, owner_id: str) -> bool:
+        return owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles
+
+    def list_topics(self, auth: AuthContext) -> list[Topic]:
+        require_scope(auth, Scope.VISITS_READ)
+        return self._created_order([topic for topic in self.store.topics.values() if self._visible(auth, topic.owner_id)])
+
+    def list_visits(self, auth: AuthContext) -> list[Visit]:
+        require_scope(auth, Scope.VISITS_READ)
+        return self._created_order([visit for visit in self.store.visits.values() if self._visible(auth, visit.owner_id)])
+
+    def list_tasks(self, auth: AuthContext) -> list[Task]:
+        require_scope(auth, Scope.TASKS_READ)
+        return self._created_order([task for task in self.store.tasks.values() if self._visible(auth, task.owner_id)])
+
     def create_topic(self, auth: AuthContext, *, name: str, idempotency_key: str) -> Topic:
         require_scope(auth, Scope.VISITS_WRITE)
         payload = {"name": name}
