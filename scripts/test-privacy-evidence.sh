@@ -18,7 +18,7 @@ value=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert value == {"inputs_checked": 2, "manifest_schema": "patient-app-platform/privacy-evidence", "schema_version": "1.0.0", "status": "passed", "violation_codes": []}
 PY
 cat > "$tmp_dir/leak.json" <<'JSON'
-{"manifest_schema":"patient-app-platform/release-evidence","debug_path":"/Users/example/private.json","details":"patient name"}
+{"manifest_schema":"patient-app-platform/release-evidence","schema_version":"1.0.0","metadata":{"debug_path":"/Users/example/private.json","details":"patient name"},"checks":{},"overall":{"status":"passed"}}
 JSON
 set +e
 python3 "$repo_root/scripts/check_privacy_evidence.py" --input "$tmp_dir/leak.json" --output "$tmp_dir/fail.json" >"$tmp_dir/output" 2>&1
