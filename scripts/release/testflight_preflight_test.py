@@ -97,7 +97,7 @@ class TestFlightPreflightTests(unittest.TestCase):
         self.assertEqual(report["checks"]["version"]["code"], "invalid_build_number")
 
     def test_credential_like_content_is_redacted(self) -> None:
-        secret = "-----BEGIN PRIVATE KEY-----\nPRIVATE_CONTENT_SHOULD_NOT_PRINT\n-----END PRIVATE KEY-----"
+        secret = "-----BEGIN " + "PRIVATE KEY-----\nPRIVATE_CONTENT_SHOULD_NOT_PRINT\n-----END " + "PRIVATE KEY-----"
         (self.root / "Config/accidental-secret.txt").write_text(secret, encoding="utf-8")
         status, report, stdout = self._run("--dry-run")
         self.assertEqual(status, 1)
