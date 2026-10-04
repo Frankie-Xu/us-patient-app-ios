@@ -13,6 +13,7 @@ let package = Package(
         .target(name: "PatientAppDomain"),
         .target(name: "PatientAppUI", dependencies: ["PatientAppDomain"]),
         .executableTarget(name: "PatientApp", dependencies: ["PatientAppUI"]),
-        .testTarget(name: "PatientAppDomainTests", dependencies: ["PatientAppDomain"])
+        .testTarget(name: "PatientAppDomainTests", dependencies: ["PatientAppDomain"]),
+        .testTarget(name: "PatientAppUITests", dependencies: ["PatientAppUI", "PatientAppDomain"])
     ]
 )

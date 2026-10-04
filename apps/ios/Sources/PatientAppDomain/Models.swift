@@ -2,6 +2,10 @@ import Foundation
 
 public enum PatientAppError: Error, Equatable, Sendable {
     case unavailable
+    case invalidInput
+    case uploadFailed
+    case processingFailed
+    case factNotFound
     case invalidTransition(from: LifecycleState, to: LifecycleState)
     case reviewRequired
     case sourceRequired
@@ -236,5 +240,110 @@ public enum LoadState<Value: Equatable & Sendable>: Equatable, Sendable {
     public var isRetryable: Bool {
         if case .failed = self { return true }
         return false
+    }
+}
+
+public struct ImportRequest: Codable, Equatable, Hashable, Sendable {
+    public let fileName: String
+    public let title: String
+    public let byteCount: Int
+
+    public init(fileName: String, title: String, byteCount: Int = 1) {
+        self.fileName = fileName
+        self.title = title
+        self.byteCount = byteCount
+    }
+}
+
+public struct ImportTicket: Codable, Equatable, Hashable, Sendable, Identifiable {
+    public let id: UUID
+    public let documentID: UUID
+    public let title: String
+
+    public init(id: UUID = UUID(), documentID: UUID, title: String) {
+        self.id = id
+        self.documentID = documentID
+        self.title = title
+    }
+}
+
+public struct UploadRequest: Codable, Equatable, Hashable, Sendable {
+    public let ticketID: UUID
+    public let byteCount: Int
+
+    public init(ticketID: UUID, byteCount: Int) {
+        self.ticketID = ticketID
+        self.byteCount = byteCount
+    }
+}
+
+public struct UploadReceipt: Codable, Equatable, Hashable, Sendable, Identifiable {
+    public let id: UUID
+    public let ticketID: UUID
+    public let documentID: UUID
+
+    public init(id: UUID = UUID(), ticketID: UUID, documentID: UUID) {
+        self.id = id
+        self.ticketID = ticketID
+        self.documentID = documentID
+    }
+}
+
+public enum ProcessingStatus: String, Codable, CaseIterable, Sendable {
+    case queued
+    case processing
+    case ready
+    case failed
+}
+
+public struct ImportSnapshot: Codable, Equatable, Hashable, Sendable {
+    public let ticket: ImportTicket
+    public let receipt: UploadReceipt
+    public var status: ProcessingStatus
+    public var facts: [Fact]
+
+    public init(ticket: ImportTicket, receipt: UploadReceipt, status: ProcessingStatus, facts: [Fact] = []) {
+        self.ticket = ticket
+        self.receipt = receipt
+        self.status = status
+        self.facts = facts
+    }
+}
+
+public enum ImportStage: Equatable, Sendable {
+    case uploading
+    case processing
+    case loadingFacts
+}
+
+public enum ImportFlowState: Equatable, Sendable {
+    case idle
+    case uploading
+    case processing
+    case reviewRequired(ImportSnapshot)
+    case empty(ImportSnapshot)
+    case completed(ImportSnapshot)
+    case failed(PatientAppError)
+}
+
+public struct FactEditCommand: Codable, Equatable, Hashable, Sendable {
+    public let documentID: UUID
+    public let factID: UUID
+    public let value: String
+
+    public init(documentID: UUID, factID: UUID, value: String) {
+        self.documentID = documentID
+        self.factID = factID
+        self.value = value
+    }
+}
+
+public struct FactReviewCommand: Codable, Equatable, Hashable, Sendable {
+    public let documentID: UUID
+    public let factID: UUID
+
+    public init(documentID: UUID, factID: UUID) {
+        self.documentID = documentID
+        self.factID = factID
     }
 }

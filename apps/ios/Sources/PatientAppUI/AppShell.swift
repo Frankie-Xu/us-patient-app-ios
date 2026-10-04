@@ -30,7 +30,11 @@ public enum AppSection: String, CaseIterable, Identifiable, Sendable {
 @MainActor
 public final class AppShellModel: ObservableObject {
     @Published public var selection: AppSection = .home
-    public init() {}
+    @Published public var importFlow: ImportFlowModel
+
+    public init(client: any PatientAPIClient = DeterministicMockAPIClient()) {
+        self.importFlow = ImportFlowModel(client: client)
+    }
 }
 
 public struct AppShellView: View {
@@ -40,9 +44,9 @@ public struct AppShellView: View {
 
     public var body: some View {
         TabView(selection: $model.selection) {
-            HomeView().tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
-            RecordsView().tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
-            ReviewView().tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
+            HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
+            RecordsView(model: model.importFlow).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
+            ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView().tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView().tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
         }
