@@ -44,28 +44,28 @@ public struct LivePatientAPIClientConfiguration: Sendable {
     public let baseURLProvider: any APIBaseURLProvider
     public let tokenProvider: any BearerTokenProvider
     public let requestIDProvider: any RequestIDProvider
+    public let retryPolicy: PatientAPITransportRetryPolicy
 
-    public init(baseURLProvider: any APIBaseURLProvider, tokenProvider: any BearerTokenProvider, requestIDProvider: any RequestIDProvider) {
+    public init(baseURLProvider: any APIBaseURLProvider, tokenProvider: any BearerTokenProvider, requestIDProvider: any RequestIDProvider, retryPolicy: PatientAPITransportRetryPolicy = PatientAPITransportRetryPolicy()) {
         self.baseURLProvider = baseURLProvider
         self.tokenProvider = tokenProvider
         self.requestIDProvider = requestIDProvider
+        self.retryPolicy = retryPolicy
     }
 }
 
 public enum PatientAPIClientFactory {
     /// Creates the live transport from deployment supplied dependencies. Construction performs no request.
     public static func makeLive(configuration: LivePatientAPIClientConfiguration, session: URLSession = .shared) throws -> any PatientAPIClient {
-        try URLSessionPatientAPIClient(baseURLProvider: configuration.baseURLProvider, tokenProvider: configuration.tokenProvider, requestIDProvider: configuration.requestIDProvider, session: session)
+        try URLSessionPatientAPIClient(baseURLProvider: configuration.baseURLProvider, tokenProvider: configuration.tokenProvider, requestIDProvider: configuration.requestIDProvider, session: session, retryPolicy: configuration.retryPolicy)
     }
 }
 
 /// URLSession transport for the frozen v0.2.0 contract.
 /// Authentication, endpoint selection, and request IDs remain injectable for tests and deployment adapters.
 public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
-    private let baseURLProvider: any APIBaseURLProvider
-    private let tokenProvider: any BearerTokenProvider
-    private let requestIDProvider: any RequestIDProvider
-    private let session: URLSession
+    private let transport: any PatientAPITransport
+    private let requestIDProvider: (any RequestIDProvider)?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -73,15 +73,30 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         baseURLProvider: any APIBaseURLProvider,
         tokenProvider: any BearerTokenProvider,
         requestIDProvider: any RequestIDProvider,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        retryPolicy: PatientAPITransportRetryPolicy = PatientAPITransportRetryPolicy()
     ) throws {
-        guard baseURLProvider.baseURL.scheme != nil, baseURLProvider.baseURL.host != nil else {
+        do {
+            self.transport = try URLSessionPatientAPITransport(baseURLProvider: baseURLProvider, tokenProvider: tokenProvider, requestIDProvider: requestIDProvider, session: session, retryPolicy: retryPolicy)
+        } catch PatientAPITransportError.invalidURL {
             throw PatientAPIClientError.invalidBaseURL
+        } catch {
+            throw PatientAPIClientError.invalidRequest
         }
-        self.baseURLProvider = baseURLProvider
-        self.tokenProvider = tokenProvider
         self.requestIDProvider = requestIDProvider
-        self.session = session
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
+    }
+
+    /// Initializes the typed client over a generated OpenAPI transport or a
+    /// deterministic test double. Auth and URL policy remain outside this layer.
+    public init(transport: any PatientAPITransport) {
+        self.transport = transport
+        self.requestIDProvider = nil
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         self.encoder = encoder
@@ -165,6 +180,19 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return try response.map { try $0.domainValue() }
     }
 
+    public func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation {
+        guard request.resourceVersion > 0, request.expiresAt > .now else { throw PatientAPIClientError.invalidRequest }
+        let payload = ContractShareCreatePayload(resourceType: request.resourceType, resourceID: request.resourceID, resourceVersion: request.resourceVersion, expiresAt: request.expiresAt)
+        let response: ContractShareCreateResponse = try await send(path: "/v1/shares", method: "POST", body: payload, idempotent: true, idempotencyKey: request.idempotencyKey)
+        guard !response.token.isEmpty else { throw PatientAPIClientError.decoding }
+        return ShareCreation(share: try response.share.domainValue(), token: response.token)
+    }
+
+    public func revokeShare(id: UUID) async throws -> ShareVersion {
+        let response: ContractShareVersionPayload = try await send(path: "/v1/shares/\(id.uuidString)/revoke", method: "POST", body: Optional<EmptyBody>.none, idempotent: true)
+        return try response.domainValue()
+    }
+
     private func send<Response: Decodable, Body: Encodable>(
         path: String,
         method: String,
@@ -173,49 +201,43 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         idempotent: Bool,
         idempotencyKey: String? = nil
     ) async throws -> Response {
-        guard let url = URL(string: path, relativeTo: baseURLProvider.baseURL)?.absoluteURL else {
-            throw PatientAPIClientError.invalidBaseURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let requestID = requestIDProvider.requestID()
-        guard !requestID.isEmpty else { throw PatientAPIClientError.invalidRequest }
-        request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
+        var headers = [String: String]()
         if idempotent {
-            let key = idempotencyKey ?? requestID
+            let key = idempotencyKey ?? requestIDProvider?.requestID() ?? UUID().uuidString
             guard !key.isEmpty else { throw PatientAPIClientError.invalidRequest }
-            request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
+            headers["Idempotency-Key"] = key
         }
         if let ifMatchVersion {
             guard ifMatchVersion > 0 else { throw PatientAPIClientError.invalidRequest }
-            request.setValue(String(ifMatchVersion), forHTTPHeaderField: "If-Match-Version")
+            headers["If-Match-Version"] = String(ifMatchVersion)
         }
-        guard let token = try await tokenProvider.bearerToken(), !token.isEmpty else {
-            throw PatientAPIClientError.missingBearerToken
-        }
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        var bodyData: Data?
         if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             do {
-                request.httpBody = try encoder.encode(body)
+                bodyData = try encoder.encode(body)
             } catch {
                 throw PatientAPIClientError.invalidRequest
             }
+            headers["Content-Type"] = "application/json"
         }
-        let data: Data
-        let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            let response = try await transport.send(PatientAPITransportRequest(method: method, path: path, headers: headers, body: bodyData, idempotent: idempotent))
+            guard (200..<300).contains(response.statusCode) else { throw map(statusCode: response.statusCode) }
+            do {
+                return try decoder.decode(Response.self, from: response.body)
+            } catch {
+                throw PatientAPIClientError.decoding
+            }
+        } catch let error as PatientAPIClientError {
+            throw error
+        } catch PatientAPITransportError.missingBearerToken {
+            throw PatientAPIClientError.missingBearerToken
+        } catch PatientAPITransportError.invalidURL {
+            throw PatientAPIClientError.invalidBaseURL
+        } catch PatientAPITransportError.invalidRequest {
+            throw PatientAPIClientError.invalidRequest
         } catch {
             throw PatientAPIClientError.transport
-        }
-        guard let http = response as? HTTPURLResponse else { throw PatientAPIClientError.transport }
-        guard (200..<300).contains(http.statusCode) else { throw map(statusCode: http.statusCode) }
-        do {
-            return try decoder.decode(Response.self, from: data)
-        } catch {
-            throw PatientAPIClientError.decoding
         }
     }
 

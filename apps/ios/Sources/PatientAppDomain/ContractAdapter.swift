@@ -292,6 +292,34 @@ public struct ContractShareVersionPayload: Codable, Equatable, Sendable {
     }
 }
 
+public struct ContractShareCreatePayload: Encodable, Equatable, Sendable {
+    public let resourceType: SharedResourceType
+    public let resourceID: UUID
+    public let resourceVersion: Int
+    public let expiresAt: Date
+
+    public init(resourceType: SharedResourceType, resourceID: UUID, resourceVersion: Int, expiresAt: Date) {
+        self.resourceType = resourceType
+        self.resourceID = resourceID
+        self.resourceVersion = resourceVersion
+        self.expiresAt = expiresAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case resourceType = "resource_type", resourceID = "resource_id", resourceVersion = "resource_version", expiresAt = "expires_at"
+    }
+}
+
+public struct ContractShareCreateResponse: Codable, Equatable, Sendable {
+    public let share: ContractShareVersionPayload
+    public let token: String
+
+    public init(share: ContractShareVersionPayload, token: String) {
+        self.share = share
+        self.token = token
+    }
+}
+
 public extension ContractDocumentPayload {
     func domainValue() throws -> Document {
         guard version > 0 else { throw PatientAppError.invalidContractData(.invalidVersion) }
