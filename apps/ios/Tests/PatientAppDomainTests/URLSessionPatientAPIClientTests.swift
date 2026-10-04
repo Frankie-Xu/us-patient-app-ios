@@ -115,14 +115,19 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
         var responseData = try JSONEncoder.iso8601.encode(visitPayload)
         let client = try makeClient { request in
             requests.append(request)
+            if request.url?.path == "/v1/visits" {
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "visit-key")
+            } else {
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "task-key")
+            }
             if request.url?.path == "/v1/tasks" {
                 responseData = try JSONEncoder.iso8601.encode(taskPayload)
             }
             return (201, responseData)
         }
 
-        let visit = try await client.createVisit(VisitCreateRequest(title: "Follow-up"))
-        let task = try await client.createTask(TaskCreateRequest(title: "Bring questions"))
+        let visit = try await client.createVisit(VisitCreateRequest(title: "Follow-up", idempotencyKey: "visit-key"))
+        let task = try await client.createTask(TaskCreateRequest(title: "Bring questions", idempotencyKey: "task-key"))
         XCTAssertEqual(visit.id, visitID)
         XCTAssertNil(visit.scheduledAt)
         XCTAssertEqual(task.id, taskID)
