@@ -59,3 +59,8 @@ Route tests should construct the app in process and use synthetic requests. They
 The iOS job invokes `scripts/run-ios-tests.sh apps/ios`. It discovers `*Transport*Tests.swift`, `*APIClient*Tests.swift`, `*URLSession*Tests.swift`, `*Polling*Tests.swift`, and `*ContractAdapterTests.swift` files for an explicit log message, then runs the entire SwiftPM or Xcode test suite so those tests cannot be omitted by a narrow filter.
 
 SwiftPM uses its default sandbox and a fresh macOS runner. The job does not persist `.build`, `Package.resolved`, derived data, simulator state, or dependency caches between pull requests. Keep those paths ignored and do not add cache restoration that could reuse artifacts from an untrusted pull request. Transport tests use deterministic mocks or local fixtures; no network endpoint, signing credential, or real patient data is available to the job.
+
+
+## Phase 12 contract and evidence gates
+
+The repository-validation job runs the contract-drift and privacy-evidence regressions. Contract validation runs the OpenAPI syntax checker followed by `scripts/check-contract-drift.sh`, which compares the contract route inventory with the reviewed snapshot. The release-evidence job creates a synthetic production-gate Pause manifest, records its result as `synthetic_gate`, and runs `scripts/check_privacy_evidence.py` before uploading the short-retention evidence bundle. The checker emits fixed violation codes only; it never prints paths, payloads, PHI or tokens.
