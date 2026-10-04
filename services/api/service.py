@@ -6,11 +6,11 @@ import json
 import secrets
 import uuid
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping
 
 from .auth import require_owner, require_role, require_scope
-from .dependencies import InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
+from .dependencies import DependencyUnavailableError, InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
 from .models import (
     AuditEvent,
     AuthContext,
@@ -29,6 +29,8 @@ from .models import (
     Task,
     Topic,
     UploadProcessingJob,
+    UploadSession,
+    UploadStatus,
     Visit,
     utc_now,
 )
@@ -41,6 +43,19 @@ class ServiceError(RuntimeError):
 
 class ShareAccessError(ServiceError):
     pass
+
+
+class UploadSessionError(ServiceError):
+    """Operational upload error with a stable, payload-free HTTP envelope."""
+
+    def __init__(self, status_code: int, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.code = code
+
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+UPLOAD_SESSION_TTL = timedelta(minutes=15)
 
 
 class ApiService:
@@ -129,6 +144,58 @@ class ApiService:
         self._audit(auth, "document.created", "document", document.id)
         self._remember(auth, idempotency_key, payload, {"id": document.id})
         return document
+
+    def create_upload_session(self, auth: AuthContext, *, document_id: str, idempotency_key: str) -> UploadSession:
+        require_scope(auth, Scope.DOCUMENTS_WRITE)
+        document = self.store.get(self.store.documents, document_id)
+        require_owner(auth, document.owner_id)
+        payload = {"operation": "create_upload_session", "document_id": document_id}
+        replay = self._idempotent(auth, idempotency_key, payload)
+        if replay is not None:
+            return self.store.get(self.store.upload_sessions, replay["value"]["id"])
+        if document.status != DocumentStatus.UPLOADED:
+            raise UploadSessionError(409, "UPLOAD_SESSION_CONFLICT", "document is not available for upload")
+        if document.size_bytes > MAX_UPLOAD_BYTES:
+            raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit")
+        if document.size_bytes < 1:
+            raise UploadSessionError(422, "VALIDATION_ERROR", "upload must contain at least one byte")
+        now = self.clock()
+        session = UploadSession(self._id(), document.owner_id, document.id, document.version,
+                                document.size_bytes, document.sha256.lower(), document.media_type,
+                                now + UPLOAD_SESSION_TTL, now)
+        self.store.upload_sessions[session.id] = session
+        self._audit(auth, "upload_session.created", "upload_session", session.id)
+        self._remember(auth, idempotency_key, payload, {"id": session.id}, status=201)
+        return session
+
+    def upload_content(self, auth: AuthContext, session_id: str, content: bytes) -> UploadSession:
+        require_scope(auth, Scope.DOCUMENTS_WRITE)
+        session = self.store.get(self.store.upload_sessions, session_id)
+        require_owner(auth, session.owner_id)
+        if not isinstance(content, bytes):
+            raise UploadSessionError(422, "VALIDATION_ERROR", "binary request body is required")
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit")
+        # Verify bytes before any object-store write; never include digests or bytes in errors/audit.
+        if len(content) != session.size_bytes or hashlib.sha256(content).hexdigest() != session.sha256:
+            raise UploadSessionError(422, "UPLOAD_INTEGRITY_MISMATCH", "upload size or checksum does not match")
+        # A completed same-byte PUT remains safe to retry even after session expiry.
+        if session.status == UploadStatus.VERIFIED:
+            return session
+        if self.clock() >= session.expires_at:
+            raise UploadSessionError(410, "UPLOAD_EXPIRED", "upload session has expired")
+        document = self.store.get(self.store.documents, session.document_id)
+        if document.version != session.document_version or document.status != DocumentStatus.UPLOADED:
+            raise UploadSessionError(409, "UPLOAD_SESSION_CONFLICT", "document changed after upload session creation")
+        # The generated key is opaque and internal. Provider failures leave the session pending.
+        try:
+            object_key = self.object_store.put(f"uploads/{session.id}", content, media_type=session.media_type)
+        except DependencyUnavailableError as exc:
+            raise UploadSessionError(503, "DEPENDENCY_UNAVAILABLE", "object store is unavailable") from exc
+        verified = replace(session, status=UploadStatus.VERIFIED, verified_at=self.clock(), object_key=object_key)
+        self.store.upload_sessions[session.id] = verified
+        self._audit(auth, "upload_session.verified", "upload_session", session.id)
+        return verified
 
     def list_documents(self, auth: AuthContext) -> list[Document]:
         require_scope(auth, Scope.DOCUMENTS_READ)

@@ -12,6 +12,7 @@ from .models import (
     Task,
     Topic,
     UploadProcessingJob,
+    UploadSession,
     Visit,
 )
 
@@ -41,6 +42,7 @@ class InMemoryStore:
         self.tasks: dict[str, Task] = {}
         self.shares: dict[str, ShareVersion] = {}
         self.jobs: dict[str, UploadProcessingJob] = {}
+        self.upload_sessions: dict[str, UploadSession] = {}
         self.audit_events: list[AuditEvent] = []
         self.idempotency: dict[tuple[str, str], IdempotencyRecord] = {}
 

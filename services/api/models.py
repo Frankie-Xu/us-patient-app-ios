@@ -57,6 +57,11 @@ class DocumentStatus(str, Enum):
     DELETED = "deleted"
 
 
+class UploadStatus(str, Enum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+
+
 class JobType(str, Enum):
     OCR = "ocr"
     EXTRACT_FACTS = "extract_facts"
@@ -148,6 +153,34 @@ class Document:
             raise ContractError("version must be >= 1")
         _validate_timestamp(self.created_at, "created_at")
         _validate_timestamp(self.updated_at, "updated_at")
+
+
+@dataclass(frozen=True)
+class UploadSession:
+    id: str
+    owner_id: str
+    document_id: str
+    document_version: int
+    size_bytes: int
+    sha256: str
+    media_type: str
+    expires_at: datetime
+    created_at: datetime
+    status: UploadStatus = UploadStatus.PENDING
+    verified_at: datetime | None = None
+    object_key: str | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("id", "owner_id", "document_id", "media_type"):
+            _require_non_empty(getattr(self, name), name)
+        if self.document_version < 1 or not 1 <= self.size_bytes <= 10 * 1024 * 1024:
+            raise ContractError("upload size/version is outside the supported range")
+        if len(self.sha256) != 64 or any(c not in "0123456789abcdef" for c in self.sha256):
+            raise ContractError("upload checksum must be a lowercase 64-character hex digest")
+        _validate_timestamp(self.expires_at, "expires_at")
+        _validate_timestamp(self.created_at, "created_at")
+        if self.verified_at is not None:
+            _validate_timestamp(self.verified_at, "verified_at")
 
 
 @dataclass(frozen=True)
@@ -329,6 +362,8 @@ def to_jsonable(value: Any) -> Any:
         result = {key: to_jsonable(item) for key, item in asdict(value).items()}
         if isinstance(value, ShareVersion):
             result.pop("token_digest", None)
+        if isinstance(value, UploadSession):
+            result.pop("object_key", None)
         return result
     if isinstance(value, Mapping):
         return {str(key): to_jsonable(item) for key, item in value.items()}

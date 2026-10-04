@@ -28,7 +28,7 @@ from .models import (
     SourceType,
     to_jsonable,
 )
-from .service import ApiService, ServiceError, ShareAccessError
+from .service import ApiService, MAX_UPLOAD_BYTES, ServiceError, ShareAccessError, UploadSessionError
 from .store import IdempotencyConflictError, NotFoundError, VersionConflictError
 
 try:  # pragma: no cover - exercised when optional HTTP dependencies are installed
@@ -157,6 +157,16 @@ class ApiHttpAdapter:
                 return HttpResponse(200, [to_jsonable(item) for item in self.service.list_documents(auth)])
             if method == "GET" and route.startswith("/v1/documents/") and route.count("/") == 3:
                 return HttpResponse(200, to_jsonable(self.service.get_document(auth, route.rsplit("/", 1)[1])))
+            if method == "POST" and route.startswith("/v1/documents/") and route.count("/") == 4 and route.endswith("/upload-sessions"):
+                data = self._body(body)
+                _reject_extra(data)
+                session = self.service.create_upload_session(auth, document_id=route.split("/")[3], idempotency_key=self._idempotency(headers))
+                return HttpResponse(201, to_jsonable(session))
+            if method == "PUT" and route.startswith("/v1/upload-sessions/") and route.count("/") == 4 and route.endswith("/content"):
+                if _header(headers, "Content-Type") != "application/octet-stream":
+                    raise RequestValidationError("Content-Type must be application/octet-stream")
+                session = self.service.upload_content(auth, route.split("/")[3], body)
+                return HttpResponse(200, to_jsonable(session))
             if method == "POST" and route.startswith("/v1/documents/") and route.endswith("/processing-jobs"):
                 data = self._body(body)
                 _required(data, "job_type")
@@ -282,6 +292,8 @@ class ApiHttpAdapter:
             return _error_response(404, "NOT_FOUND", str(exc))
         except (ContractError, RequestValidationError, ValueError, TypeError) as exc:
             return _error_response(422, "VALIDATION_ERROR", str(exc))
+        except UploadSessionError as exc:
+            return _error_response(exc.status_code, exc.code, str(exc))
         except ServiceError as exc:
             return _error_response(422, "SERVICE_ERROR", str(exc))
         except Exception:
@@ -348,12 +360,22 @@ def create_app(service: ApiService | None = None):
     if FastAPI is None:
         raise RuntimeError("FastAPI is optional; install services/api dependencies to run HTTP routes")
     adapter = ApiHttpAdapter(service)
-    api = FastAPI(title="US Patient App API", version="0.2.0", docs_url="/docs")
+    api = FastAPI(title="US Patient App API", version="0.3.0", docs_url="/docs")
 
-    @api.api_route("/{path:path}", methods=["GET", "POST"], include_in_schema=False)
+    @api.api_route("/{path:path}", methods=["GET", "POST", "PUT"], include_in_schema=False)
     async def invoke(path: str, request: Request):
         try:
-            body = await request.json() if request.method != "GET" else None
+            if request.method == "PUT":
+                chunks = []
+                size = 0
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > MAX_UPLOAD_BYTES:
+                        return JSONResponse(status_code=413, content={"code": "UPLOAD_TOO_LARGE", "detail": "upload exceeds the supported size limit"})
+                    chunks.append(chunk)
+                body = b"".join(chunks)
+            else:
+                body = await request.json() if request.method != "GET" else None
         except Exception:
             body = None
         request_path = "/" + path

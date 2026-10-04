@@ -2,7 +2,7 @@
 openapi: 3.1.0
 info:
   title: US Patient App API
-  version: 0.2.0
+  version: 0.3.0
   x-contract-status: frozen
   description: |
     Source-traceable patient-controlled organization API. The service stores
@@ -10,7 +10,7 @@ info:
     tasks, expiring share versions, upload jobs and audit events.
     It does not diagnose, recommend treatment, interpret images, or write to an EHR.
 
-    Frozen metadata API baseline. Document creation registers uploaded metadata; binary transfer and upload verification are adapter responsibilities and not implemented by this skeleton. Worker completion is an internal service call. See ADR-0001 for production gates.
+    Frozen metadata API baseline with an additive local upload-session boundary. Document creation remains metadata-only. Upload sessions verify bounded bytes against document size and SHA-256 through an injected object-store adapter; no cloud provider is configured. Worker completion is an internal service call. See ADR-0001 for production gates.
   x-frozen-on: '2026-10-04'
 servers:
 - url: https://api.example.invalid
@@ -108,6 +108,99 @@ paths:
           "$ref": "#/components/responses/Forbidden"
       x-required-scopes:
       - documents:read
+  "/v1/documents/{documentId}/upload-sessions":
+    post:
+      operationId: createUploadSession
+      tags: [documents]
+      x-required-scopes:
+      - documents:write
+      description: |
+        Additive local upload boundary. Bind a 15-minute session to the current
+        uploaded document version and its declared size, SHA-256 and media type.
+        Only 1 through 10485760 bytes are supported. Same-key retries return the
+        same session, including after expiry; use a new key to create a new session.
+        This operation leaves the existing Document shape and status unchanged.
+      parameters:
+      - "$ref": "#/components/parameters/DocumentId"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Pending upload session
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UploadSession"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          description: Idempotency conflict or document no longer available for upload.
+        '413':
+          description: Declared upload exceeds 10 MiB; code UPLOAD_TOO_LARGE.
+        '422':
+          "$ref": "#/components/responses/ValidationError"
+  "/v1/upload-sessions/{uploadSessionId}/content":
+    put:
+      operationId: uploadSessionContent
+      tags: [documents]
+      x-required-scopes:
+      - documents:write
+      description: |
+        Upload raw bytes with Content-Type application/octet-stream. Validate size
+        and SHA-256 before writing to the injected object store. The underlying
+        document media type is bound by the session. Successful identical PUTs
+        replay the verified session without rewriting bytes or duplicating audit.
+        No Idempotency-Key is needed because the session fixes the byte identity.
+        Provider keys are internal. Verification does not enqueue processing;
+        the metadata-only processing API retains its existing semantics.
+      parameters:
+      - name: uploadSessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 10485760
+      responses:
+        '200':
+          description: Verified upload session
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UploadSession"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          description: Document version/status changed; code UPLOAD_SESSION_CONFLICT.
+        '410':
+          description: Pending session expired; code UPLOAD_EXPIRED.
+        '413':
+          description: Upload exceeds 10 MiB; code UPLOAD_TOO_LARGE.
+        '422':
+          description: Invalid body/type or size/checksum mismatch; code VALIDATION_ERROR or UPLOAD_INTEGRITY_MISMATCH.
+        '503':
+          description: Object-store unavailable; code DEPENDENCY_UNAVAILABLE. Session remains pending for retry.
   "/v1/documents/{documentId}/processing-jobs":
     post:
       operationId: enqueueUploadProcessing
@@ -634,6 +727,59 @@ components:
           - string
           - 'null'
           format: date-time
+    UploadSession:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - owner_id
+      - document_id
+      - document_version
+      - size_bytes
+      - sha256
+      - media_type
+      - expires_at
+      - created_at
+      - status
+      - verified_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+        document_version:
+          type: integer
+          minimum: 1
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        media_type:
+          type: string
+          minLength: 1
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, verified]
+        verified_at:
+          type: [string, 'null']
+          format: date-time
+      description: |
+        Server-owned upload receipt. Provider storage keys never leave the service.
+        A pending session is expired when server time reaches expires_at. A verified
+        receipt remains valid for same-byte PUT replay after that time.
     FactCreate:
       type: object
       additionalProperties: false

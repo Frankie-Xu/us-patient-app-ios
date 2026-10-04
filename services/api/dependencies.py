@@ -1,6 +1,7 @@
 """Replaceable infrastructure boundaries for the local API skeleton.
 
-These adapters deliberately keep payloads metadata-only. Production adapters may
+Queue messages remain metadata-only; object storage accepts bounded binary content.
+Production adapters may
 back them with encrypted object storage and a durable queue, but the core service
 never needs to know which provider is used.
 """
