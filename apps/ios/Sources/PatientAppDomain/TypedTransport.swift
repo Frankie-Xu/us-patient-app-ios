@@ -136,13 +136,13 @@ public struct URLSessionPatientAPITransport: PatientAPITransport, Sendable {
             } catch is CancellationError {
                 throw CancellationError()
             } catch let error as PatientAPITransportError {
-                if Task.isCancelled { throw CancellationError() }
+                if _Concurrency.Task.isCancelled { throw CancellationError() }
                 if attempt + 1 >= retryPolicy.maxAttempts || !retryPolicy.shouldRetry(request: request) { throw error }
                 attempt += 1
                 try await sleeper(retryPolicy.delay(forAttempt: attempt))
                 continue
             } catch {
-                if Task.isCancelled { throw CancellationError() }
+                if _Concurrency.Task.isCancelled { throw CancellationError() }
                 if attempt + 1 >= retryPolicy.maxAttempts || !retryPolicy.shouldRetry(request: request) {
                     throw PatientAPITransportError.transport
                 }
@@ -151,7 +151,7 @@ public struct URLSessionPatientAPITransport: PatientAPITransport, Sendable {
                 continue
             }
 
-            if Task.isCancelled { throw CancellationError() }
+            if _Concurrency.Task.isCancelled { throw CancellationError() }
             if attempt + 1 < retryPolicy.maxAttempts, retryPolicy.shouldRetry(request: request, statusCode: response.statusCode) {
                 attempt += 1
                 try await sleeper(retryPolicy.delay(forAttempt: attempt))
