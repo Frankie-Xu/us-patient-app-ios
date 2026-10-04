@@ -78,7 +78,9 @@ public struct URLSessionPatientAPITransport: PatientAPITransport, Sendable {
     private let requestIDProvider: any RequestIDProvider
     private let session: URLSession
     private let retryPolicy: PatientAPITransportRetryPolicy
-    private let sleeper: @Sendable (Duration) async -> Void
+    /// The sleeper is throwing so task cancellation cannot be swallowed and
+    /// accidentally turn into another network attempt.
+    private let sleeper: @Sendable (Duration) async throws -> Void
 
     public init(
         baseURLProvider: any APIBaseURLProvider,
@@ -86,9 +88,9 @@ public struct URLSessionPatientAPITransport: PatientAPITransport, Sendable {
         requestIDProvider: any RequestIDProvider,
         session: URLSession = .shared,
         retryPolicy: PatientAPITransportRetryPolicy = PatientAPITransportRetryPolicy(),
-        sleeper: @escaping @Sendable (Duration) async -> Void = { duration in
+        sleeper: @escaping @Sendable (Duration) async throws -> Void = { duration in
             guard duration > .zero else { return }
-            try? await _Concurrency.Task.sleep(for: duration)
+            try await _Concurrency.Task.sleep(for: duration)
         }
     ) throws {
         guard baseURLProvider.baseURL.scheme != nil, baseURLProvider.baseURL.host != nil else {
@@ -131,23 +133,28 @@ public struct URLSessionPatientAPITransport: PatientAPITransport, Sendable {
                     if let key = item.key as? String { result[key] = String(describing: item.value) }
                 }
                 response = PatientAPITransportResponse(statusCode: http.statusCode, headers: headers, body: data)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch let error as PatientAPITransportError {
+                if Task.isCancelled { throw CancellationError() }
                 if attempt + 1 >= retryPolicy.maxAttempts || !retryPolicy.shouldRetry(request: request) { throw error }
                 attempt += 1
-                await sleeper(retryPolicy.delay(forAttempt: attempt))
+                try await sleeper(retryPolicy.delay(forAttempt: attempt))
                 continue
             } catch {
+                if Task.isCancelled { throw CancellationError() }
                 if attempt + 1 >= retryPolicy.maxAttempts || !retryPolicy.shouldRetry(request: request) {
                     throw PatientAPITransportError.transport
                 }
                 attempt += 1
-                await sleeper(retryPolicy.delay(forAttempt: attempt))
+                try await sleeper(retryPolicy.delay(forAttempt: attempt))
                 continue
             }
 
+            if Task.isCancelled { throw CancellationError() }
             if attempt + 1 < retryPolicy.maxAttempts, retryPolicy.shouldRetry(request: request, statusCode: response.statusCode) {
                 attempt += 1
-                await sleeper(retryPolicy.delay(forAttempt: attempt))
+                try await sleeper(retryPolicy.delay(forAttempt: attempt))
                 continue
             }
             return response
