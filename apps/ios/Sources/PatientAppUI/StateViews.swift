@@ -89,7 +89,7 @@ struct RecordsView: View {
                 VStack(spacing: 16) {
                     FlowContent(model: model, allowsReview: false)
                     Divider()
-                    DocumentHistoryContent(history: history)
+                    DocumentHistoryContent(history: history, importModel: model)
                 }
                 .padding()
             }
@@ -112,6 +112,7 @@ struct RecordsView: View {
 
 private struct DocumentHistoryContent: View {
     @ObservedObject var history: DocumentHistoryModel
+    @ObservedObject var importModel: ImportFlowModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -131,6 +132,11 @@ private struct DocumentHistoryContent: View {
                         Text("Version \(document.version) · Updated \(document.updatedAt, format: .dateTime.month().day().hour().minute())")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                        Button("Review facts") {
+                            _Concurrency.Task { await importModel.loadExisting(document: document) }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(importModel.isBusy)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)

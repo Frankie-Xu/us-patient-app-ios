@@ -197,6 +197,18 @@ public struct ImportUseCase: Sendable {
         return ImportSnapshot(ticket: ticket, receipt: receipt, status: status, facts: facts)
     }
 
+    public func loadExisting(
+        _ document: Document,
+        onStage: @escaping @Sendable (ImportStage) async -> Void = { _ in }
+    ) async throws -> ImportSnapshot {
+        let status = try await client.processingStatus(documentID: document.id)
+        await onStage(.loadingFacts)
+        let facts = try await client.facts(documentID: document.id)
+        let ticket = ImportTicket(id: document.id, documentID: document.id, title: document.title)
+        let receipt = UploadReceipt(ticketID: ticket.id, documentID: document.id)
+        return ImportSnapshot(ticket: ticket, receipt: receipt, status: status, facts: facts)
+    }
+
     private func pollProcessing(documentID: UUID) async throws -> ProcessingStatus {
         let startedAt = clock.now
         var attempts = 0
