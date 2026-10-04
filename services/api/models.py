@@ -116,10 +116,19 @@ class AuthContext:
     roles: frozenset[PrincipalRole] = frozenset({PrincipalRole.PATIENT})
     scopes: frozenset[Scope] = frozenset()
     request_id: str = "local-request"
+    issuer: str | None = None
+    audience: str | None = None
+    expires_at: datetime | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty(self.subject_id, "subject_id")
         _require_non_empty(self.request_id, "request_id")
+        if self.issuer is not None:
+            _require_non_empty(self.issuer, "issuer")
+        if self.audience is not None:
+            _require_non_empty(self.audience, "audience")
+        if self.expires_at is not None:
+            _validate_timestamp(self.expires_at, "expires_at")
 
     def can(self, scope: Scope) -> bool:
         return scope in self.scopes
