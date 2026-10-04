@@ -68,6 +68,82 @@ class ModelTelemetry:
 
 
 @dataclass(frozen=True)
+class TelemetrySummary:
+    """Aggregate provider accounting without retaining document content."""
+
+    provider: str
+    model_versions: tuple[str, ...]
+    sample_count: int
+    total_input_units: int
+    total_output_units: int
+    total_cost_usd: float
+    average_cost_usd: float
+    total_latency_ms: float
+    average_latency_ms: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.provider, str) or not self.provider.strip():
+            raise ValueError("provider must be a non-empty string")
+        versions = tuple(sorted(set(self.model_versions)))
+        if not versions or any(not isinstance(value, str) or not value.strip() for value in versions):
+            raise ValueError("model_versions must contain non-empty strings")
+        if type(self.sample_count) is not int or self.sample_count < 1:
+            raise ValueError("sample_count must be a positive integer")
+        for field_name in ("total_input_units", "total_output_units"):
+            value = getattr(self, field_name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{field_name} must be a non-negative integer")
+        for field_name in (
+            "total_cost_usd",
+            "average_cost_usd",
+            "total_latency_ms",
+            "average_latency_ms",
+        ):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)) or value < 0:
+                raise ValueError(f"{field_name} must be a finite non-negative number")
+            object.__setattr__(self, field_name, float(value))
+        object.__setattr__(self, "model_versions", versions)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "provider": self.provider,
+            "model_versions": list(self.model_versions),
+            "sample_count": self.sample_count,
+            "total_input_units": self.total_input_units,
+            "total_output_units": self.total_output_units,
+            "total_cost_usd": self.total_cost_usd,
+            "average_cost_usd": self.average_cost_usd,
+            "total_latency_ms": self.total_latency_ms,
+            "average_latency_ms": self.average_latency_ms,
+        }
+
+
+def summarize_telemetry(results: Iterable[ProviderPipelineResult]) -> TelemetrySummary:
+    """Aggregate run-level model, cost and latency evidence for a report."""
+
+    values = tuple(results)
+    if not values:
+        raise ValueError("at least one provider result is required")
+    provider = values[0].telemetry.provider
+    if any(result.telemetry.provider != provider for result in values):
+        raise ValueError("telemetry summary cannot mix providers")
+    total_cost = sum(result.telemetry.cost_usd for result in values)
+    total_latency = sum(result.telemetry.latency_ms for result in values)
+    return TelemetrySummary(
+        provider=provider,
+        model_versions=tuple(result.telemetry.model_version for result in values),
+        sample_count=len(values),
+        total_input_units=sum(result.telemetry.input_units for result in values),
+        total_output_units=sum(result.telemetry.output_units for result in values),
+        total_cost_usd=total_cost,
+        average_cost_usd=total_cost / len(values),
+        total_latency_ms=total_latency,
+        average_latency_ms=total_latency / len(values),
+    )
+
+
+@dataclass(frozen=True)
 class SourceSpanCheck:
     claim_id: str
     source_ref: str
