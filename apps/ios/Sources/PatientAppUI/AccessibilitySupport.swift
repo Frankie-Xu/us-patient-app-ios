@@ -101,4 +101,8 @@ public enum PatientLocalization {
         let bundle = bundlePath.flatMap(Bundle.init(path:)) ?? Bundle.module
         return bundle.localizedString(forKey: key, value: key, table: "Localizable")
     }
+
+    public static func hasResource(_ language: String) -> Bool {
+        Bundle.module.url(forResource: language, withExtension: "lproj") != nil
+    }
 }
