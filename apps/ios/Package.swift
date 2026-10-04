@@ -11,7 +11,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "PatientAppDomain"),
-        .target(name: "PatientAppUI", dependencies: ["PatientAppDomain"]),
+        .target(
+            name: "PatientAppUI",
+            dependencies: ["PatientAppDomain"],
+            resources: [.process("Resources")]
+        ),
         .executableTarget(name: "PatientApp", dependencies: ["PatientAppUI"]),
         .testTarget(name: "PatientAppDomainTests", dependencies: ["PatientAppDomain"]),
         .testTarget(name: "PatientAppUITests", dependencies: ["PatientAppUI", "PatientAppDomain"])
