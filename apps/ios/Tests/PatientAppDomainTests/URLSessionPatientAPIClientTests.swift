@@ -89,6 +89,53 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
         }
     }
 
+    func testCreateTopicUsesSnakeCaseContractAndIdempotencyHeader() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let payload = ContractTopicPayload(name: "Symptoms", id: UUID(), ownerID: "owner", version: 1, createdAt: now, updatedAt: now)
+        let responseData = try JSONEncoder.iso8601.encode(payload)
+        let client = try makeClient { request in
+            XCTAssertEqual(request.url?.path, "/v1/topics")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "request-123")
+            let body = try request.bodyData().jsonObject()
+            XCTAssertEqual(body["name"] as? String, "Symptoms")
+            return (201, responseData)
+        }
+
+        let topic = try await client.createTopic(TopicCreateRequest(name: "Symptoms"))
+        XCTAssertEqual(topic.name, "Symptoms")
+    }
+
+    func testCreateVisitAndTaskEncodeNullableDatesAndDecodeResponses() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let visitID = UUID()
+        let taskID = UUID()
+        var requests: [URLRequest] = []
+        let visitPayload = ContractVisitPayload(title: "Follow-up", startsAt: nil, topicIDs: [], id: visitID, ownerID: "owner", version: 1, createdAt: now, updatedAt: now)
+        let taskPayload = ContractTaskPayload(title: "Bring questions", visitID: nil, dueAt: nil, id: taskID, ownerID: "owner", status: .open, version: 1, createdAt: now, updatedAt: now)
+        var responseData = try JSONEncoder.iso8601.encode(visitPayload)
+        let client = try makeClient { request in
+            requests.append(request)
+            if request.url?.path == "/v1/tasks" {
+                responseData = try JSONEncoder.iso8601.encode(taskPayload)
+            }
+            return (201, responseData)
+        }
+
+        let visit = try await client.createVisit(VisitCreateRequest(title: "Follow-up"))
+        let task = try await client.createTask(TaskCreateRequest(title: "Bring questions"))
+        XCTAssertEqual(visit.id, visitID)
+        XCTAssertNil(visit.scheduledAt)
+        XCTAssertEqual(task.id, taskID)
+        XCTAssertNil(task.visitID)
+        XCTAssertEqual(requests.count, 2)
+        let visitBody = try requests[0].bodyData().jsonObject()
+        XCTAssertTrue(visitBody["starts_at"] is NSNull)
+        XCTAssertTrue(visitBody["topic_ids"] is [Any])
+        let taskBody = try requests[1].bodyData().jsonObject()
+        XCTAssertTrue(taskBody["visit_id"] is NSNull)
+        XCTAssertTrue(taskBody["due_at"] is NSNull)
+    }
+
     private func makeClient(token: String? = "test-token", handler: @escaping (URLRequest) throws -> (Int, Data)) throws -> URLSessionPatientAPIClient {
         StubURLProtocol.handler = { request in
             do {

@@ -101,6 +101,18 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
         return fact
     }
 
+    public func createTopic(_ request: TopicCreateRequest) async throws -> Topic {
+        Topic(name: request.name)
+    }
+
+    public func createVisit(_ request: VisitCreateRequest) async throws -> Visit {
+        Visit(title: request.title, scheduledAt: request.startsAt, topicIDs: request.topicIDs)
+    }
+
+    public func createTask(_ request: TaskCreateRequest) async throws -> Task {
+        Task(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
+    }
+
     private func failIfNeeded(at point: MockFailurePoint) throws {
         guard scenario.failurePoint == point, remainingFailures > 0 else { return }
         remainingFailures -= 1

@@ -24,6 +24,9 @@ public enum PatientAppError: Error, Equatable, Sendable {
 
 public enum UnsupportedOperation: Equatable, Sendable {
     case factEditNotInContract
+    case topicCreationNotInClient
+    case visitCreationNotInClient
+    case taskCreationNotInClient
 }
 
 public enum PatientAPIClientError: Error, Equatable, Sendable {
@@ -172,11 +175,17 @@ public struct Topic: Codable, Equatable, Hashable, Sendable, Identifiable {
     public let id: UUID
     public var name: String
     public var factIDs: [UUID]
+    public var version: Int
+    public let createdAt: Date
+    public var updatedAt: Date
 
-    public init(id: UUID = UUID(), name: String, factIDs: [UUID] = []) {
+    public init(id: UUID = UUID(), name: String, factIDs: [UUID] = [], version: Int = 1, createdAt: Date = .now, updatedAt: Date? = nil) {
         self.id = id
         self.name = name
         self.factIDs = factIDs
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 }
 
@@ -264,32 +273,47 @@ public struct Visit: Codable, Equatable, Hashable, Sendable, Identifiable {
     public var scheduledAt: Date?
     public var topicIDs: [UUID]
     public var state: LifecycleState
+    public var version: Int
+    public let createdAt: Date
+    public var updatedAt: Date
 
-    public init(id: UUID = UUID(), title: String, scheduledAt: Date? = nil, topicIDs: [UUID] = [], state: LifecycleState = .draft) {
+    public init(id: UUID = UUID(), title: String, scheduledAt: Date? = nil, topicIDs: [UUID] = [], state: LifecycleState = .draft, version: Int = 1, createdAt: Date = .now, updatedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.scheduledAt = scheduledAt
         self.topicIDs = topicIDs
         self.state = state
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 }
 
 public enum TaskStatus: String, Codable, CaseIterable, Sendable {
     case open
     case completed
+    case cancelled
 }
 
 public struct Task: Codable, Equatable, Hashable, Sendable, Identifiable {
     public let id: UUID
     public var title: String
     public var status: TaskStatus
+    public let visitID: UUID?
+    public let dueAt: Date?
+    public var version: Int
     public let createdAt: Date
+    public var updatedAt: Date
 
-    public init(id: UUID = UUID(), title: String, status: TaskStatus = .open, createdAt: Date = .now) {
+    public init(id: UUID = UUID(), title: String, status: TaskStatus = .open, visitID: UUID? = nil, dueAt: Date? = nil, version: Int = 1, createdAt: Date = .now, updatedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.status = status
+        self.visitID = visitID
+        self.dueAt = dueAt
+        self.version = version
         self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 }
 

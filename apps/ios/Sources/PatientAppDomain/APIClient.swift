@@ -10,6 +10,53 @@ public protocol PatientAPIClient: Sendable {
     func facts(documentID: UUID) async throws -> [Fact]
     func editFact(_ command: FactEditCommand) async throws -> Fact
     func confirmFact(_ command: FactReviewCommand) async throws -> Fact
+    func createTopic(_ request: TopicCreateRequest) async throws -> Topic
+    func createVisit(_ request: VisitCreateRequest) async throws -> Visit
+    func createTask(_ request: TaskCreateRequest) async throws -> Task
+}
+
+public struct TopicCreateRequest: Codable, Equatable, Hashable, Sendable {
+    public let name: String
+
+    public init(name: String) { self.name = name }
+}
+
+public struct VisitCreateRequest: Codable, Equatable, Hashable, Sendable {
+    public let title: String
+    public let startsAt: Date?
+    public let topicIDs: [UUID]
+
+    public init(title: String, startsAt: Date? = nil, topicIDs: [UUID] = []) {
+        self.title = title
+        self.startsAt = startsAt
+        self.topicIDs = topicIDs
+    }
+}
+
+public struct TaskCreateRequest: Codable, Equatable, Hashable, Sendable {
+    public let title: String
+    public let visitID: UUID?
+    public let dueAt: Date?
+
+    public init(title: String, visitID: UUID? = nil, dueAt: Date? = nil) {
+        self.title = title
+        self.visitID = visitID
+        self.dueAt = dueAt
+    }
+}
+
+public extension PatientAPIClient {
+    func createTopic(_ request: TopicCreateRequest) async throws -> Topic {
+        throw PatientAPIClientError.unsupported(.topicCreationNotInClient)
+    }
+
+    func createVisit(_ request: VisitCreateRequest) async throws -> Visit {
+        throw PatientAPIClientError.unsupported(.visitCreationNotInClient)
+    }
+
+    func createTask(_ request: TaskCreateRequest) async throws -> Task {
+        throw PatientAPIClientError.unsupported(.taskCreationNotInClient)
+    }
 }
 
 public struct ImportUseCase: Sendable {

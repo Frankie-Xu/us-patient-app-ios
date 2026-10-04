@@ -91,4 +91,21 @@ final class ContractAdapterTests: XCTestCase {
         XCTAssertNil(share.revokedAt)
         XCTAssertEqual(share.state, .shared)
     }
+
+    func testTopicVisitAndTaskMappingPreservesVersionsAndNullableFields() throws {
+        let topic = try ContractTopicPayload(name: "Symptoms", id: UUID(), ownerID: "owner", version: 2, createdAt: now, updatedAt: now).domainValue()
+        XCTAssertEqual(topic.name, "Symptoms")
+        XCTAssertEqual(topic.version, 2)
+
+        let visit = try ContractVisitPayload(title: "Follow-up", startsAt: nil, topicIDs: [topic.id], id: UUID(), ownerID: "owner", version: 4, createdAt: now, updatedAt: now).domainValue()
+        XCTAssertNil(visit.scheduledAt)
+        XCTAssertEqual(visit.topicIDs, [topic.id])
+        XCTAssertEqual(visit.version, 4)
+
+        let task = try ContractTaskPayload(title: "Bring questions", visitID: nil, dueAt: nil, id: UUID(), ownerID: "owner", status: .done, version: 3, createdAt: now, updatedAt: now).domainValue()
+        XCTAssertNil(task.visitID)
+        XCTAssertNil(task.dueAt)
+        XCTAssertEqual(task.status, .completed)
+        XCTAssertEqual(task.version, 3)
+    }
 }

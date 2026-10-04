@@ -132,6 +132,24 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return try response.domainValue()
     }
 
+    public func createTopic(_ request: TopicCreateRequest) async throws -> Topic {
+        let payload = ContractTopicCreatePayload(name: request.name)
+        let response: ContractTopicPayload = try await send(path: "/v1/topics", method: "POST", body: payload, idempotent: true)
+        return try response.domainValue()
+    }
+
+    public func createVisit(_ request: VisitCreateRequest) async throws -> Visit {
+        let payload = ContractVisitCreatePayload(title: request.title, startsAt: request.startsAt, topicIDs: request.topicIDs)
+        let response: ContractVisitPayload = try await send(path: "/v1/visits", method: "POST", body: payload, idempotent: true)
+        return try response.domainValue()
+    }
+
+    public func createTask(_ request: TaskCreateRequest) async throws -> Task {
+        let payload = ContractTaskCreatePayload(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
+        let response: ContractTaskPayload = try await send(path: "/v1/tasks", method: "POST", body: payload, idempotent: true)
+        return try response.domainValue()
+    }
+
     private func send<Response: Decodable, Body: Encodable>(
         path: String,
         method: String,

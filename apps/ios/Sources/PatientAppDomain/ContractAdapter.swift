@@ -22,6 +22,129 @@ public enum ContractShareStatus: String, Codable, Sendable {
     case revoked
 }
 
+public enum ContractTaskStatus: String, Codable, Sendable {
+    case open
+    case done
+    case cancelled
+}
+
+public struct ContractTopicCreatePayload: Encodable, Equatable, Sendable {
+    public let name: String
+    public init(name: String) { self.name = name }
+}
+
+public struct ContractVisitCreatePayload: Encodable, Equatable, Sendable {
+    public let title: String
+    public let startsAt: Date?
+    public let topicIDs: [UUID]
+
+    public init(title: String, startsAt: Date?, topicIDs: [UUID]) {
+        self.title = title
+        self.startsAt = startsAt
+        self.topicIDs = topicIDs
+    }
+
+    enum CodingKeys: String, CodingKey { case title, startsAt = "starts_at", topicIDs = "topic_ids" }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(title, forKey: .title)
+        try container.encode(startsAt, forKey: .startsAt)
+        try container.encode(topicIDs, forKey: .topicIDs)
+    }
+}
+
+public struct ContractTaskCreatePayload: Encodable, Equatable, Sendable {
+    public let title: String
+    public let visitID: UUID?
+    public let dueAt: Date?
+
+    public init(title: String, visitID: UUID?, dueAt: Date?) {
+        self.title = title
+        self.visitID = visitID
+        self.dueAt = dueAt
+    }
+
+    enum CodingKeys: String, CodingKey { case title, visitID = "visit_id", dueAt = "due_at" }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(title, forKey: .title)
+        try container.encode(visitID, forKey: .visitID)
+        try container.encode(dueAt, forKey: .dueAt)
+    }
+}
+
+public struct ContractTopicPayload: Codable, Equatable, Sendable {
+    public let name: String
+    public let id: UUID
+    public let ownerID: String
+    public let version: Int
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(name: String, id: UUID, ownerID: String, version: Int, createdAt: Date, updatedAt: Date) {
+        self.name = name
+        self.id = id
+        self.ownerID = ownerID
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey { case name, id, ownerID = "owner_id", version, createdAt = "created_at", updatedAt = "updated_at" }
+}
+
+public struct ContractVisitPayload: Codable, Equatable, Sendable {
+    public let title: String
+    public let startsAt: Date?
+    public let topicIDs: [UUID]
+    public let id: UUID
+    public let ownerID: String
+    public let version: Int
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(title: String, startsAt: Date?, topicIDs: [UUID], id: UUID, ownerID: String, version: Int, createdAt: Date, updatedAt: Date) {
+        self.title = title
+        self.startsAt = startsAt
+        self.topicIDs = topicIDs
+        self.id = id
+        self.ownerID = ownerID
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey { case title, startsAt = "starts_at", topicIDs = "topic_ids", id, ownerID = "owner_id", version, createdAt = "created_at", updatedAt = "updated_at" }
+}
+
+public struct ContractTaskPayload: Codable, Equatable, Sendable {
+    public let title: String
+    public let visitID: UUID?
+    public let dueAt: Date?
+    public let id: UUID
+    public let ownerID: String
+    public let status: ContractTaskStatus
+    public let version: Int
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(title: String, visitID: UUID?, dueAt: Date?, id: UUID, ownerID: String, status: ContractTaskStatus, version: Int, createdAt: Date, updatedAt: Date) {
+        self.title = title
+        self.visitID = visitID
+        self.dueAt = dueAt
+        self.id = id
+        self.ownerID = ownerID
+        self.status = status
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey { case title, visitID = "visit_id", dueAt = "due_at", id, ownerID = "owner_id", status, version, createdAt = "created_at", updatedAt = "updated_at" }
+}
+
 public struct ContractDocumentPayload: Codable, Equatable, Sendable {
     public let filename: String
     public let mediaType: String
@@ -231,5 +354,31 @@ public extension ContractShareVersionPayload {
         case .revoked: .revoked
         }
         return ShareVersion(id: id, documentID: resourceID, version: resourceVersion, createdAt: createdAt, state: state, revokedAt: revokedAt, resourceType: resourceType, resourceID: resourceID, expiresAt: expiresAt)
+    }
+}
+
+public extension ContractTopicPayload {
+    func domainValue() throws -> Topic {
+        guard version > 0 else { throw PatientAppError.invalidContractData(.invalidVersion) }
+        return Topic(id: id, name: name, version: version, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+public extension ContractVisitPayload {
+    func domainValue() throws -> Visit {
+        guard version > 0 else { throw PatientAppError.invalidContractData(.invalidVersion) }
+        return Visit(id: id, title: title, scheduledAt: startsAt, topicIDs: topicIDs, version: version, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+public extension ContractTaskPayload {
+    func domainValue() throws -> Task {
+        guard version > 0 else { throw PatientAppError.invalidContractData(.invalidVersion) }
+        let status: TaskStatus = switch status {
+        case .open: .open
+        case .done: .completed
+        case .cancelled: .cancelled
+        }
+        return Task(id: id, title: title, status: status, visitID: visitID, dueAt: dueAt, version: version, createdAt: createdAt, updatedAt: updatedAt)
     }
 }
