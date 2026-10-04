@@ -15,11 +15,14 @@ final class KeychainAndEncryptedCacheTests: XCTestCase {
         let second = await secondStore.switchAccount(identifier: "account-b")
         guard case let .signedIn(secondContext) = second else { return XCTFail("Expected account-b") }
         XCTAssertEqual(secondContext.epoch, first.epoch + 1)
-        XCTAssertNil(await cache.data(forKey: "history", session: first))
+        let oldData = await cache.data(forKey: "history", session: first)
+        XCTAssertNil(oldData)
 
         await secondStore.logout()
-        XCTAssertNil(await credentialStore.read())
-        XCTAssertNil(await secondStore.currentSession())
+        let persisted = await credentialStore.read()
+        let current = await secondStore.currentSession()
+        XCTAssertNil(persisted)
+        XCTAssertNil(current)
     }
 
     func testEncryptedCacheStoresEnvelopeAndRoundTripsMetadata() async {
@@ -61,4 +64,3 @@ final class KeychainAndEncryptedCacheTests: XCTestCase {
         XCTAssertEqual(result, .missing)
     }
 }
-
