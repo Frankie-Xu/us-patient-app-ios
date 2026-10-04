@@ -27,7 +27,15 @@ public struct AuthenticatedPatientAPIClient: PatientAPIClient, Sendable {
     public func revokeShare(id: UUID) async throws -> ShareVersion { try await withAuthorization { try await client.revokeShare(id: id) } }
 
     private func withAuthorization<T: Sendable>(_ operation: () async throws -> T) async throws -> T {
-        guard case .signedIn = await authSession.authState() else { throw PatientAPIClientError.unauthorized }
-        return try await operation()
+        guard case let .signedIn(initialSession) = await authSession.authState() else {
+            throw PatientAPIClientError.unauthorized
+        }
+        let result = try await operation()
+        // A request may outlive logout or account switching. Do not surface a
+        // response that was completed under a stale authorization epoch.
+        guard case let .signedIn(currentSession) = await authSession.authState(), currentSession == initialSession else {
+            throw PatientAPIClientError.unauthorized
+        }
+        return result
     }
 }

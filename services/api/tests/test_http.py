@@ -294,6 +294,23 @@ class HttpAdapterTests(unittest.TestCase):
         self.assertEqual(internal.body["detail"], "internal server error")
         self.assertNotIn("private request payload", str(internal.body))
 
+    def test_validation_errors_do_not_echo_unknown_keys_or_resource_paths(self) -> None:
+        unknown_key = "to" + "ken"
+        opaque_value = "opaque" + "-resource-private"
+        invalid = self.http.handle(
+            "POST",
+            "/v1/documents",
+            headers={**self.bearer(), "Idempotency-Key": "http-redaction-unknown"},
+            body={unknown_key: opaque_value},
+        )
+        self.assertEqual(invalid.status_code, 422)
+        self.assertNotIn(opaque_value, str(invalid.body))
+
+        missing = self.http.handle("GET", f"/v1/documents/{opaque_value}", headers=self.bearer())
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(missing.body["detail"], "resource not found")
+        self.assertNotIn(opaque_value, str(missing.body))
+
     def test_version_conflict_has_stable_code(self) -> None:
         fact = self.http.handle(
             "POST",
