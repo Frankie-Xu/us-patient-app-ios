@@ -1,13 +1,22 @@
+import CryptoKit
 import SwiftUI
+import UniformTypeIdentifiers
 import PatientAppDomain
 
 struct HomeView: View {
     @ObservedObject var model: ImportFlowModel
+    @State private var isFileImporterPresented = false
+    @State private var fileError: String?
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
                 Text("Synthetic record workspace").font(.title2)
-                Text("Try the import and review flow with fictional content.")
+                Text("Choose a local record or use fictional content for preview.")
+                Button("Choose record file") {
+                    isFileImporterPresented = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isBusy)
                 Button("Import synthetic record") {
                     _Concurrency.Task {
                         await model.start(ImportRequest(fileName: "synthetic-record.txt", title: "Synthetic record"))
@@ -15,10 +24,57 @@ struct HomeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.isBusy)
+                if let fileError {
+                    Text(fileError).foregroundStyle(.red)
+                }
                 FlowContent(model: model, allowsReview: false)
             }
             .padding()
             .navigationTitle("Home")
+            .fileImporter(
+                isPresented: $isFileImporterPresented,
+                allowedContentTypes: [.pdf, .plainText, .data],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case let .success(urls):
+                    guard let url = urls.first else { return }
+                    _Concurrency.Task { await importFile(at: url) }
+                case .failure:
+                    fileError = "The file could not be selected."
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func importFile(at url: URL) async {
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess { url.stopAccessingSecurityScopedResource() }
+        }
+        do {
+            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+            guard !data.isEmpty, data.count <= 10 * 1024 * 1024 else {
+                fileError = "Choose a file between 1 byte and 10 MiB."
+                return
+            }
+            let values = try url.resourceValues(forKeys: [.contentTypeKey])
+            let mediaType = values.contentType?.preferredMIMEType ?? "application/octet-stream"
+            let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            fileError = nil
+            await model.start(
+                ImportRequest(
+                    fileName: url.lastPathComponent,
+                    title: url.deletingPathExtension().lastPathComponent,
+                    byteCount: data.count,
+                    mediaType: mediaType,
+                    sha256: digest,
+                    content: data
+                )
+            )
+        } catch {
+            fileError = "The file could not be read. Choose another file."
         }
     }
 }

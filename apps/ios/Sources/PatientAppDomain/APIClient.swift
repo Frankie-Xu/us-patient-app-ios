@@ -6,6 +6,8 @@ import Foundation
 public protocol PatientAPIClient: Sendable {
     func createImport(_ request: ImportRequest) async throws -> ImportTicket
     func upload(_ request: UploadRequest) async throws -> UploadReceipt
+    func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession
+    func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession
     func processingStatus(documentID: UUID) async throws -> ProcessingStatus
     func facts(documentID: UUID) async throws -> [Fact]
     func editFact(_ command: FactEditCommand) async throws -> Fact
@@ -142,6 +144,14 @@ public extension PatientAPIClient {
     func revokeShare(id: UUID) async throws -> ShareVersion {
         throw PatientAPIClientError.unsupported(.shareRevocationNotInClient)
     }
+
+    func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession {
+        throw PatientAPIClientError.unsupported(.uploadSessionCreationNotInClient)
+    }
+
+    func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession {
+        throw PatientAPIClientError.unsupported(.uploadContentNotInClient)
+    }
 }
 
 public struct ImportUseCase: Sendable {
@@ -165,6 +175,13 @@ public struct ImportUseCase: Sendable {
 
         let ticket = try await client.createImport(request)
         await onStage(.uploading)
+        if let content = request.content {
+            guard content.count == request.byteCount, !content.isEmpty, content.count <= 10 * 1024 * 1024 else {
+                throw PatientAppError.invalidInput
+            }
+            let session = try await client.createUploadSession(documentID: ticket.documentID, idempotencyKey: "\(ticket.documentID.uuidString)-upload")
+            _ = try await client.uploadSessionContent(sessionID: session.id, content: content)
+        }
         let receipt = try await client.upload(UploadRequest(ticketID: ticket.id, byteCount: request.byteCount))
         await onStage(.processing)
 
