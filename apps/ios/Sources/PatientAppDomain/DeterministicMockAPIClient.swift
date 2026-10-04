@@ -13,6 +13,7 @@ public struct MockImportScenario: Sendable {
     public let documentID: UUID
     public let facts: [Fact]
     public let pollsBeforeReady: Int
+    public let terminalProcessingStatus: ProcessingStatus?
     public let failurePoint: MockFailurePoint?
     public let failuresRemaining: Int
 
@@ -20,11 +21,13 @@ public struct MockImportScenario: Sendable {
         documentID: UUID = UUID(),
         facts: [Fact]? = nil,
         pollsBeforeReady: Int = 1,
+        terminalProcessingStatus: ProcessingStatus? = nil,
         failurePoint: MockFailurePoint? = nil,
         failuresRemaining: Int = 1
     ) {
         self.documentID = documentID
         self.pollsBeforeReady = max(0, pollsBeforeReady)
+        self.terminalProcessingStatus = terminalProcessingStatus
         self.failurePoint = failurePoint
         self.failuresRemaining = max(0, failuresRemaining)
         self.facts = facts ?? [
@@ -63,6 +66,9 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
 
     public func processingStatus(documentID: UUID) async throws -> ProcessingStatus {
         try failIfNeeded(at: .processingStatus)
+        if let terminalProcessingStatus = scenario.terminalProcessingStatus {
+            return terminalProcessingStatus
+        }
         processingPolls += 1
         return processingPolls > scenario.pollsBeforeReady ? .ready : .processing
     }

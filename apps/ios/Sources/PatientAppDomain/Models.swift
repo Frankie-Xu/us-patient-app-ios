@@ -12,6 +12,8 @@ public enum PatientAppError: Error, Equatable, Sendable {
     case invalidInput
     case uploadFailed
     case processingFailed
+    case processingTimeout
+    case processingCancelled
     case factNotFound
     case versionConflict
     case invalidTransition(from: LifecycleState, to: LifecycleState)

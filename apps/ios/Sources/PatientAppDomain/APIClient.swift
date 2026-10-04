@@ -14,9 +14,13 @@ public protocol PatientAPIClient: Sendable {
 
 public struct ImportUseCase: Sendable {
     private let client: any PatientAPIClient
+    private let clock: any ImportClock
+    private let retryPolicy: ImportRetryPolicy
 
-    public init(client: any PatientAPIClient) {
+    public init(client: any PatientAPIClient, clock: any ImportClock = SystemImportClock(), retryPolicy: ImportRetryPolicy = ImportRetryPolicy()) {
         self.client = client
+        self.clock = clock
+        self.retryPolicy = retryPolicy
     }
 
     public func run(
@@ -32,15 +36,57 @@ public struct ImportUseCase: Sendable {
         let receipt = try await client.upload(UploadRequest(ticketID: ticket.id, byteCount: request.byteCount))
         await onStage(.processing)
 
-        var status = try await client.processingStatus(documentID: ticket.documentID)
-        while status == .queued || status == .processing {
-            status = try await client.processingStatus(documentID: ticket.documentID)
-        }
-        guard status == .ready else { throw PatientAppError.processingFailed }
+        let status = try await pollProcessing(documentID: ticket.documentID)
 
         await onStage(.loadingFacts)
         let facts = try await client.facts(documentID: ticket.documentID)
         return ImportSnapshot(ticket: ticket, receipt: receipt, status: status, facts: facts)
+    }
+
+    private func pollProcessing(documentID: UUID) async throws -> ProcessingStatus {
+        let startedAt = clock.now
+        var attempts = 0
+        while true {
+            try checkCancellation()
+            guard clock.now.timeIntervalSince(startedAt) < durationSeconds(retryPolicy.maxDuration) else {
+                throw PatientAppError.processingTimeout
+            }
+
+            let status: ProcessingStatus
+            do {
+                status = try await client.processingStatus(documentID: documentID)
+            } catch is CancellationError {
+                throw PatientAppError.processingCancelled
+            }
+            attempts += 1
+
+            switch status {
+            case .ready:
+                return status
+            case .failed:
+                throw PatientAppError.processingFailed
+            case .queued, .processing:
+                guard attempts < retryPolicy.maxAttempts else { throw PatientAppError.processingTimeout }
+                let delay = retryPolicy.delay(forRetry: attempts)
+                guard clock.now.timeIntervalSince(startedAt) + durationSeconds(delay) <= durationSeconds(retryPolicy.maxDuration) else {
+                    throw PatientAppError.processingTimeout
+                }
+                do {
+                    try await clock.sleep(for: delay)
+                } catch is CancellationError {
+                    throw PatientAppError.processingCancelled
+                }
+            }
+        }
+    }
+
+    private func checkCancellation() throws {
+        if _Concurrency.Task.isCancelled { throw PatientAppError.processingCancelled }
+    }
+
+    private func durationSeconds(_ duration: Duration) -> TimeInterval {
+        let components = duration.components
+        return TimeInterval(components.seconds) + TimeInterval(components.attoseconds) / 1_000_000_000_000_000_000
     }
 
     public func editFact(_ command: FactEditCommand) async throws -> Fact {
