@@ -28,3 +28,8 @@ Phase 8 adds `POST /v1/documents/{documentId}/upload-sessions` (`{}` plus `Idemp
 The verified receipt is safe to replay with identical bytes; it does not expose the provider key or write a second audit event. Changed bytes return `UPLOAD_INTEGRITY_MISMATCH` (422), expired pending sessions `UPLOAD_EXPIRED` (410), changed documents `UPLOAD_SESSION_CONFLICT` (409), oversized uploads `UPLOAD_TOO_LARGE` (413), and unavailable adapters `DEPENDENCY_UNAVAILABLE` (503). Existing document metadata creation and processing semantics remain compatible. Verification does not start OCR or mark a document ready.
 
 Use synthetic bytes only. Production requires authenticated gateway limits, streaming encrypted durable storage, malware/content checks, transactional metadata receipt handling, abandoned-object cleanup and retention/deletion decisions. No cloud service is configured by this skeleton.
+
+
+## Account-history reads
+
+`GET /v1/topics` and `GET /v1/visits` require `visits:read`; `GET /v1/tasks` requires `tasks:read`. They reuse the existing owner/reviewer/service visibility rule, return `200` with an empty array for an empty account, and sort by server creation time ascending with an ID tie-breaker. The adapter never accepts a client sort expression or exposes records from another owner without reviewer/service authorization.
