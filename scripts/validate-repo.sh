@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="${VALIDATION_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$repo_root"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -29,16 +30,18 @@ secret_patterns=(
   "(?i)\b(api[_-]?key|client[_-]?secret|password|secret|token|private[_-]?key)\s*[:=]\s*[\"']?[A-Za-z0-9_+=-]{16,}"
 )
 
+set +e
+scan_args=()
 for pattern in "${secret_patterns[@]}"; do
-  set +e
-  rg --pcre2 -n --hidden --no-ignore -g '!.git/**' -- "$pattern" . >> "$secret_matches" 2>/dev/null
-  scan_status=$?
-  set -e
-  if [[ $scan_status -gt 1 ]]; then
-    echo "Credential scan failed; refusing to continue." >&2
-    exit 1
-  fi
+  scan_args+=(--pattern "$pattern")
 done
+python3 "$script_dir/scan-repo.py" --root "$repo_root" "${scan_args[@]}" >> "$secret_matches" 2>/dev/null
+scan_status=$?
+set -e
+if [[ $scan_status -ne 0 ]]; then
+  echo "Credential scan failed; refusing to continue." >&2
+  exit 1
+fi
 
 if [[ -s "$secret_matches" ]]; then
   echo "Potential credential detected in repository files (details redacted):" >&2
@@ -80,12 +83,13 @@ fi
 phi_matches="$tmp_dir/phi.txt"
 : > "$phi_matches"
 set +e
-rg --pcre2 -n --hidden --no-ignore -g '!.git/**' -g '!*.md' -g '!*.html' \
-  '(?i)\b(medical record number|mrn|date of birth|dob|social security number|ssn|patient name|diagnosis|discharge summary|medication list)\s*[:=]' \
-  . >> "$phi_matches" 2>/dev/null
+python3 "$script_dir/scan-repo.py" --root "$repo_root" \
+  --exclude '*.md' --exclude '*.html' \
+  --pattern '(?i)\b(medical record number|mrn|date of birth|dob|social security number|ssn|patient name|diagnosis|discharge summary|medication list)\s*[:=]' \
+  >> "$phi_matches" 2>/dev/null
 phi_scan_status=$?
 set -e
-if [[ $phi_scan_status -gt 1 ]]; then
+if [[ $phi_scan_status -ne 0 ]]; then
   echo "PHI-label scan failed; refusing to continue." >&2
   exit 1
 fi
