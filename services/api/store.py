@@ -13,6 +13,7 @@ from typing import Any, Protocol, TypeVar, Union, get_args, get_origin, get_type
 
 
 from .dependencies import DependencyUnavailableError
+from .sqlite_schema import UnsupportedSchemaVersionError, ensure_schema_version
 from .models import (
     AuditEvent,
     Document,
@@ -251,35 +252,38 @@ class SQLiteMetadataStore:
             try:
                 self._connection = sqlite3.connect(self.path, check_same_thread=False)
                 self._initialize()
-            except (OSError, sqlite3.Error) as exc:
+            except (OSError, sqlite3.Error, UnsupportedSchemaVersionError) as exc:
                 self.close()
                 raise DependencyUnavailableError("metadata store is unavailable") from exc
 
     def _initialize(self) -> None:
         connection = self._require_connection()
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS resources (
-                resource_type TEXT NOT NULL,
-                identifier TEXT NOT NULL,
-                owner_id TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                payload TEXT NOT NULL,
-                PRIMARY KEY (resource_type, identifier)
-            );
-            CREATE TABLE IF NOT EXISTS audit_events (
-                identifier TEXT PRIMARY KEY,
-                payload TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS idempotency (
-                actor_id TEXT NOT NULL,
-                idempotency_key TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                PRIMARY KEY (actor_id, idempotency_key)
-            );
-            """
-        )
-        connection.commit()
+
+        def initialize(connection: sqlite3.Connection) -> None:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS resources (
+                    resource_type TEXT NOT NULL,
+                    identifier TEXT NOT NULL,
+                    owner_id TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (resource_type, identifier)
+                );
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    identifier TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS idempotency (
+                    actor_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (actor_id, idempotency_key)
+                );
+                """
+            )
+
+        ensure_schema_version(connection, current_version=1, initialize=initialize)
 
     def _require_connection(self) -> sqlite3.Connection:
         if not self.available or self._connection is None:

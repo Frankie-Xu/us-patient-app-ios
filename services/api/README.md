@@ -64,3 +64,14 @@ The core does not parse JWTs, verify signatures, call an identity provider, or l
 Phase 14 adds restart-safe SQLite adapters behind the existing MetadataStore, ObjectStore, and JobQueue protocols. They are intended for local development and staging contract tests: the app still fails closed when an adapter is unavailable, and queued payloads remain metadata-only.
 
 The SQLite adapters do not claim production PHI compliance. A production deployment must replace them with encrypted managed storage, reviewed migrations, backup/restore controls, access logging, and a durable worker with an explicit data-processing agreement. Keep database paths outside the repository and never use real patient data in local fixtures.
+
+
+## Schema version and migration boundary (Phase 16)
+
+The local SQLite metadata, object, and queue adapters record schema version 1
+via SQLite PRAGMA user_version. Existing Phase 14 databases start at version
+zero, are initialized in place, and are promoted to version one. An adapter
+that sees a newer or unsupported version fails closed instead of silently
+changing the database. Production adapters must use an encrypted managed
+database/object store/queue with reviewed forward migrations, rollback plans,
+backup compatibility checks, and an operator evidence link.

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 
-from services.api.dependencies import SQLiteJobQueue, SQLiteObjectStore
+from services.api.dependencies import DependencyUnavailableError, SQLiteJobQueue, SQLiteObjectStore
 from services.api.models import AuthContext, PrincipalRole, Scope
 from services.api.service import ApiService
 from services.api.store import SQLiteMetadataStore, VersionConflictError
@@ -85,6 +86,22 @@ class DurableAdapterTests(unittest.TestCase):
         self.assertEqual(reopened_queue.entries, [("job-synthetic-001", {"document_id": "document-synthetic-001", "job_type": "ocr"})])
         reopened_objects.close()
         reopened_queue.close()
+
+    def test_durable_adapters_reject_future_schema_version(self) -> None:
+        adapters = (
+            (self.metadata_path, SQLiteMetadataStore),
+            (self.object_path, SQLiteObjectStore),
+            (self.queue_path, SQLiteJobQueue),
+        )
+        for path, adapter_type in adapters:
+            adapter = adapter_type(path)
+            adapter.close()
+            connection = sqlite3.connect(path)
+            connection.execute("PRAGMA user_version = 99")
+            connection.commit()
+            connection.close()
+            with self.assertRaises(DependencyUnavailableError):
+                adapter_type(path)
 
     def test_durable_adapters_fail_closed_when_disabled(self) -> None:
         store = SQLiteMetadataStore(self.metadata_path, available=False)
