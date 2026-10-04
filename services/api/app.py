@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .auth import AuthorizationError
 from .dependencies import DependencyUnavailableError
+from .pdf_export import PdfExportError
 from .models import (
     AuthContext,
     ContractError,
@@ -33,7 +34,7 @@ from .store import IdempotencyConflictError, NotFoundError, VersionConflictError
 
 try:  # pragma: no cover - exercised when optional HTTP dependencies are installed
     from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse, Response
 except ImportError:  # pragma: no cover - default dependency-light environment
     FastAPI = None  # type: ignore[assignment]
     Request = Any  # type: ignore[assignment,misc]
@@ -136,7 +137,20 @@ class ApiHttpAdapter:
                 if readiness["status"] == "ready":
                     return HttpResponse(200, readiness)
                 return HttpResponse(503, {**readiness, "code": "DEPENDENCY_UNAVAILABLE", "detail": "one or more dependencies are unavailable"})
-            if method == "GET" and route == "/v1/shared" or route.startswith("/v1/shared/") and method == "GET":
+            if method == "GET" and route.startswith("/v1/shared/") and route.endswith("/pdf"):
+                token = route.split("/", 3)[3][:-4].rstrip("/")
+                artifact = self.service.export_shared_pdf(token)
+                return HttpResponse(
+                    200,
+                    artifact.content,
+                    headers={
+                        "Content-Type": artifact.content_type,
+                        "Content-Length": str(len(artifact.content)),
+                        "X-Document-Version": str(artifact.document_version),
+                        "X-Content-SHA256": artifact.sha256,
+                    },
+                )
+            if method == "GET" and route.startswith("/v1/shared/"):
                 token = route.split("/", 3)[3] if route.count("/") >= 3 else ""
                 share, resource = self.service.access_share(token)
                 return HttpResponse(200, {"share": to_jsonable(share), "resource": to_jsonable(resource)})
@@ -180,6 +194,54 @@ class ApiHttpAdapter:
                     idempotency_key=self._idempotency(headers),
                 )
                 return HttpResponse(202, to_jsonable(job))
+            if method == "GET" and route.startswith("/v1/shares/") and route.count("/") == 3:
+                share = self.service.get_share(auth, route.split("/")[3])
+                return HttpResponse(200, to_jsonable(share))
+            if method == "POST" and route.startswith("/v1/documents/") and route.endswith("/exports/pdf"):
+                data = self._body(body)
+                _required(data, "document_version")
+                _reject_extra(data, "document_version", "fact_ids", "doctor_brief")
+                artifact = self.service.export_document_pdf(
+                    auth,
+                    document_id=route.split("/")[3],
+                    document_version=self._positive_int(data, "document_version"),
+                    fact_ids=None if "fact_ids" not in data else tuple(self._string_list(data, "fact_ids")),
+                    doctor_brief=data.get("doctor_brief"),
+                )
+                return HttpResponse(
+                    200,
+                    artifact.content,
+                    headers={
+                        "Content-Type": artifact.content_type,
+                        "Content-Length": str(len(artifact.content)),
+                        "X-Document-Version": str(artifact.document_version),
+                        "X-Content-SHA256": artifact.sha256,
+                    },
+                )
+            if method == "GET" and route.startswith("/v1/documents/") and route.endswith("/exports/pdf"):
+                query = parse_qs(urlsplit(path).query)
+                raw_version = query.get("version", [None])[0]
+                if raw_version is None:
+                    raise RequestValidationError("version is required")
+                try:
+                    document_version = int(raw_version)
+                except ValueError as exc:
+                    raise RequestValidationError("version must be an integer") from exc
+                artifact = self.service.export_document_pdf(
+                    auth,
+                    document_id=route.split("/")[3],
+                    document_version=document_version,
+                )
+                return HttpResponse(
+                    200,
+                    artifact.content,
+                    headers={
+                        "Content-Type": artifact.content_type,
+                        "Content-Length": str(len(artifact.content)),
+                        "X-Document-Version": str(artifact.document_version),
+                        "X-Content-SHA256": artifact.sha256,
+                    },
+                )
             if method == "GET" and route == "/v1/topics":
                 return HttpResponse(200, [to_jsonable(item) for item in self.service.list_topics(auth)])
             if method == "POST" and route == "/v1/topics":
@@ -289,6 +351,9 @@ class ApiHttpAdapter:
             return _error_response(409, "IDEMPOTENCY_CONFLICT", str(exc))
         except VersionConflictError as exc:
             return _error_response(409, "VERSION_CONFLICT", str(exc))
+        except PdfExportError as exc:
+            status = 409 if exc.code == "DOCUMENT_VERSION_MISMATCH" else 422
+            return _error_response(status, exc.code, str(exc))
         except ShareAccessError as exc:
             message = str(exc)
             if "expired" in message:
@@ -392,6 +457,13 @@ def create_app(service: ApiService | None = None):
         if request.url.query:
             request_path += f"?{request.url.query}"
         result = adapter.handle(request.method, request_path, headers=request.headers, body=body)
+        if isinstance(result.body, (bytes, bytearray)):
+            return Response(
+                content=bytes(result.body),
+                status_code=result.status_code,
+                headers=dict(result.headers),
+                media_type=None,
+            )
         return JSONResponse(status_code=result.status_code, content=result.body, headers=dict(result.headers))
 
     return api

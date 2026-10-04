@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 
 from .auth import require_owner, require_role, require_scope
 from .dependencies import DependencyUnavailableError, InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
+from .pdf_export import PdfExportArtifact, PdfExportBlocked, PdfExporter
 from .models import (
     AuditEvent,
     AuthContext,
@@ -358,6 +359,67 @@ class ApiService:
         self._remember(auth, idempotency_key, payload, {"id": task.id})
         return task
 
+    def export_document_pdf(
+        self,
+        auth: AuthContext,
+        *,
+        document_id: str,
+        document_version: int,
+        fact_ids: tuple[str, ...] | None = None,
+        doctor_brief: Mapping[str, Any] | None = None,
+    ) -> PdfExportArtifact:
+        """Render one current immutable document version after review gates."""
+        require_scope(auth, Scope.DOCUMENTS_READ)
+        document = self.store.get_resource("documents", document_id)
+        require_owner(auth, document.owner_id)
+        facts = tuple(
+            fact for fact in self.store.list_resources("facts")
+            if fact.document_id == document.id
+        )
+        artifact = PdfExporter().render(
+            document,
+            facts,
+            document_version=document_version,
+            fact_ids=fact_ids,
+            doctor_brief=doctor_brief,
+        )
+        self._audit(
+            auth,
+            "document.pdf_exported",
+            "document",
+            document.id,
+            document_version=str(document_version),
+        )
+        return artifact
+
+    def export_shared_pdf(self, token: str) -> PdfExportArtifact:
+        """Render a document PDF only while its public share is active."""
+        share, resource = self.access_share(token)
+        if share.resource_type != "document":
+            raise PdfExportBlocked(
+                "SHARE_RESOURCE_UNSUPPORTED",
+                "share does not reference a document",
+            )
+        facts = tuple(
+            fact for fact in self.store.list_resources("facts")
+            if fact.document_id == resource.id
+        )
+        return PdfExporter().render(
+            resource,
+            facts,
+            document_version=share.resource_version,
+        )
+
+    def get_share(self, auth: AuthContext, share_id: str) -> ShareVersion:
+        """Return owner-scoped share state with expiry projected from server time."""
+        require_scope(auth, Scope.SHARES_CREATE)
+        share = self.store.get_resource("shares", share_id)
+        require_owner(auth, share.owner_id)
+        effective = share.effective_status(self.clock())
+        if effective == share.status:
+            return share
+        return replace(share, status=effective)
+
     def create_share(self, auth: AuthContext, *, resource_type: str, resource_id: str, resource_version: int, expires_at: datetime, idempotency_key: str) -> tuple[ShareVersion, str]:
         require_scope(auth, Scope.SHARES_CREATE)
         if expires_at <= self.clock():
@@ -401,7 +463,12 @@ class ApiService:
             status = share.effective_status(self.clock())
             if status != ShareStatus.ACTIVE:
                 raise ShareAccessError(f"share is {status.value}; downloaded copies cannot be recalled")
-            return share, self._resource(share.resource_type, share.resource_id)
+            resource = self._resource(share.resource_type, share.resource_id)
+            # The in-memory adapter has no historical blob snapshots. Refuse to
+            # serve a newer version rather than silently violating the pin.
+            if getattr(resource, "version", 1) != share.resource_version:
+                raise ShareAccessError("share is stale; immutable version is unavailable")
+            return replace(share, status=ShareStatus.ACTIVE), resource
         raise ShareAccessError("share token is invalid")
 
     def list_audit(self, auth: AuthContext, *, resource_id: str | None = None) -> list[AuditEvent]:
