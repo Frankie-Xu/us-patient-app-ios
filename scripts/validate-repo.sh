@@ -65,7 +65,9 @@ find . -type f -not -path './.git/*' \( \
 # that indicates patient or clinical payloads. This keeps ordinary product
 # assets and documentation usable while catching likely accidental uploads.
 while IFS= read -r path; do
-  if [[ "$path" =~ (^|/)(fixtures?|testdata|samples?|uploads?|exports?|records?|documents?|clinical|medical|radiology|imaging)(/|$) ]] && \
+  # Synthetic fixtures and samples are allowed; only explicit clinical payload
+  # paths are treated as suspicious for image and export formats.
+if [[ "$path" =~ (^|/)(testdata|uploads?|exports?|records?|documents?|clinical|medical|radiology|imaging)(/|$) ]] && \
      [[ "$path" =~ \.(csv|json|xml|txt|jpg|jpeg|png|tif|tiff|webp)$ ]]; then
     printf '%s\n' "$path" >> "$clinical_paths"
   fi

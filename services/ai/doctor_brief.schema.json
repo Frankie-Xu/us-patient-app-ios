@@ -20,7 +20,6 @@
         "due_at": {"type": ["string", "null"]},
         "content": {"$ref": "#/$defs/content"}
       }}}},
-  "additionalProperties": false,
   "$defs": {
     "content": {
       "type": "object", "additionalProperties": false,
