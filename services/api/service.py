@@ -151,7 +151,10 @@ class ApiService:
                 media_type=media_type,
                 size_bytes=size_bytes,
                 sha256=sha256,
-                max_bytes=MAX_UPLOAD_BYTES,
+                # Preserve the existing contract: metadata creation records
+                # oversized declarations; the upload-session boundary rejects
+                # them with the stable 413 code.
+                max_bytes=max(MAX_UPLOAD_BYTES, size_bytes) if isinstance(size_bytes, int) and size_bytes > MAX_UPLOAD_BYTES else MAX_UPLOAD_BYTES,
             )
         except UploadTooLargeError as exc:
             raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit") from exc
