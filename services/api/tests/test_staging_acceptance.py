@@ -46,7 +46,7 @@ def test_full_flow_failure_identifies_the_stage(tmp_path: Path) -> None:
     _runtime_fixture(tmp_path, include_flow=True)
 
     def runner(path: Path, functions: object) -> object:
-        if path.name == "scripts/staging_e2e.py":
+        if path.name == "staging_e2e.py":
             raise RuntimeError("synthetic harness failure")
         return {"ok": True}
 
