@@ -11,7 +11,7 @@ from typing import Any, Callable, Mapping
 
 from .auth import require_owner, require_role, require_scope
 from .dependencies import DependencyUnavailableError, InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
-from .file_intake import FileIntakeError, FileMetadata, UploadTooLargeError, inspect_bytes, validate_declared_metadata
+from .file_intake import MAX_UPLOAD_BYTES, FileIntakeError, FileMetadata, UploadTooLargeError, inspect_bytes, validate_declared_metadata
 from .models import (
     AuditEvent,
     AuthContext,
