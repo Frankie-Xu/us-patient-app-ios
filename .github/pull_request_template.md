@@ -9,6 +9,7 @@
 
 ## Validation
 
+- [ ] CI passed, or skipped components are documented below
 - [ ] Unit or integration tests
 - [ ] UI flow or manual verification
 - [ ] Golden-set evaluation (if AI or extraction changed)
@@ -16,11 +17,10 @@
 
 ## Privacy and security
 
-- [ ] No PHI, credentials, or vendor payloads added
-- [ ] Logs and telemetry are redacted
+- [ ] No PHI, credentials, clinical documents, or vendor payloads added
+- [ ] Logs and telemetry are redacted at the logging boundary
 - [ ] Permission, sharing, retention, and deletion impact reviewed
 
 ## Notes for reviewers
 
-<!-- Risks, migrations, follow-ups, or unresolved decisions. -->
-
+<!-- Risks, migrations, skipped components, follow-ups, or unresolved decisions. -->
