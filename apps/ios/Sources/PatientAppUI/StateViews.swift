@@ -147,6 +147,8 @@ private extension PatientAppError {
         case .factNotFound: "The fact is no longer available."
         case .uploadFailed: "The upload failed. Try again."
         case .processingFailed: "Processing did not complete. Try again."
+        case .versionConflict: "This record changed. Reload it before reviewing."
+        case .invalidContractData: "The service returned an unsupported record."
         case .invalidTransition: "This action is unavailable in the current state."
         case .unavailable: "The operation is temporarily unavailable."
         }

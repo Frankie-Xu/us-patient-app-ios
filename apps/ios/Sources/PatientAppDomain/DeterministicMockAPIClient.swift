@@ -87,6 +87,9 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
         guard var fact = storedFacts[command.factID], fact.documentID == command.documentID else {
             throw PatientAppError.factNotFound
         }
+        guard command.ifMatchVersion == fact.version else {
+            throw PatientAppError.versionConflict
+        }
         try fact.confirmAfterExplicitReview()
         storedFacts[fact.id] = fact
         return fact

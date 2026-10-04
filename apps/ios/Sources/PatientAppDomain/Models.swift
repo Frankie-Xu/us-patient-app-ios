@@ -1,14 +1,78 @@
 import Foundation
 
+public enum ContractDataIssue: Equatable, Sendable {
+    case missingDocumentID
+    case invalidVersion
+    case missingSourceReference
+    case unsupportedResourceType
+}
+
 public enum PatientAppError: Error, Equatable, Sendable {
     case unavailable
     case invalidInput
     case uploadFailed
     case processingFailed
     case factNotFound
+    case versionConflict
     case invalidTransition(from: LifecycleState, to: LifecycleState)
     case reviewRequired
     case sourceRequired
+    case invalidContractData(ContractDataIssue)
+}
+
+public enum SourceType: String, Codable, CaseIterable, Sendable {
+    case uploadedDocument = "uploaded_document"
+    case userInput = "user_input"
+    case ocr
+    case ehrImport = "ehr_import"
+    case aiExtraction = "ai_extraction"
+    case translation
+    case other
+}
+
+public enum DocumentProcessingStatus: String, Codable, CaseIterable, Sendable {
+    case uploaded
+    case processing
+    case ready
+    case failed
+    case deleted
+}
+
+public enum JobType: String, Codable, CaseIterable, Sendable {
+    case ocr
+    case extractFacts = "extract_facts"
+    case translate
+    case renderShare = "render_share"
+}
+
+public enum JobStatus: String, Codable, CaseIterable, Sendable {
+    case queued
+    case running
+    case succeeded
+    case failed
+    case cancelled
+}
+
+public struct ProcessingJob: Codable, Equatable, Hashable, Sendable, Identifiable {
+    public let id: UUID
+    public let documentID: UUID
+    public let type: JobType
+    public var status: JobStatus
+    public let attempt: Int
+    public let errorCode: String?
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(id: UUID, documentID: UUID, type: JobType, status: JobStatus, attempt: Int, errorCode: String?, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.documentID = documentID
+        self.type = type
+        self.status = status
+        self.attempt = attempt
+        self.errorCode = errorCode
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }
 
 public enum LifecycleState: String, Codable, CaseIterable, Sendable {
@@ -59,12 +123,20 @@ public struct Document: Codable, Equatable, Hashable, Sendable, Identifiable {
     public var title: String
     public var state: LifecycleState
     public let createdAt: Date
+    public var processingStatus: DocumentProcessingStatus
+    public var version: Int
+    public var updatedAt: Date
+    public var deletedAt: Date?
 
-    public init(id: UUID = UUID(), title: String, state: LifecycleState = .draft, createdAt: Date = .now) {
+    public init(id: UUID = UUID(), title: String, state: LifecycleState = .draft, createdAt: Date = .now, processingStatus: DocumentProcessingStatus = .uploaded, version: Int = 1, updatedAt: Date? = nil, deletedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.state = state
         self.createdAt = createdAt
+        self.processingStatus = processingStatus
+        self.version = version
+        self.updatedAt = updatedAt ?? createdAt
+        self.deletedAt = deletedAt
     }
 
     public mutating func transition(to next: LifecycleState) throws {
@@ -96,6 +168,12 @@ public struct Fact: Codable, Equatable, Hashable, Sendable, Identifiable {
     public var isUserInput: Bool
     public var state: LifecycleState
     public var wasExplicitlyReviewed: Bool
+    public var reviewStatus: ReviewStatus
+    public var sourceType: SourceType
+    public var confidence: Double?
+    public var version: Int
+    public let createdAt: Date
+    public var updatedAt: Date
 
     public init(
         id: UUID = UUID(),
@@ -105,7 +183,13 @@ public struct Fact: Codable, Equatable, Hashable, Sendable, Identifiable {
         sourceReference: SourceReference? = nil,
         isUserInput: Bool = false,
         state: LifecycleState = .draft,
-        wasExplicitlyReviewed: Bool = false
+        wasExplicitlyReviewed: Bool = false,
+        reviewStatus: ReviewStatus = .unreviewed,
+        sourceType: SourceType = .other,
+        confidence: Double? = nil,
+        version: Int = 1,
+        createdAt: Date = .now,
+        updatedAt: Date? = nil
     ) {
         self.id = id
         self.documentID = documentID
@@ -115,13 +199,19 @@ public struct Fact: Codable, Equatable, Hashable, Sendable, Identifiable {
         self.isUserInput = isUserInput
         self.state = state
         self.wasExplicitlyReviewed = wasExplicitlyReviewed
+        self.reviewStatus = reviewStatus
+        self.sourceType = sourceType
+        self.confidence = confidence
+        self.version = version
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
     }
 
     public var isTraceable: Bool {
         (sourceReference?.documentID == documentID) || isUserInput
     }
     public var canAppearInDoctorView: Bool {
-        isTraceable && state == .confirmed && wasExplicitlyReviewed
+        isTraceable && state == .confirmed && wasExplicitlyReviewed && reviewStatus == .confirmed
     }
 
     public mutating func markNeedsReview() throws {
@@ -134,6 +224,7 @@ public struct Fact: Codable, Equatable, Hashable, Sendable, Identifiable {
             throw PatientAppError.invalidTransition(from: state, to: .confirmed)
         }
         wasExplicitlyReviewed = true
+        reviewStatus = .confirmed
         state = .confirmed
     }
 
@@ -188,14 +279,20 @@ public struct ShareVersion: Codable, Equatable, Hashable, Sendable, Identifiable
     public let createdAt: Date
     public var state: LifecycleState
     public var revokedAt: Date?
+    public var resourceType: SharedResourceType
+    public var resourceID: UUID
+    public var expiresAt: Date?
 
-    public init(id: UUID = UUID(), documentID: UUID, version: Int, createdAt: Date = .now, state: LifecycleState = .shared, revokedAt: Date? = nil) {
+    public init(id: UUID = UUID(), documentID: UUID, version: Int, createdAt: Date = .now, state: LifecycleState = .shared, revokedAt: Date? = nil, resourceType: SharedResourceType = .document, resourceID: UUID? = nil, expiresAt: Date? = nil) {
         self.id = id
         self.documentID = documentID
         self.version = version
         self.createdAt = createdAt
         self.state = state
         self.revokedAt = revokedAt
+        self.resourceType = resourceType
+        self.resourceID = resourceID ?? documentID
+        self.expiresAt = expiresAt
     }
 
     public mutating func revoke(at date: Date = .now) throws {
@@ -214,6 +311,22 @@ public enum AuditAction: String, Codable, CaseIterable, Sendable {
     case shared
     case revoked
     case archived
+}
+
+public enum ReviewStatus: String, Codable, CaseIterable, Sendable {
+    case unreviewed
+    case inReview = "in_review"
+    case confirmed
+    case rejected
+    case superseded
+}
+
+public enum SharedResourceType: String, Codable, CaseIterable, Sendable {
+    case document
+    case fact
+    case topic
+    case visit
+    case task
 }
 
 public struct AuditEvent: Codable, Equatable, Hashable, Sendable, Identifiable {
@@ -341,9 +454,11 @@ public struct FactEditCommand: Codable, Equatable, Hashable, Sendable {
 public struct FactReviewCommand: Codable, Equatable, Hashable, Sendable {
     public let documentID: UUID
     public let factID: UUID
+    public let ifMatchVersion: Int
 
-    public init(documentID: UUID, factID: UUID) {
+    public init(documentID: UUID, factID: UUID, ifMatchVersion: Int = 1) {
         self.documentID = documentID
         self.factID = factID
+        self.ifMatchVersion = ifMatchVersion
     }
 }
