@@ -13,6 +13,7 @@ cp "$repo_root/infra/staging/.env.example" "$env_file"
 docker compose --env-file "$env_file" -f "$repo_root/infra/staging/docker-compose.yml" config --quiet
 docker compose --env-file "$env_file" -f "$repo_root/infra/staging/docker-compose.yml" config --format json >"$rendered_config"
 python3 "$repo_root/scripts/staging/validate_runtime.py" "$rendered_config"
+python3 "$repo_root/scripts/staging/resilience_smoke.py"
 
 # The full synthetic workflow already lives in scripts/staging_e2e.py. Reuse it
 # when the caller's checkout includes that companion change; this runtime
