@@ -168,6 +168,42 @@ class ApiHttpAdapter:
                     idempotency_key=self._idempotency(headers),
                 )
                 return HttpResponse(202, to_jsonable(job))
+            if method == "POST" and route == "/v1/topics":
+                data = self._body(body)
+                _required(data, "name")
+                _reject_extra(data, "name")
+                topic = self.service.create_topic(
+                    auth,
+                    name=self._string(data, "name"),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, to_jsonable(topic))
+            if method == "POST" and route == "/v1/visits":
+                data = self._body(body)
+                _required(data, "title")
+                _reject_extra(data, "title", "starts_at", "topic_ids")
+                starts_at = None if data.get("starts_at") is None else _as_datetime(data["starts_at"], "starts_at")
+                visit = self.service.create_visit(
+                    auth,
+                    title=self._string(data, "title"),
+                    starts_at=starts_at,
+                    topic_ids=self._string_list(data, "topic_ids"),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, to_jsonable(visit))
+            if method == "POST" and route == "/v1/tasks":
+                data = self._body(body)
+                _required(data, "title")
+                _reject_extra(data, "title", "visit_id", "due_at")
+                due_at = None if data.get("due_at") is None else _as_datetime(data["due_at"], "due_at")
+                task = self.service.create_task(
+                    auth,
+                    title=self._string(data, "title"),
+                    visit_id=self._optional_string(data, "visit_id"),
+                    due_at=due_at,
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, to_jsonable(task))
             if method == "POST" and route == "/v1/facts":
                 data = self._body(body)
                 _required(data, "label", "value", "source_ref", "source_type", "confidence")
@@ -264,6 +300,19 @@ class ApiHttpAdapter:
         if not isinstance(value, str) or not value.strip():
             raise RequestValidationError(f"{field} must be a non-empty string")
         return value
+
+    @staticmethod
+    def _optional_string(data: Mapping[str, Any], field: str) -> str | None:
+        if field not in data or data[field] is None:
+            return None
+        return ApiHttpAdapter._string(data, field)
+
+    @staticmethod
+    def _string_list(data: Mapping[str, Any], field: str) -> tuple[str, ...]:
+        value = data.get(field, [])
+        if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+            raise RequestValidationError(f"{field} must be an array of non-empty strings")
+        return tuple(value)
 
     @staticmethod
     def _number(data: Mapping[str, Any], field: str) -> float:

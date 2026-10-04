@@ -24,6 +24,8 @@ class HttpAdapterTests(unittest.TestCase):
             Scope.DOCUMENTS_WRITE,
             Scope.FACTS_READ,
             Scope.FACTS_WRITE,
+            Scope.VISITS_WRITE,
+            Scope.TASKS_WRITE,
             Scope.SHARES_CREATE,
             Scope.SHARES_REVOKE,
             Scope.AUDIT_READ,
@@ -117,6 +119,103 @@ class HttpAdapterTests(unittest.TestCase):
         expired_access = self.http.handle("GET", f"/v1/shared/{expiring.body['token']}")
         self.assertEqual(expired_access.status_code, 410)
         self.assertEqual(expired_access.body["code"], "SHARE_EXPIRED")
+
+    def test_visit_pack_routes_create_topic_visit_and_task(self) -> None:
+        topic = self.http.handle(
+            "POST",
+            "/v1/topics",
+            headers={**self.bearer(), "Idempotency-Key": "http-topic-001"},
+            body={"name": "Synthetic preparation"},
+        )
+        self.assertEqual(topic.status_code, 201)
+        topic_replay = self.http.handle(
+            "POST",
+            "/v1/topics",
+            headers={**self.bearer(), "Idempotency-Key": "http-topic-001"},
+            body={"name": "Synthetic preparation"},
+        )
+        self.assertEqual(topic_replay.status_code, 201)
+        self.assertEqual(topic_replay.body["id"], topic.body["id"])
+
+        visit = self.http.handle(
+            "POST",
+            "/v1/visits",
+            headers={**self.bearer(), "Idempotency-Key": "http-visit-001"},
+            body={
+                "title": "Synthetic follow-up",
+                "starts_at": "2030-01-01T09:00:00+00:00",
+                "topic_ids": [topic.body["id"]],
+            },
+        )
+        self.assertEqual(visit.status_code, 201)
+        self.assertEqual(visit.body["topic_ids"], [topic.body["id"]])
+
+        task = self.http.handle(
+            "POST",
+            "/v1/tasks",
+            headers={**self.bearer(), "Idempotency-Key": "http-task-001"},
+            body={
+                "title": "Bring synthetic medication list",
+                "visit_id": visit.body["id"],
+                "due_at": "2030-01-01T08:00:00Z",
+            },
+        )
+        self.assertEqual(task.status_code, 201)
+        self.assertEqual(task.body["visit_id"], visit.body["id"])
+        self.assertEqual(task.body["status"], "open")
+
+    def test_visit_pack_auth_idempotency_and_validation_codes(self) -> None:
+        no_auth = self.http.handle(
+            "POST",
+            "/v1/topics",
+            headers={"Idempotency-Key": "http-topic-auth"},
+            body={"name": "Synthetic"},
+        )
+        self.assertEqual(no_auth.status_code, 401)
+        self.assertEqual(no_auth.body["code"], "AUTHENTICATION_REQUIRED")
+
+        no_scope = self.http.handle(
+            "POST",
+            "/v1/visits",
+            headers={**self.bearer(scopes="documents:read"), "Idempotency-Key": "http-visit-scope"},
+            body={"title": "Synthetic"},
+        )
+        self.assertEqual(no_scope.status_code, 403)
+        self.assertEqual(no_scope.body["code"], "FORBIDDEN")
+
+        invalid_topic_ids = self.http.handle(
+            "POST",
+            "/v1/visits",
+            headers={**self.bearer(), "Idempotency-Key": "http-visit-array"},
+            body={"title": "Synthetic", "topic_ids": "not-an-array"},
+        )
+        self.assertEqual(invalid_topic_ids.status_code, 422)
+        self.assertEqual(invalid_topic_ids.body["code"], "VALIDATION_ERROR")
+
+        naive_start = self.http.handle(
+            "POST",
+            "/v1/visits",
+            headers={**self.bearer(), "Idempotency-Key": "http-visit-time"},
+            body={"title": "Synthetic", "starts_at": "2030-01-01T09:00:00"},
+        )
+        self.assertEqual(naive_start.status_code, 422)
+        self.assertEqual(naive_start.body["code"], "VALIDATION_ERROR")
+
+        first_task = self.http.handle(
+            "POST",
+            "/v1/tasks",
+            headers={**self.bearer(), "Idempotency-Key": "http-task-conflict"},
+            body={"title": "Synthetic task"},
+        )
+        self.assertEqual(first_task.status_code, 201)
+        task_conflict = self.http.handle(
+            "POST",
+            "/v1/tasks",
+            headers={**self.bearer(), "Idempotency-Key": "http-task-conflict"},
+            body={"title": "Different synthetic task"},
+        )
+        self.assertEqual(task_conflict.status_code, 409)
+        self.assertEqual(task_conflict.body["code"], "IDEMPOTENCY_CONFLICT")
 
     def test_401_403_409_and_404_boundaries(self) -> None:
         no_auth = self.http.handle(

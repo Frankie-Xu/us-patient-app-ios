@@ -18,3 +18,5 @@ python3 -m unittest discover -s services/api/tests -p 'test_*.py'
 
 
 HTTP errors use the stable envelope `{ "code": "...", "detail": "..." }`. Current codes are `AUTHENTICATION_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `SHARE_NOT_FOUND`, `IDEMPOTENCY_CONFLICT`, `VERSION_CONFLICT`, `VALIDATION_ERROR`, `SERVICE_ERROR`, `SHARE_EXPIRED`, `SHARE_REVOKED`, `DEPENDENCY_UNAVAILABLE`, and `INTERNAL_ERROR`. Details are kept operational and never echo request bodies, filenames, claims, or tokens.
+
+The HTTP adapter also exposes the frozen visit-preparation writes: `POST /v1/topics`, `POST /v1/visits`, and `POST /v1/tasks`. Visit and task timestamps require timezone-aware ISO-8601 values; `topic_ids` is an array and `visit_id` is nullable.
