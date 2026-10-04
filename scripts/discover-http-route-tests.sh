@@ -16,11 +16,22 @@ route_tests="$(find "$component_dir" \( -name .venv -o -name venv -o -name __pyc
   fi
 done)"
 
+route_family_counts=()
+for family in topics visits tasks; do
+  family_count="$(find "$component_dir" \( -name .venv -o -name venv -o -name __pycache__ -o -name .pytest_cache \) -prune -o -type f \( -name 'test_*.py' -o -name '*_test.py' \) -print0 | while IFS= read -r -d '' test_file; do
+    if rg -q "/v1/${family}([/?\"']|$)|client\.(get|post|put|patch|delete)\([^)]*${family}" "$test_file"; then
+      printf '1\n'
+    fi
+  done | wc -l | tr -d ' ')"
+  route_family_counts+=("$family=$family_count")
+done
+route_family_summary="$(IFS=', '; echo "${route_family_counts[*]}")"
+
 if [[ -n "$route_tests" ]]; then
   count="$(printf '%s\n' "$route_tests" | sed '/^$/d' | wc -l | tr -d ' ')"
-  echo "Discovered $count HTTP route test file(s); the API pytest runner includes them."
+  echo "Discovered $count HTTP route test file(s); topics/visits/tasks coverage: $route_family_summary."
 elif [[ -n "$route_adapter" ]]; then
-  echo "No HTTP route test files discovered yet; API tests still run for $component_dir."
+  echo "No HTTP route test files discovered yet; topics/visits/tasks coverage: $route_family_summary. API tests still run for $component_dir."
 else
-  echo "Skipping HTTP route discovery: no FastAPI route adapter is present yet."
+  echo "Skipping HTTP route discovery: no FastAPI route adapter is present yet (topics/visits/tasks coverage: $route_family_summary)."
 fi
