@@ -35,6 +35,7 @@ public final class AppShellModel: ObservableObject {
     @Published public var shareFlow: ShareFlowModel
     @Published public var visitPack: VisitPackModel
     @Published public var accountHistory: AccountHistoryModel
+    @Published public var documentHistory: DocumentHistoryModel
     @Published public private(set) var authState: AuthState = .signedOut
     public let protectedCache: any ProtectedCache
     public let sessionStore: any SessionStore
@@ -58,6 +59,7 @@ public final class AppShellModel: ObservableObject {
         self.shareFlow = ShareFlowModel(client: client)
         self.visitPack = VisitPackModel(client: client)
         self.accountHistory = AccountHistoryModel(client: client, cache: protectedCache, sessionStore: store)
+        self.documentHistory = DocumentHistoryModel(client: client)
     }
 
     public func signIn(identifier: String) async -> AuthState {
@@ -65,6 +67,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         authState = await authSession.signIn(identifier: identifier)
         return authState
     }
@@ -74,6 +77,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         authState = await authSession.switchAccount(identifier: identifier)
         return authState
     }
@@ -90,6 +94,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         await authSession.expire()
         authState = await authSession.authState()
     }
@@ -99,6 +104,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         await authSession.logout()
         authState = await authSession.authState()
     }
@@ -114,7 +120,7 @@ public struct AppShellView: View {
     public var body: some View {
         TabView(selection: $model.selection) {
             HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
-            RecordsView(model: model.importFlow).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
+            RecordsView(model: model.importFlow, history: model.documentHistory).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)

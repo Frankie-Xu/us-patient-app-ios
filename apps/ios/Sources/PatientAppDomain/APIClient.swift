@@ -8,6 +8,7 @@ public protocol PatientAPIClient: Sendable {
     func upload(_ request: UploadRequest) async throws -> UploadReceipt
     func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession
     func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession
+    func listDocuments() async throws -> [Document]
     func processingStatus(documentID: UUID) async throws -> ProcessingStatus
     func facts(documentID: UUID) async throws -> [Fact]
     func editFact(_ command: FactEditCommand) async throws -> Fact
@@ -151,6 +152,10 @@ public extension PatientAPIClient {
 
     func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession {
         throw PatientAPIClientError.unsupported(.uploadContentNotInClient)
+    }
+
+    func listDocuments() async throws -> [Document] {
+        throw PatientAPIClientError.unsupported(.documentListingNotInClient)
     }
 }
 

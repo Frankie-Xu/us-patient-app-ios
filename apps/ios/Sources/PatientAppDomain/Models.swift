@@ -34,6 +34,7 @@ public enum UnsupportedOperation: Equatable, Sendable {
     case shareRevocationNotInClient
     case uploadSessionCreationNotInClient
     case uploadContentNotInClient
+    case documentListingNotInClient
 }
 
 public enum PatientAPIClientError: Error, Equatable, Sendable {

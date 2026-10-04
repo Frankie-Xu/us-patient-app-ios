@@ -61,6 +61,24 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
         XCTAssertEqual(status, .processing)
     }
 
+    func testListDocumentsDecodesArrayResponseWithoutWriteHeaders() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = ContractDocumentPayload(filename: "first.pdf", mediaType: "application/pdf", sizeBytes: 42, sha256: String(repeating: "a", count: 64), id: documentID, ownerID: "owner", sourceType: .uploadedDocument, status: .ready, version: 2, createdAt: now, updatedAt: now, deletedAt: nil)
+        let second = ContractDocumentPayload(filename: "second.txt", mediaType: "text/plain", sizeBytes: 12, sha256: String(repeating: "b", count: 64), id: UUID(), ownerID: "owner", sourceType: .uploadedDocument, status: .processing, version: 1, createdAt: now, updatedAt: now, deletedAt: nil)
+        var captured: URLRequest?
+        let client = try makeClient { request in
+            captured = request
+            return (200, try JSONEncoder.iso8601.encode([first, second]))
+        }
+
+        let documents = try await client.listDocuments()
+        XCTAssertEqual(documents.map(\.title), ["first.pdf", "second.txt"])
+        XCTAssertEqual(documents.first?.processingStatus, .ready)
+        XCTAssertEqual(captured?.url?.path, "/v1/documents")
+        XCTAssertEqual(captured?.httpMethod, "GET")
+        XCTAssertNil(captured?.value(forHTTPHeaderField: "Idempotency-Key"))
+    }
+
     func testHTTPErrorsMapToTypedClientErrors() async throws {
         let client = try makeClient { _ in (409, Data()) }
         do {

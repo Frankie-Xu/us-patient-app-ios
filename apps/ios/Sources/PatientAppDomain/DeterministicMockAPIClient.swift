@@ -5,6 +5,7 @@ public enum MockFailurePoint: Equatable, Sendable {
     case upload
     case createUploadSession
     case uploadSessionContent
+    case listDocuments
     case processingStatus
     case facts
     case editFact
@@ -67,6 +68,7 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     private var storedVisits: [UUID: Visit]
     private var storedTasks: [UUID: Task]
     private var storedUploadSessions: [UUID: UploadSession] = [:]
+    private var storedDocuments: [UUID: Document] = [:]
     private var storedShares: [UUID: ShareVersion] = [:]
 
     public init(scenario: MockImportScenario = MockImportScenario()) {
@@ -80,6 +82,8 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
 
     public func createImport(_ request: ImportRequest) async throws -> ImportTicket {
         try failIfNeeded(at: .createImport)
+        let document = Document(id: scenario.documentID, title: request.fileName, processingStatus: .uploaded)
+        storedDocuments[document.id] = document
         return ImportTicket(documentID: scenario.documentID, title: request.title)
     }
 
@@ -112,13 +116,24 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
         return session
     }
 
+    public func listDocuments() async throws -> [Document] {
+        try failIfNeeded(at: .listDocuments)
+        return storedDocuments.values.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
     public func processingStatus(documentID: UUID) async throws -> ProcessingStatus {
         try failIfNeeded(at: .processingStatus)
         if let terminalProcessingStatus = scenario.terminalProcessingStatus {
             return terminalProcessingStatus
         }
         processingPolls += 1
-        return processingPolls > scenario.pollsBeforeReady ? .ready : .processing
+        let status: ProcessingStatus = processingPolls > scenario.pollsBeforeReady ? .ready : .processing
+        if status == .ready, var document = storedDocuments[documentID] {
+            document.processingStatus = .ready
+            document.updatedAt = Date()
+            storedDocuments[documentID] = document
+        }
+        return status
     }
 
     public func facts(documentID: UUID) async throws -> [Fact] {
