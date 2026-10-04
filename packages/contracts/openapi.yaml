@@ -346,6 +346,28 @@ paths:
         requires the current version; a repeated stale write returns 409. No Idempotency-Key
         is used for this endpoint.
   "/v1/topics":
+    get:
+      operationId: listTopics
+      tags:
+      - visits
+      security:
+      - bearerAuth: []
+      description: Chronological account history visible to the principal; same-time records are ordered by id.
+      responses:
+        '200':
+          description: Topics in ascending server creation order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Topic"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - visits:read
     post:
       operationId: createTopic
       tags:
@@ -378,6 +400,28 @@ paths:
       x-required-scopes:
       - visits:write
   "/v1/visits":
+    get:
+      operationId: listVisits
+      tags:
+      - visits
+      security:
+      - bearerAuth: []
+      description: Chronological account history visible to the principal; same-time records are ordered by id.
+      responses:
+        '200':
+          description: Visits in ascending server creation order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Visit"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - visits:read
     post:
       operationId: createVisit
       tags:
@@ -410,6 +454,28 @@ paths:
       x-required-scopes:
       - visits:write
   "/v1/tasks":
+    get:
+      operationId: listTasks
+      tags:
+      - tasks
+      security:
+      - bearerAuth: []
+      description: Chronological account history visible to the principal; same-time records are ordered by id.
+      responses:
+        '200':
+          description: Tasks in ascending server creation order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Task"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      x-required-scopes:
+      - tasks:read
     post:
       operationId: createTask
       tags:
