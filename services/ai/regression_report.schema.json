@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-app.invalid/schemas/golden-regression-report.json",
+  "title": "Patient App AI golden regression report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_schema",
+    "schema_version",
+    "api_version",
+    "dataset_id",
+    "dataset_version",
+    "sample_count",
+    "pipeline",
+    "metrics",
+    "error_categories",
+    "delivery_blocked"
+  ],
+  "properties": {
+    "report_schema": {"const": "patient-app-ai/golden-regression-report"},
+    "schema_version": {"const": "1.0.0"},
+    "api_version": {"const": "0.2.0"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "dataset_version": {"type": "string", "minLength": 1},
+    "sample_count": {"type": "integer", "minimum": 1},
+    "pipeline": {"type": "string", "minLength": 1},
+    "metrics": {
+      "type": "object",
+      "required": [
+        "precision",
+        "recall",
+        "citation_coverage",
+        "rewrite_rate",
+        "rejection_rate",
+        "per_case_cost"
+      ],
+      "additionalProperties": {"type": "number"}
+    },
+    "error_categories": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
+    "delivery_blocked": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "api_version": "0.2.0",
+  "fact_creates": [
+    {
+      "api_version": "0.2.0",
+      "claim_id": "synthetic-medication-001",
+      "text_en": "Example medication A is listed as active.",
+      "text_zh": "示例药物 A 标记为正在使用。",
+      "normalized_key": "medication:example-a:status",
+      "normalized_value": "active",
+      "source_ref": "synthetic:medication:page-1",
+      "source_type": "synthetic_medication_list",
+      "source_span": {"start": 0, "end": 41, "page": 1},
+      "confidence": 1.0,
+      "review_required": true,
+      "review_status": "needs_review",
+      "error_categories": []
+    },
+    {
+      "api_version": "0.2.0",
+      "claim_id": "synthetic-medication-002",
+      "text_en": "Example medication A is taken once daily.",
+      "text_zh": "示例药物 A 每日服用一次。",
+      "normalized_key": "medication:example-a:frequency",
+      "normalized_value": "once_daily",
+      "source_ref": "synthetic:medication:page-1",
+      "source_type": "synthetic_medication_list",
+      "source_span": {"start": 0, "end": 41, "page": 1},
+      "confidence": 1.0,
+      "review_required": true,
+      "review_status": "needs_review",
+      "error_categories": []
+    }
+  ],
+  "fact_reviews": [
+    {
+      "api_version": "0.2.0",
+      "claim_id": "synthetic-medication-001",
+      "review_required": true,
+      "review_status": "needs_review",
+      "error_categories": [],
+      "confidence": 1.0,
+      "source_ref": "synthetic:medication:page-1",
+      "source_type": "synthetic_medication_list",
+      "source_span": {"start": 0, "end": 41, "page": 1}
+    },
+    {
+      "api_version": "0.2.0",
+      "claim_id": "synthetic-medication-002",
+      "review_required": true,
+      "review_status": "needs_review",
+      "error_categories": [],
+      "confidence": 1.0,
+      "source_ref": "synthetic:medication:page-1",
+      "source_type": "synthetic_medication_list",
+      "source_span": {"start": 0, "end": 41, "page": 1}
+    }
+  ]
+}
