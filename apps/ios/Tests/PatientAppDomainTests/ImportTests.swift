@@ -54,16 +54,6 @@ final class ImportTests: XCTestCase {
         let confirmed = try await useCase.confirmFact(FactReviewCommand(documentID: snapshot.ticket.documentID, factID: edited.id))
         XCTAssertTrue(confirmed.canAppearInDoctorView)
     }
-}
-
-private actor StageRecorder {
-    private var recorded: [ImportStage] = []
-
-    func append(_ stage: ImportStage) {
-        recorded.append(stage)
-    }
-
-    var values: [ImportStage] { recorded }
     func testLoadingExistingDocumentUsesFactsWithoutUpload() async throws {
         let documentID = UUID()
         let fact = Fact(
@@ -83,5 +73,16 @@ private actor StageRecorder {
         XCTAssertEqual(snapshot.status, .ready)
         XCTAssertEqual(snapshot.facts, [fact])
     }
+}
+
+private actor StageRecorder {
+    private var recorded: [ImportStage] = []
+
+    func append(_ stage: ImportStage) {
+        recorded.append(stage)
+    }
+
+    var values: [ImportStage] { recorded }
+
 
 }
