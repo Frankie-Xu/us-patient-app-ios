@@ -27,6 +27,7 @@ This is a decision-ready shortlist, not an instruction to adopt every dependency
 | Typed API client | [apple/swift-openapi-generator](https://github.com/apple/swift-openapi-generator) | Generates Swift client/server code from OpenAPI | Apache-2.0; freeze the contract before generation |
 | API runtime | [apple/swift-openapi-runtime](https://github.com/apple/swift-openapi-runtime) | Runtime for generated Swift clients | Apache-2.0; pair with the generator version |
 | URLSession transport | [apple/swift-openapi-urlsession](https://github.com/apple/swift-openapi-urlsession) | Native URLSession transport | Apache-2.0; keep auth/retry policy in our repository |
+| Swift tests | [swiftlang/swift-testing](https://github.com/swiftlang/swift-testing) | Expressive native tests that can coexist with XCTest | Apache-2.0; use the toolchain-supported version and keep UI tests separate |
 | State architecture | [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture) | Strong state/effect modeling for complex flows | Evaluate against a lighter MVVM/use-case baseline; avoid adding it before the team needs its conventions |
 | Python API | [fastapi/fastapi](https://github.com/fastapi/fastapi) | OpenAPI-first async HTTP service | MIT; pin versions and run dependency/security checks |
 | Validation | [pydantic/pydantic](https://github.com/pydantic/pydantic) | Typed request/response and domain validation | MIT; use explicit schemas for source and review state |
@@ -49,4 +50,3 @@ This is a decision-ready shortlist, not an instruction to adopt every dependency
 3. De-identified golden-set evaluation for OCR and extraction.
 4. No sensitive content in logs, traces, crash payloads or issue text.
 5. Exit plan: every vendor or framework must be replaceable behind a protocol or service boundary.
-
