@@ -86,7 +86,7 @@ public struct PDFExportUseCase: Sendable {
 }
 
 
-private extension PatientAPITransportResponse {
+extension PatientAPITransportResponse {
     func header(named name: String) -> String? {
         let wanted = name.lowercased()
         return headers.first { key, _ in key.lowercased() == wanted }?.value
