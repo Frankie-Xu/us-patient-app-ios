@@ -36,7 +36,20 @@ bash scripts/test-validate-repo.sh
 bash scripts/check-dependencies.sh
 bash scripts/check-workflow-pins.sh
 bash scripts/check-openapi.sh
+bash scripts/discover-http-route-tests.sh services/api
 bash scripts/run-python-tests.sh services/api
 bash scripts/run-python-tests.sh services/ai
 bash scripts/run-ios-tests.sh apps/ios
 ```
+
+## HTTP route smoke and test discovery
+
+The API job runs the complete `services/api` test tree with the pinned `pytest` tool. `scripts/discover-http-route-tests.sh` scans for a FastAPI/`APIRouter` adapter and reports test files that use `TestClient`, `ASGITransport`, `httpx`, an HTTP client call, or a health route. Any discovered route test remains part of the same failing test gate; route discovery never prints request or response bodies. If the adapter exists before route tests land, CI reports the gap and still runs the service tests.
+
+Route tests should construct the app in process and use synthetic requests. They should cover the health response, authentication and validation boundaries, status codes, idempotency or version headers where applicable, and PHI-safe error responses. They must not bind a public port, call a deployed service, require credentials, or log payloads.
+
+## iOS transport tests and SwiftPM cache behavior
+
+The iOS job invokes `scripts/run-ios-tests.sh apps/ios`. It discovers `*Transport*Tests.swift`, `*APIClient*Tests.swift`, and `*ContractAdapterTests.swift` files for an explicit log message, then runs the entire SwiftPM or Xcode test suite so those tests cannot be omitted by a narrow filter.
+
+SwiftPM uses its default sandbox and a fresh macOS runner. The job does not persist `.build`, `Package.resolved`, derived data, simulator state, or dependency caches between pull requests. Keep those paths ignored and do not add cache restoration that could reuse artifacts from an untrusted pull request. Transport tests use deterministic mocks or local fixtures; no network endpoint, signing credential, or real patient data is available to the job.

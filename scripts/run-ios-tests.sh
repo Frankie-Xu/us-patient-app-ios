@@ -7,6 +7,14 @@ if [[ ! -d "$ios_root" ]] || ! find "$ios_root" -type f -not -name .gitkeep -pri
   exit 0
 fi
 
+transport_tests="$(find "$ios_root/Tests" -type f \( -iname '*Transport*Tests.swift' -o -iname '*APIClient*Tests.swift' -o -iname '*ContractAdapterTests.swift' \) -print 2>/dev/null || true)"
+if [[ -n "$transport_tests" ]]; then
+  transport_count="$(printf '%s\n' "$transport_tests" | sed '/^$/d' | wc -l | tr -d ' ')"
+  echo "Discovered $transport_count iOS transport/contract test file(s); SwiftPM test includes them."
+else
+  echo "No explicit iOS transport/contract test files discovered yet; SwiftPM test still runs all available tests."
+fi
+
 package_file="$(find "$ios_root" -type f -name Package.swift -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit)"
 if [[ -n "$package_file" ]]; then
   package_dir="$(dirname "$package_file")"
