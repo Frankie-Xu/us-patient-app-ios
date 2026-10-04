@@ -20,23 +20,52 @@ public final class AccountHistoryModel: ObservableObject {
     @Published public private(set) var state: AccountHistoryState = .idle
 
     private let useCase: AccountHistoryUseCase
+    private let cache: (any ProtectedCache)?
+    private let sessionStore: (any SessionStore)?
     private var generation = 0
 
-    public init(client: any PatientAPIClient) { useCase = AccountHistoryUseCase(client: client) }
-    public init(repository: any AccountHistoryRepository) { useCase = AccountHistoryUseCase(repository: repository) }
+    public init(client: any PatientAPIClient, cache: (any ProtectedCache)? = nil, sessionStore: (any SessionStore)? = nil) {
+        useCase = AccountHistoryUseCase(client: client)
+        self.cache = cache
+        self.sessionStore = sessionStore
+    }
+
+    public init(repository: any AccountHistoryRepository, cache: (any ProtectedCache)? = nil, sessionStore: (any SessionStore)? = nil) {
+        useCase = AccountHistoryUseCase(repository: repository)
+        self.cache = cache
+        self.sessionStore = sessionStore
+    }
 
     public func load() async {
         generation += 1
         let requestGeneration = generation
         state = .loading
+        let session = await sessionStore?.currentSession()
+        var restoredFromCache = false
+
+        if let session, let cached = await cachedSnapshot(for: session) {
+            guard await isCurrent(requestGeneration, session: session) else {
+                if requestGeneration == generation { state = .idle }
+                return
+            }
+            state = cached.isEmpty ? .empty : .loaded(cached)
+            restoredFromCache = true
+        }
 
         do {
             let snapshot = try await useCase.load()
-            guard requestGeneration == generation else { return }
+            guard await isCurrent(requestGeneration, session: session) else {
+                if requestGeneration == generation { state = .idle }
+                return
+            }
             state = snapshot.isEmpty ? .empty : .loaded(snapshot)
+            if let session { await store(snapshot: snapshot, for: session) }
         } catch {
-            guard requestGeneration == generation else { return }
-            state = .failed(Self.clientError(for: error))
+            guard await isCurrent(requestGeneration, session: session) else {
+                if requestGeneration == generation { state = .idle }
+                return
+            }
+            if !restoredFromCache { state = .failed(Self.clientError(for: error)) }
         }
     }
 
@@ -44,6 +73,36 @@ public final class AccountHistoryModel: ObservableObject {
         guard case .failed = state else { return }
         await load()
     }
+
+    public func logout() async {
+        invalidateSession()
+        await sessionStore?.logout()
+        await cache?.purgeAll()
+    }
+
+    public func invalidateSession() {
+        generation += 1
+        state = .idle
+    }
+
+    private func isCurrent(_ requestGeneration: Int, session: SessionContext?) async -> Bool {
+        guard requestGeneration == generation else { return false }
+        guard let session else { return true }
+        guard let sessionStore else { return false }
+        return await sessionStore.isCurrent(session)
+    }
+
+    private func cachedSnapshot(for session: SessionContext) async -> AccountHistorySnapshot? {
+        guard let data = await cache?.data(forKey: Self.cacheKey, session: session) else { return nil }
+        return try? JSONDecoder().decode(AccountHistorySnapshot.self, from: data)
+    }
+
+    private func store(snapshot: AccountHistorySnapshot, for session: SessionContext) async {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        await cache?.setData(data, forKey: Self.cacheKey, session: session)
+    }
+
+    private static let cacheKey = "account-history-v1"
 
     private static func clientError(for error: any Error) -> PatientAPIClientError {
         if let error = error as? PatientAPIClientError { return error }
