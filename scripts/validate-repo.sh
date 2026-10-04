@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="${VALIDATION_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$repo_root"
 
 tmp_dir="$(mktemp -d)"
@@ -9,7 +9,8 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 redact_matches() {
   local matches_file="$1"
-  sed -E 's/^([^:]+:[0-9]+):.*/\1:<redacted>/' "$matches_file"
+  test -s "$matches_file"
+  echo "Matched values and paths are omitted from logs."
 }
 
 secret_matches="$tmp_dir/secrets.txt"
@@ -30,7 +31,7 @@ secret_patterns=(
 
 for pattern in "${secret_patterns[@]}"; do
   set +e
-  rg --pcre2 -n --hidden --no-ignore -g '!.git/**' -- "$pattern" . >> "$secret_matches"
+  rg --pcre2 -n --hidden --no-ignore -g '!.git/**' -- "$pattern" . >> "$secret_matches" 2>/dev/null
   scan_status=$?
   set -e
   if [[ $scan_status -gt 1 ]]; then
@@ -40,7 +41,7 @@ for pattern in "${secret_patterns[@]}"; do
 done
 
 if [[ -s "$secret_matches" ]]; then
-  echo "Potential credential detected in repository files (locations only):" >&2
+  echo "Potential credential detected in repository files (details redacted):" >&2
   redact_matches "$secret_matches" >&2
   echo "Remove the credential before committing; use local environment configuration instead." >&2
   exit 1
@@ -68,8 +69,8 @@ while IFS= read -r path; do
 done < <(find . -type f -not -path './.git/*' -print)
 
 if [[ -s "$clinical_paths" ]]; then
-  echo "Potential clinical document found in repository (locations only):" >&2
-  sort -u "$clinical_paths" >&2
+  echo "Potential clinical document found in repository (details redacted):" >&2
+  echo "Matched paths are omitted from logs." >&2
   echo "Use synthetic or appropriately de-identified fixtures outside the repository." >&2
   exit 1
 fi
@@ -81,7 +82,7 @@ phi_matches="$tmp_dir/phi.txt"
 set +e
 rg --pcre2 -n --hidden --no-ignore -g '!.git/**' -g '!*.md' -g '!*.html' \
   '(?i)\b(medical record number|mrn|date of birth|dob|social security number|ssn|patient name|diagnosis|discharge summary|medication list)\s*[:=]' \
-  . >> "$phi_matches"
+  . >> "$phi_matches" 2>/dev/null
 phi_scan_status=$?
 set -e
 if [[ $phi_scan_status -gt 1 ]]; then
@@ -90,7 +91,7 @@ if [[ $phi_scan_status -gt 1 ]]; then
 fi
 
 if [[ -s "$phi_matches" ]]; then
-  echo "Potential PHI-labelled data found in repository files (locations only):" >&2
+  echo "Potential PHI-labelled data found in repository files (details redacted):" >&2
   redact_matches "$phi_matches" >&2
   echo "Remove the data or replace it with approved synthetic fixtures." >&2
   exit 1

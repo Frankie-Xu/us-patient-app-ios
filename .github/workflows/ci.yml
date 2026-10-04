@@ -20,29 +20,59 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ios-present: ${{ steps.detect-ios.outputs.present }}
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Set up validation Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned validation tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Validate repository contents
         run: bash scripts/validate-repo.sh
       - name: Check dependency manifests and versions
         run: bash scripts/check-dependencies.sh
+      - name: Check workflow action pins
+        run: bash scripts/check-workflow-pins.sh
+      - name: Run scanner regression tests
+        run: bash scripts/test-validate-repo.sh
       - name: Check patch formatting
         run: git diff --check
       - name: Detect iOS component
         id: detect-ios
         run: |
-          if find . -type f \( -name Package.swift -o -name project.pbxproj -o -name contents.xcworkspacedata \) -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit | grep -q .; then
+          if find apps/ios -type f \( -name Package.swift -o -name project.pbxproj -o -name contents.xcworkspacedata \) -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit | grep -q .; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
+  contract-validation:
+    name: Contract validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up validation Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned validation tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Validate OpenAPI and JSON Schemas
+        run: bash scripts/check-openapi.sh
+
   api-tests:
     name: API tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -52,12 +82,15 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+      - name: Install pinned test tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Run API tests when present
         run: bash scripts/run-python-tests.sh services/api
 
   ai-tests:
     name: AI tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -67,6 +100,8 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+      - name: Install pinned test tools
+        run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Run AI tests when present
         run: bash scripts/run-python-tests.sh services/ai
 
@@ -75,10 +110,11 @@ jobs:
     needs: repository-validation
     if: ${{ needs.repository-validation.outputs.ios-present == 'true' }}
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - name: Run iOS tests when present
-        run: bash scripts/run-ios-tests.sh
+        run: bash scripts/run-ios-tests.sh apps/ios

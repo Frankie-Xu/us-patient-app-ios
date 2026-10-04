@@ -25,6 +25,7 @@ done < <(find . -type f -name Package.swift -not -path './.git/*' -not -path '*/
 
 while IFS= read -r -d '' manifest; do
   echo "Checking Node manifest: $manifest"
+  # shellcheck disable=SC2016
   node -e 'const fs = require("fs"); const p = process.argv[1]; const pkg = JSON.parse(fs.readFileSync(p, "utf8")); if (!pkg.name || !pkg.version) { throw new Error(`${p} must declare name and version`); }' "$manifest"
 done < <(find . -type f -name package.json -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print0)
 

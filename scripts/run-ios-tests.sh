@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-package_file="$(find . -type f -name Package.swift -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit)"
+ios_root="${1:-apps/ios}"
+if [[ ! -d "$ios_root" ]] || ! find "$ios_root" -type f -not -name .gitkeep -print -quit | grep -q .; then
+  echo "Skipping iOS tests: $ios_root is not present yet."
+  exit 0
+fi
+
+package_file="$(find "$ios_root" -type f -name Package.swift -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit)"
 if [[ -n "$package_file" ]]; then
   package_dir="$(dirname "$package_file")"
   echo "Running Swift package tests in $package_dir..."
@@ -9,11 +15,11 @@ if [[ -n "$package_file" ]]; then
   exit 0
 fi
 
-workspace="$(find . -maxdepth 5 -type d -name '*.xcworkspace' -print -quit)"
-project="$(find . -maxdepth 5 -type d -name '*.xcodeproj' -print -quit)"
+workspace="$(find "$ios_root" -maxdepth 5 -type d -name '*.xcworkspace' -print -quit)"
+project="$(find "$ios_root" -maxdepth 5 -type d -name '*.xcodeproj' -print -quit)"
 
 if [[ -z "$workspace" && -z "$project" ]]; then
-  echo "Skipping iOS tests: no Swift package, Xcode project, or workspace is present yet."
+  echo "Skipping iOS tests: no Swift package, Xcode project, or workspace is present under $ios_root yet."
   exit 0
 fi
 
