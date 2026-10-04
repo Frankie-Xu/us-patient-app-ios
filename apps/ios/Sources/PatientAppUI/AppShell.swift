@@ -77,6 +77,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         authState = await authSession.switchAccount(identifier: identifier)
         return authState
     }
@@ -93,6 +94,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         await authSession.expire()
         authState = await authSession.authState()
     }
@@ -102,6 +104,7 @@ public final class AppShellModel: ObservableObject {
         shareFlow.reset()
         visitPack.reset()
         accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
         await authSession.logout()
         authState = await authSession.authState()
     }
