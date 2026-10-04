@@ -16,6 +16,7 @@ RELEASE_EVIDENCE_CONTRACT_RESULT=success \
 RELEASE_EVIDENCE_API_RESULT=success \
 RELEASE_EVIDENCE_AI_RESULT=success \
 RELEASE_EVIDENCE_IOS_RESULT=skipped \
+RELEASE_EVIDENCE_SYNTHETIC_GATE_RESULT=success \
 python3 "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/pass.json"
 
 python3 - "$tmp_dir/pass.json" <<'PY'
@@ -23,7 +24,7 @@ import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert value["manifest_schema"] == "patient-app-platform/release-evidence"
 assert value["overall"]["status"] == "passed"
-assert value["checks"]["ios"]["status"] == "skipped"
+assert value["checks"]["ios"]["status"] == "skipped"\nassert value["checks"]["synthetic_gate"]["status"] == "passed"
 serialized=json.dumps(value)
 for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in serialized
 PY
@@ -34,6 +35,7 @@ RELEASE_EVIDENCE_CONTRACT_RESULT=success \
 RELEASE_EVIDENCE_API_RESULT=success \
 RELEASE_EVIDENCE_AI_RESULT=success \
 RELEASE_EVIDENCE_IOS_RESULT=skipped \
+RELEASE_EVIDENCE_SYNTHETIC_GATE_RESULT=success \
 python3 "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/fail.json"
 status=$?
 set -e
