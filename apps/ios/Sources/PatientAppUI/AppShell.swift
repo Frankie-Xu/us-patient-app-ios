@@ -38,9 +38,11 @@ public final class AppShellModel: ObservableObject {
 }
 
 public struct AppShellView: View {
-    @StateObject private var model = AppShellModel()
+    @StateObject private var model: AppShellModel
 
-    public init() {}
+    public init(client: any PatientAPIClient = DeterministicMockAPIClient()) {
+        _model = StateObject(wrappedValue: AppShellModel(client: client))
+    }
 
     public var body: some View {
         TabView(selection: $model.selection) {

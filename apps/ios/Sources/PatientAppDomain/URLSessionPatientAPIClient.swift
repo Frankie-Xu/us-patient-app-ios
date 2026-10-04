@@ -40,6 +40,25 @@ public struct FixedRequestIDProvider: RequestIDProvider, Sendable {
     public func requestID() -> String { value }
 }
 
+public struct LivePatientAPIClientConfiguration: Sendable {
+    public let baseURLProvider: any APIBaseURLProvider
+    public let tokenProvider: any BearerTokenProvider
+    public let requestIDProvider: any RequestIDProvider
+
+    public init(baseURLProvider: any APIBaseURLProvider, tokenProvider: any BearerTokenProvider, requestIDProvider: any RequestIDProvider) {
+        self.baseURLProvider = baseURLProvider
+        self.tokenProvider = tokenProvider
+        self.requestIDProvider = requestIDProvider
+    }
+}
+
+public enum PatientAPIClientFactory {
+    /// Creates the live transport from deployment supplied dependencies. Construction performs no request.
+    public static func makeLive(configuration: LivePatientAPIClientConfiguration, session: URLSession = .shared) throws -> any PatientAPIClient {
+        try URLSessionPatientAPIClient(baseURLProvider: configuration.baseURLProvider, tokenProvider: configuration.tokenProvider, requestIDProvider: configuration.requestIDProvider, session: session)
+    }
+}
+
 /// URLSession transport for the frozen v0.2.0 contract.
 /// Authentication, endpoint selection, and request IDs remain injectable for tests and deployment adapters.
 public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
