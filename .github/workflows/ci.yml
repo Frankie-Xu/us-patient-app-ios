@@ -88,6 +88,8 @@ jobs:
         run: bash scripts/discover-http-route-tests.sh services/api
       - name: Run API and HTTP route tests when present
         run: bash scripts/run-python-tests.sh services/api
+      - name: Run API readiness and health smoke
+        run: bash scripts/run-api-readiness.sh services/api
 
   ai-tests:
     name: AI tests
@@ -104,6 +106,8 @@ jobs:
           python-version: '3.12'
       - name: Install pinned test tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
+      - name: Run AI golden-set regression report
+        run: bash scripts/run-ai-golden-regression.sh services/ai
       - name: Run AI tests when present
         run: bash scripts/run-python-tests.sh services/ai
 

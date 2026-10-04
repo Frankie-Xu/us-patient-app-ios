@@ -31,4 +31,4 @@ if deps:
 PY
 fi
 "$python_bin" -m pip check
-PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" "$python_bin" -m pytest "$component_dir" --import-mode=importlib
+PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" "$python_bin" -m pytest "$component_dir" --import-mode=importlib --tb=no --show-capture=no

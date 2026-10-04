@@ -8,8 +8,8 @@ Configure branch protection on `main` to require these exact check names:
 
 - **Repository validation** — repository policy scan, dependency manifest/version checks, workflow action pin checks, scanner regression tests, and patch formatting.
 - **Contract validation** — OpenAPI 3.x and JSON Schema parsing plus internal reference checks. The job succeeds with an explicit skip message while `packages/contracts` has no contract files.
-- **API tests** — discovers `services/api` Python tests and runs them with the pinned `pytest` tool. It skips only when the component or its tests are absent.
-- **AI tests** — applies the same discovery rules to `services/ai`.
+- **API tests** — discovers `services/api` Python tests, runs route tests in the same pinned `pytest` suite, and performs an in-process `/healthz` readiness smoke without binding a port. It skips only when the component or its tests are absent.
+- **AI tests** — emits an aggregate synthetic golden-set regression report, then applies the same discovery rules to `services/ai`.
 - **iOS tests** — runs `apps/ios` Swift Package or Xcode tests when that component is present. The job is skipped when no iOS project or package exists yet.
 
 A skipped component is an intentional green result for the scaffold. The pull request must state which component was skipped and why. Once a component and its tests land, the same check discovers and runs them; a failing test remains a failing check.
@@ -37,6 +37,8 @@ bash scripts/check-dependencies.sh
 bash scripts/check-workflow-pins.sh
 bash scripts/check-openapi.sh
 bash scripts/discover-http-route-tests.sh services/api
+bash scripts/run-api-readiness.sh services/api
+bash scripts/run-ai-golden-regression.sh services/ai
 bash scripts/run-python-tests.sh services/api
 bash scripts/run-python-tests.sh services/ai
 bash scripts/run-ios-tests.sh apps/ios
@@ -44,12 +46,16 @@ bash scripts/run-ios-tests.sh apps/ios
 
 ## HTTP route smoke and test discovery
 
-The API job runs the complete `services/api` test tree with the pinned `pytest` tool. `scripts/discover-http-route-tests.sh` scans for a FastAPI/`APIRouter` adapter and reports test files that use `TestClient`, `ASGITransport`, `httpx`, an HTTP client call, or a health route. Any discovered route test remains part of the same failing test gate; route discovery never prints request or response bodies. If the adapter exists before route tests land, CI reports the gap and still runs the service tests.
+The API job runs the complete `services/api` test tree with the pinned `pytest` tool, then executes `scripts/run-api-readiness.sh services/api`. `scripts/discover-http-route-tests.sh` scans for a FastAPI/`APIRouter` adapter and reports test files that use `TestClient`, `ASGITransport`, `httpx`, an HTTP client call, or a health route. Any discovered route test remains part of the same failing test gate; the pytest runner suppresses tracebacks and captured output, and route discovery never prints request or response bodies. If the adapter exists before route tests land, CI reports the gap and still runs the service tests. The readiness smoke calls the adapter or FastAPI app factory in process and checks only the status shape; it never starts a public listener or prints a response body.
 
 Route tests should construct the app in process and use synthetic requests. They should cover the health response, authentication and validation boundaries, status codes, idempotency or version headers where applicable, and PHI-safe error responses. They must not bind a public port, call a deployed service, require credentials, or log payloads.
 
-## iOS transport tests and SwiftPM cache behavior
+## AI golden-set regression report
 
-The iOS job invokes `scripts/run-ios-tests.sh apps/ios`. It discovers `*Transport*Tests.swift`, `*APIClient*Tests.swift`, and `*ContractAdapterTests.swift` files for an explicit log message, then runs the entire SwiftPM or Xcode test suite so those tests cannot be omitted by a narrow filter.
+`scripts/run-ai-golden-regression.sh services/ai` loads the checked-in synthetic golden set when available, runs the deterministic stub pipeline, and logs only dataset version, case count, aggregate precision/recall/citation and review-required recall, blocking-error count, and the delivery-blocked flag. It fails when required aggregate safety metrics drop below 1.0 or the fixture cannot be loaded. Expected synthetic conflict blockers are reported as an aggregate and never print case text, claims, or document content.
+
+## iOS polling and transport tests and SwiftPM cache behavior
+
+The iOS job invokes `scripts/run-ios-tests.sh apps/ios`. It discovers `*Transport*Tests.swift`, `*APIClient*Tests.swift`, `*URLSession*Tests.swift`, `*Polling*Tests.swift`, and `*ContractAdapterTests.swift` files for an explicit log message, then runs the entire SwiftPM or Xcode test suite so those tests cannot be omitted by a narrow filter.
 
 SwiftPM uses its default sandbox and a fresh macOS runner. The job does not persist `.build`, `Package.resolved`, derived data, simulator state, or dependency caches between pull requests. Keep those paths ignored and do not add cache restoration that could reuse artifacts from an untrusted pull request. Transport tests use deterministic mocks or local fixtures; no network endpoint, signing credential, or real patient data is available to the job.
