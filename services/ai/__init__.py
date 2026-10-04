@@ -58,6 +58,8 @@ from .provider_pipeline import (
     ProviderNeutralPipeline,
     ProviderPipelineResult,
     SourceSpanCheck,
+    TelemetrySummary,
+    summarize_telemetry,
     align_source_spans,
     normalize_ocr_layout,
 )
@@ -131,6 +133,7 @@ __all__ = [
     "ProviderNeutralPipeline",
     "ProviderPipelineResult",
     "SourceSpanCheck",
+    "TelemetrySummary",
     "REPORT_SCHEMA",
     "REPORT_SCHEMA_VERSION",
     "RouteCompatibilityError",
@@ -156,4 +159,5 @@ __all__ = [
     "synthetic_golden_set",
     "align_source_spans",
     "normalize_ocr_layout",
+    "summarize_telemetry",
 ]
