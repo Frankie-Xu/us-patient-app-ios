@@ -38,6 +38,48 @@ final class AppShellTests: XCTestCase {
         let client = try PatientAPIClientFactory.makeLive(configuration: configuration)
         XCTAssertTrue(client is URLSessionPatientAPIClient)
     }
+
+    func testAuthRestoreRetryAndExpiryStatesAreExposed() async {
+        let model = AppShellModel()
+
+        XCTAssertEqual(model.authState, .signedOut)
+        let initialRestore = await model.restoreSession()
+        XCTAssertEqual(initialRestore, .signedOut)
+        guard case let .signedIn(context) = await model.signIn(identifier: "account-a") else {
+            return XCTFail("Expected signed-in state")
+        }
+        await model.expireSession()
+        XCTAssertEqual(model.authState, .expired)
+        let expiredRestore = await model.retryRestore()
+        XCTAssertEqual(expiredRestore, .expired)
+        guard case let .signedIn(restoredContext) = await model.signIn(identifier: "account-a") else {
+            return XCTFail("Expected retry sign-in to restore a live session")
+        }
+        XCTAssertGreaterThan(restoredContext.epoch, context.epoch)
+        await model.logout()
+        XCTAssertEqual(model.authState, .signedOut)
+    }
+
+    func testAccountSwitchUsesInjectedAuthSessionAndPurgesCache() async {
+        let cache = InMemoryProtectedCache()
+        let authSession = InMemorySessionStore(cache: cache)
+        let model = AppShellModel(protectedCache: cache, authSession: authSession)
+
+        guard case let .signedIn(first) = await model.signIn(identifier: "account-a") else {
+            return XCTFail("Expected first account to sign in")
+        }
+        await cache.setData(Data("old".utf8), forKey: "history", session: first)
+
+        guard case let .signedIn(second) = await model.switchAccount(identifier: "account-b") else {
+            return XCTFail("Expected account switch to sign in")
+        }
+        let oldData = await cache.data(forKey: "history", session: first)
+        let current = await authSession.currentSession()
+
+        XCTAssertNil(oldData)
+        XCTAssertEqual(current, second)
+        XCTAssertEqual(model.authState, .signedIn(second))
+    }
 }
 
 private struct EmptyInjectedClient: PatientAPIClient {
