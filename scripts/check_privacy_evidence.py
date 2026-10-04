@@ -26,7 +26,7 @@ SENSITIVE_KEY = re.compile(
     re.IGNORECASE,
 )
 SENSITIVE_VALUE = re.compile(
-    r"(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:^|\s)Bearer\s+\S+|(?:^|\s)(?:sk|ghp)_[A-Za-z0-9]{12,}|(?:^|[\\/])(?:Users|home|private|tmp|workspace|var)[\\/]|\\b(?:patient\s+name|medical\s+record|diagnosis|social\s+security|date\s+of\s+birth)\\b|[?&](?:access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|token)=[^&#\s]{8,})"
+    r"(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:^|\s)Bearer\s+\S+|(?:^|\s)(?:sk|ghp)_[A-Za-z0-9]{12,}|(?:^|[\\/])(?:Users|home|private|tmp|workspace|var)[\\/]|\b(?:patient\s+name|medical\s+record|diagnosis|social\s+security|date\s+of\s+birth)\b|[?&](?:access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|token)=[^&#\s]{8,})"
     re.IGNORECASE,
 )
 
