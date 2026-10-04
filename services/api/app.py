@@ -1,47 +1,298 @@
-"""Optional FastAPI adapter for the dependency-light application service.
+"""HTTP adapter for the typed application service.
 
-Install the declared service dependencies to expose HTTP routes. The domain
-service remains importable and testable without FastAPI or a database.
+The core service owns authorization, ownership, idempotency, versioning, audit,
+and share semantics. This adapter only translates HTTP requests to that core.
+The temporary test bearer format is:
+
+    Bearer <subject>|<comma-separated scopes>|<comma-separated roles>
+
+For example: ``Bearer patient-1|documents:write,facts:write|patient``.
+This is a local adapter format, not production authentication or token validation.
 """
 from __future__ import annotations
 
-from .service import ApiService
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Mapping
+from urllib.parse import parse_qs, urlsplit
+
+from .auth import AuthorizationError
+from .models import (
+    AuthContext,
+    ContractError,
+    JobType,
+    PrincipalRole,
+    ReviewStatus,
+    Scope,
+    SourceType,
+    to_jsonable,
+)
+from .service import ApiService, ServiceError, ShareAccessError
+from .store import IdempotencyConflictError, NotFoundError, VersionConflictError
 
 try:  # pragma: no cover - exercised when optional HTTP dependencies are installed
-    from fastapi import FastAPI, Header, HTTPException
-    from pydantic import BaseModel, Field
-except ImportError:  # pragma: no cover - default local environment
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+except ImportError:  # pragma: no cover - default dependency-light environment
     FastAPI = None  # type: ignore[assignment]
+    Request = Any  # type: ignore[assignment,misc]
+    JSONResponse = None  # type: ignore[assignment]
+
+
+@dataclass(frozen=True)
+class HttpResponse:
+    status_code: int
+    body: Any
+    headers: Mapping[str, str] = ()
+
+
+class RequestValidationError(ValueError):
+    pass
+
+
+class MissingBearerError(PermissionError):
+    pass
+
+
+def _header(headers: Mapping[str, str], name: str) -> str | None:
+    wanted = name.lower()
+    for key, value in headers.items():
+        if key.lower() == wanted:
+            return value
+    return None
+
+
+def _required(data: Mapping[str, Any], *fields: str) -> None:
+    missing = [field for field in fields if field not in data]
+    if missing:
+        raise RequestValidationError(f"missing required field(s): {', '.join(missing)}")
+
+
+def _reject_extra(data: Mapping[str, Any], *fields: str) -> None:
+    extra = sorted(set(data) - set(fields))
+    if extra:
+        raise RequestValidationError(f"unknown field(s): {', '.join(extra)}")
+
+
+def _as_datetime(value: Any, field: str) -> datetime:
+    if not isinstance(value, str):
+        raise RequestValidationError(f"{field} must be an ISO-8601 string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RequestValidationError(f"{field} must be an ISO-8601 string") from exc
+    if parsed.tzinfo is None:
+        raise RequestValidationError(f"{field} must include a timezone")
+    return parsed
+
+
+def _temporary_auth(headers: Mapping[str, str]) -> AuthContext:
+    raw = _header(headers, "Authorization")
+    if not raw or not raw.startswith("Bearer "):
+        raise MissingBearerError("Bearer authorization is required")
+    encoded = raw[len("Bearer "):].strip()
+    parts = encoded.split("|")
+    if len(parts) != 3 or not parts[0].strip():
+        raise MissingBearerError("temporary bearer format is subject|scopes|roles")
+    subject, scopes_text, roles_text = (part.strip() for part in parts)
+    try:
+        scopes = frozenset(Scope(item) for item in scopes_text.split(",") if item)
+        roles = frozenset(PrincipalRole(item) for item in roles_text.split(",") if item)
+    except ValueError as exc:
+        raise MissingBearerError("temporary bearer contains an unknown scope or role") from exc
+    request_id = _header(headers, "X-Request-Id") or "http-request"
+    return AuthContext(subject, roles=roles, scopes=scopes, request_id=request_id)
+
+
+class ApiHttpAdapter:
+    """Framework-neutral HTTP adapter used by FastAPI and local integration tests."""
+
+    def __init__(self, service: ApiService | None = None) -> None:
+        self.service = service or ApiService()
+
+    def handle(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        body: Any = None,
+    ) -> HttpResponse:
+        method = method.upper()
+        headers = headers or {}
+        route = urlsplit(path).path.rstrip("/") or "/"
+        try:
+            if method == "GET" and route == "/healthz":
+                return HttpResponse(200, {"status": "ok"})
+            if method == "GET" and route == "/v1/shared" or route.startswith("/v1/shared/") and method == "GET":
+                token = route.split("/", 3)[3] if route.count("/") >= 3 else ""
+                share, resource = self.service.access_share(token)
+                return HttpResponse(200, {"share": to_jsonable(share), "resource": to_jsonable(resource)})
+
+            auth = _temporary_auth(headers)
+            if method == "POST" and route == "/v1/documents":
+                data = self._body(body)
+                _required(data, "filename", "media_type", "size_bytes", "sha256")
+                _reject_extra(data, "filename", "media_type", "size_bytes", "sha256")
+                document = self.service.create_document(
+                    auth,
+                    filename=self._string(data, "filename"),
+                    media_type=self._string(data, "media_type"),
+                    size_bytes=self._non_negative_int(data, "size_bytes"),
+                    sha256=self._string(data, "sha256"),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, to_jsonable(document))
+            if method == "GET" and route == "/v1/documents":
+                return HttpResponse(200, [to_jsonable(item) for item in self.service.list_documents(auth)])
+            if method == "GET" and route.startswith("/v1/documents/") and route.count("/") == 3:
+                return HttpResponse(200, to_jsonable(self.service.get_document(auth, route.rsplit("/", 1)[1])))
+            if method == "POST" and route.startswith("/v1/documents/") and route.endswith("/processing-jobs"):
+                data = self._body(body)
+                _required(data, "job_type")
+                _reject_extra(data, "job_type")
+                job = self.service.enqueue_processing(
+                    auth,
+                    document_id=route.split("/")[3],
+                    job_type=JobType(self._string(data, "job_type")),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(202, to_jsonable(job))
+            if method == "POST" and route == "/v1/facts":
+                data = self._body(body)
+                _required(data, "label", "value", "source_ref", "source_type", "confidence")
+                _reject_extra(data, "label", "value", "source_ref", "source_type", "confidence", "document_id", "topic_id")
+                fact = self.service.create_fact(
+                    auth,
+                    label=self._string(data, "label"),
+                    value=self._string(data, "value"),
+                    source_ref=self._string(data, "source_ref"),
+                    source_type=SourceType(self._string(data, "source_type")),
+                    confidence=self._number(data, "confidence"),
+                    document_id=data.get("document_id"),
+                    topic_id=data.get("topic_id"),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, to_jsonable(fact))
+            if method == "GET" and route == "/v1/facts":
+                return HttpResponse(200, [to_jsonable(item) for item in self.service.list_facts(auth)])
+            if method == "POST" and route.startswith("/v1/facts/") and route.endswith("/review"):
+                data = self._body(body)
+                _required(data, "review_status")
+                _reject_extra(data, "review_status")
+                version = _header(headers, "If-Match-Version")
+                if version is None:
+                    raise RequestValidationError("If-Match-Version is required")
+                try:
+                    expected_version = int(version)
+                except ValueError as exc:
+                    raise RequestValidationError("If-Match-Version must be an integer") from exc
+                fact = self.service.review_fact(
+                    auth,
+                    route.split("/")[3],
+                    review_status=ReviewStatus(self._string(data, "review_status")),
+                    expected_version=expected_version,
+                )
+                return HttpResponse(200, to_jsonable(fact))
+            if method == "POST" and route == "/v1/shares":
+                data = self._body(body)
+                _required(data, "resource_type", "resource_id", "resource_version", "expires_at")
+                _reject_extra(data, "resource_type", "resource_id", "resource_version", "expires_at")
+                share, token = self.service.create_share(
+                    auth,
+                    resource_type=self._string(data, "resource_type"),
+                    resource_id=self._string(data, "resource_id"),
+                    resource_version=self._positive_int(data, "resource_version"),
+                    expires_at=_as_datetime(data["expires_at"], "expires_at"),
+                    idempotency_key=self._idempotency(headers),
+                )
+                return HttpResponse(201, {"share": to_jsonable(share), "token": token})
+            if method == "POST" and route.startswith("/v1/shares/") and route.endswith("/revoke"):
+                share = self.service.revoke_share(auth, route.split("/")[3])
+                return HttpResponse(200, to_jsonable(share))
+            if method == "GET" and route == "/v1/audit-events":
+                query = parse_qs(urlsplit(path).query)
+                resource_id = query.get("resource_id", [None])[0]
+                return HttpResponse(200, [to_jsonable(event) for event in self.service.list_audit(auth, resource_id=resource_id)])
+            return HttpResponse(404, {"detail": "route not found"})
+        except MissingBearerError as exc:
+            return HttpResponse(401, {"detail": str(exc)})
+        except AuthorizationError as exc:
+            return HttpResponse(403, {"detail": str(exc)})
+        except (IdempotencyConflictError, VersionConflictError) as exc:
+            return HttpResponse(409, {"detail": str(exc)})
+        except ShareAccessError as exc:
+            status = 410 if "expired" in str(exc) or "revoked" in str(exc) else 404
+            return HttpResponse(status, {"detail": str(exc)})
+        except NotFoundError as exc:
+            return HttpResponse(404, {"detail": str(exc)})
+        except (ContractError, RequestValidationError, ServiceError, ValueError, TypeError) as exc:
+            return HttpResponse(422, {"detail": str(exc)})
+
+    @staticmethod
+    def _body(body: Any) -> dict[str, Any]:
+        if not isinstance(body, dict):
+            raise RequestValidationError("JSON object body is required")
+        return body
+
+    @staticmethod
+    def _string(data: Mapping[str, Any], field: str) -> str:
+        value = data[field]
+        if not isinstance(value, str) or not value.strip():
+            raise RequestValidationError(f"{field} must be a non-empty string")
+        return value
+
+    @staticmethod
+    def _number(data: Mapping[str, Any], field: str) -> float:
+        value = data[field]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise RequestValidationError(f"{field} must be a number")
+        return float(value)
+
+    @classmethod
+    def _non_negative_int(cls, data: Mapping[str, Any], field: str) -> int:
+        value = data[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise RequestValidationError(f"{field} must be a non-negative integer")
+        return value
+
+    @classmethod
+    def _positive_int(cls, data: Mapping[str, Any], field: str) -> int:
+        value = cls._non_negative_int(data, field)
+        if value < 1:
+            raise RequestValidationError(f"{field} must be >= 1")
+        return value
+
+    @staticmethod
+    def _idempotency(headers: Mapping[str, str]) -> str:
+        value = _header(headers, "Idempotency-Key")
+        if not value:
+            raise RequestValidationError("Idempotency-Key is required")
+        return value
 
 
 def create_app(service: ApiService | None = None):
+    """Create the optional FastAPI adapter using the temporary bearer parser."""
     if FastAPI is None:
-        raise RuntimeError("FastAPI/Pydantic are optional; install services/api dependencies to run HTTP routes")
-    api = FastAPI(title="US Patient App API", version="0.1.0", docs_url="/docs")
-    app_service = service or ApiService()
+        raise RuntimeError("FastAPI is optional; install services/api dependencies to run HTTP routes")
+    adapter = ApiHttpAdapter(service)
+    api = FastAPI(title="US Patient App API", version="0.2.0", docs_url="/docs")
 
-    class DocumentCreate(BaseModel):
-        filename: str = Field(min_length=1)
-        media_type: str = Field(min_length=1)
-        size_bytes: int = Field(ge=0)
-        sha256: str = Field(min_length=64, max_length=64)
-
-    @api.get("/healthz", tags=["system"])
-    def healthz():
-        return {"status": "ok"}
-
-    @api.post("/v1/documents", status_code=201, tags=["documents"])
-    def create_document(body: DocumentCreate, idempotency_key: str = Header(..., alias="Idempotency-Key")):
-        from .models import AuthContext, Scope
-        auth = AuthContext("http-principal", scopes=frozenset({Scope.DOCUMENTS_WRITE}))
+    @api.api_route("/{path:path}", methods=["GET", "POST"], include_in_schema=False)
+    async def invoke(path: str, request: Request):
         try:
-            return app_service.create_document(auth, **body.model_dump(), idempotency_key=idempotency_key)
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            body = await request.json() if request.method != "GET" else None
+        except Exception:
+            body = None
+        request_path = "/" + path
+        if request.url.query:
+            request_path += f"?{request.url.query}"
+        result = adapter.handle(request.method, request_path, headers=request.headers, body=body)
+        return JSONResponse(status_code=result.status_code, content=result.body, headers=dict(result.headers))
 
     return api
 
 
 app = None
-if FastAPI is not None:  # keep import side effects small for tests
+if FastAPI is not None:  # keep import side effects small for dependency-light tests
     app = create_app()

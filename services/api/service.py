@@ -106,6 +106,10 @@ class ApiService:
         self._remember(auth, idempotency_key, payload, {"id": document.id})
         return document
 
+    def list_documents(self, auth: AuthContext) -> list[Document]:
+        require_scope(auth, Scope.DOCUMENTS_READ)
+        return [document for document in self.store.documents.values() if document.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
+
     def get_document(self, auth: AuthContext, document_id: str) -> Document:
         require_scope(auth, Scope.DOCUMENTS_READ)
         document = self.store.get(self.store.documents, document_id)
@@ -177,6 +181,10 @@ class ApiService:
         self._audit(auth, "fact.created", "fact", fact.id, source_type=source_type.value, review_status=fact.review_status.value)
         self._remember(auth, idempotency_key, payload, {"id": fact.id})
         return fact
+
+    def list_facts(self, auth: AuthContext) -> list[Fact]:
+        require_scope(auth, Scope.FACTS_READ)
+        return [fact for fact in self.store.facts.values() if fact.owner_id == auth.subject_id or PrincipalRole.REVIEWER in auth.roles or PrincipalRole.SERVICE in auth.roles]
 
     def review_fact(self, auth: AuthContext, fact_id: str, *, review_status: ReviewStatus, expected_version: int) -> Fact:
         require_scope(auth, Scope.FACTS_WRITE)

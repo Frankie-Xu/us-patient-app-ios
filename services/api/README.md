@@ -9,3 +9,7 @@ Run the dependency-free tests from the repository root:
 ```sh
 python3 -m unittest discover -s services/api/tests -p 'test_*.py'
 ```
+
+## HTTP adapter
+
+`app.py` exposes `create_app()` when the optional FastAPI dependencies are installed. The framework-neutral `ApiHttpAdapter` is the local integration seam used by tests. Its temporary bearer header format is `Bearer <subject>|<comma-separated scopes>|<comma-separated roles>`; this only adapts test headers to `AuthContext` and does not validate production credentials.
