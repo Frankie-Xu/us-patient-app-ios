@@ -215,7 +215,7 @@ public final class OfflineUploadCoordinator: ObservableObject {
         defer { isRestoring = false }
         do {
             let records = try await persistence.load()
-            queue.restore(records.map(\.restoreItem))
+            queue.restore(records.map { $0.restoreItem() })
             syncItems()
             lastPersistenceFailure = nil
         } catch {
