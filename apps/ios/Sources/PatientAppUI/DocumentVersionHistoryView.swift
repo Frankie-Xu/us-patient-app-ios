@@ -23,7 +23,7 @@ public struct DocumentVersionHistoryView: View {
             case let .loaded(versions):
                 List(versions) { version in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Version (version.version)")
+                        Text("Version \(version.version)")
                             .font(.headline)
                         Text(version.title)
                         Text(version.processingStatus.displayName)
@@ -52,6 +52,18 @@ public struct DocumentVersionHistoryView: View {
             if case .idle = model.state {
                 await model.load(documentID: documentID)
             }
+        }
+    }
+}
+
+private extension DocumentProcessingStatus {
+    var displayName: String {
+        switch self {
+        case .uploaded: "Uploaded"
+        case .processing: "Processing"
+        case .ready: "Ready"
+        case .failed: "Processing failed"
+        case .deleted: "Deleted"
         }
     }
 }
