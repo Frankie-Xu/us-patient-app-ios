@@ -10,7 +10,7 @@ final class ShareExportTests: XCTestCase {
                 resourceType: .document,
                 resourceID: UUID(),
                 resourceVersion: 2,
-                expiresAt: Date(timeIntervalSince1970: 4_000)
+                expiresAt: Date(timeIntervalSince1970: 4_000_000_000)
             )
         )
 
