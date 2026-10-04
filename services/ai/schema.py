@@ -15,6 +15,7 @@ from typing import Any, Mapping
 class ReviewStatus(str, Enum):
     UNREVIEWED = "unreviewed"
     NEEDS_REVIEW = "needs_review"
+    CONFIRMED = "confirmed"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
 

@@ -54,6 +54,12 @@ The default synthetic fixture includes an unresolved high-severity conflict,
 so its report is intentionally blocked. A clean case-only set demonstrates an
 unblocked report in the regression tests.
 
+`evaluate_doctor_view` is the final deterministic eligibility gate. It includes
+only facts with `review_status=confirmed`, a complete `source_ref` and
+`source_span`, and no unresolved conflict. It returns auditable included and
+excluded claim IDs, stable `doctor_view.*` error categories and
+`delivery_blocked`; the gate never changes a claim into `confirmed`.
+
 High and critical errors, unresolved conflicts, missing claims and provenance
 failures set `delivery_blocked=true`. A report can therefore be used as a
 delivery gate without treating a metric average as a safety decision.

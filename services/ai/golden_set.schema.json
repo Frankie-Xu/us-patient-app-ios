@@ -53,7 +53,7 @@
         "source_ref": {"type": "string", "minLength": 1},
         "source_type": {"type": "string", "minLength": 1},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "review_status": {"enum": ["unreviewed", "needs_review", "accepted", "rejected"]},
+        "review_status": {"enum": ["unreviewed", "needs_review", "confirmed", "accepted", "rejected"]},
         "normalized_key": {"type": "string"},
         "normalized_value": {"type": "string"},
         "rewritten": {"type": "boolean"},

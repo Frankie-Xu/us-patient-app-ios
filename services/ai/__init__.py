@@ -6,6 +6,14 @@ extraction implementations.
 """
 
 from .golden_set import load_golden_set, synthetic_golden_set
+from .doctor_view import (
+    GATE_SCHEMA,
+    GATE_SCHEMA_VERSION,
+    DoctorViewDecision,
+    DoctorViewErrorCategory,
+    DoctorViewGateResult,
+    evaluate_doctor_view,
+)
 from .api_projection import (
     API_VERSION,
     ApiProjection,
@@ -70,6 +78,9 @@ __all__ = [
     "Conflict",
     "ConflictDetectionResult",
     "DeterministicStubPipeline",
+    "DoctorViewDecision",
+    "DoctorViewErrorCategory",
+    "DoctorViewGateResult",
     "ErrorCategory",
     "EvaluationPipeline",
     "FactExtractionResult",
@@ -77,6 +88,8 @@ __all__ = [
     "FactReview",
     "GoldenCase",
     "GoldenSet",
+    "GATE_SCHEMA",
+    "GATE_SCHEMA_VERSION",
     "ExtractionEvaluation",
     "ExtractionMetrics",
     "MockPredictionVariant",
@@ -105,5 +118,6 @@ __all__ = [
     "load_golden_set",
     "generate_regression_report",
     "generate_regression_report_from_json",
+    "evaluate_doctor_view",
     "synthetic_golden_set",
 ]
