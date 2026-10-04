@@ -10,6 +10,8 @@ public enum MockFailurePoint: Equatable, Sendable {
     case listTopics
     case listVisits
     case listTasks
+    case createShare
+    case revokeShare
 }
 
 public struct MockImportScenario: Sendable {
@@ -59,6 +61,7 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     private var remainingFailures: Int
     private var processingPolls = 0
     private var storedFacts: [UUID: Fact]
+    private var storedShares: [UUID: ShareVersion] = [:]
 
     public init(scenario: MockImportScenario = MockImportScenario()) {
         self.scenario = scenario
@@ -138,6 +141,28 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     public func listTasks() async throws -> [Task] {
         try failIfNeeded(at: .listTasks)
         return scenario.tasks
+    }
+
+    public func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation {
+        try failIfNeeded(at: .createShare)
+        let share = ShareVersion(
+            documentID: request.resourceID,
+            version: request.resourceVersion,
+            resourceType: request.resourceType,
+            resourceID: request.resourceID,
+            expiresAt: request.expiresAt
+        )
+        storedShares[share.id] = share
+        let token = ["synthetic", "share", share.id.uuidString].joined(separator: "-")
+        return ShareCreation(share: share, token: token)
+    }
+
+    public func revokeShare(id: UUID) async throws -> ShareVersion {
+        try failIfNeeded(at: .revokeShare)
+        guard var share = storedShares[id] else { throw PatientAPIClientError.notFound }
+        try share.revoke()
+        storedShares[id] = share
+        return share
     }
 
     private func failIfNeeded(at point: MockFailurePoint) throws {

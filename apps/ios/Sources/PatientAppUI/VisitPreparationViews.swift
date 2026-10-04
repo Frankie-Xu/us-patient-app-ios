@@ -4,6 +4,8 @@ import PatientAppDomain
 struct VisitsView: View {
     @ObservedObject var model: VisitPreparationModel
     @ObservedObject var history: AccountHistoryModel
+    @ObservedObject var share: ShareFlowModel
+    @State private var sharingVisit: Visit?
     @State private var title = ""
     @State private var hasDate = false
     @State private var date = Date()
@@ -41,6 +43,8 @@ struct VisitsView: View {
                                     Text(date, format: .dateTime.month().day().hour().minute())
                                 } else { Text("Appointment date not provided") }
                                 Text("\(visit.state.displayName) · Version \(visit.version)").font(.caption)
+                                Button("Share with clinician") { sharingVisit = visit }
+                                    .buttonStyle(.bordered)
                             }
                         }
                     }
@@ -61,6 +65,9 @@ struct VisitsView: View {
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Visits")
+            .sheet(item: $sharingVisit) { visit in
+                ShareVisitSheet(visit: visit, model: share)
+            }
             .task {
                 if case .idle = history.state { await history.load() }
             }
@@ -237,6 +244,103 @@ private extension PatientAPIClientError {
         case .transport: "Could not load account history. Try again."
         case .decoding: "The service returned unsupported account history."
         case .unsupported: "Account history is unavailable with the current service."
+        }
+    }
+}
+
+private struct ShareVisitSheet: View {
+    let visit: Visit
+    @ObservedObject var model: ShareFlowModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Visit") {
+                    Text(visit.title).font(.headline)
+                    Text("Share version \(visit.version) for 24 hours.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                switch model.state {
+                case .idle:
+                    Section {
+                        Button("Create 24-hour share") {
+                            _Concurrency.Task { await model.createVisitShare(for: visit) }
+                        }
+                        .disabled(model.isBusy)
+                    }
+                case .creating:
+                    Section { ProgressView("Creating share…") }
+                case .revoking:
+                    Section { ProgressView("Revoking share…") }
+                case let .created(creation):
+                    ShareCreationSection(creation: creation, revoke: { _Concurrency.Task { await model.revoke() } }, busy: model.isBusy)
+                case let .revoked(version):
+                    Section("Share revoked") {
+                        Text("The share token is no longer active.")
+                        if let revokedAt = version.revokedAt {
+                            Text(revokedAt, format: .dateTime.month().day().hour().minute())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                case .failed:
+                    Section {
+                        if let error = model.error {
+                            Text(error.shareMessage).foregroundStyle(.red)
+                        }
+                        Button("Try again") { _Concurrency.Task { await model.retry() } }
+                            .disabled(model.isBusy)
+                    }
+                }
+            }
+            .navigationTitle("Share visit")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear { model.reset() }
+        }
+    }
+}
+
+private struct ShareCreationSection: View {
+    let creation: ShareCreation
+    let revoke: () -> Void
+    let busy: Bool
+
+    var body: some View {
+        Section("Share token") {
+            Text(creation.token)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+            ShareLink(item: "Patient App visit share token: \(creation.token)") {
+                Label("Share token", systemImage: "square.and.arrow.up")
+            }
+            if let expiresAt = creation.share.expiresAt {
+                Text("Expires \(expiresAt, format: .dateTime.month().day().hour().minute())")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button("Revoke share", role: .destructive, action: revoke)
+                .disabled(busy)
+        }
+    }
+}
+
+private extension PatientAPIClientError {
+    var shareMessage: String {
+        switch self {
+        case .invalidRequest, .validation: "The share request is no longer valid."
+        case .unauthorized, .missingBearerToken: "Sign in before sharing this visit."
+        case .forbidden: "You do not have permission to share this visit."
+        case .notFound: "This visit is no longer available."
+        case .versionConflict: "This visit changed. Reload it before sharing."
+        case .unsupported: "Sharing is unavailable with the current service."
+        case .server, .transport, .decoding, .invalidBaseURL: "The share could not be created. Try again."
         }
     }
 }
