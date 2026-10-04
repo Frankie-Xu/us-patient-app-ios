@@ -26,7 +26,7 @@ SENSITIVE_KEY = re.compile(
     re.IGNORECASE,
 )
 SENSITIVE_VALUE = re.compile(
-    r"(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:^|\s)Bearer\s+\S+|(?:^|\s)(?:sk|ghp)_[A-Za-z0-9]{12,}|(?:^|[\\/])(?:Users|home|private|tmp|workspace|var)[\\/]|\b(?:patient\s+name|medical\s+record|diagnosis|social\s+security|date\s+of\s+birth)\b)",
+    r"(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:^|\s)Bearer\s+\S+|(?:^|\s)(?:sk|ghp)_[A-Za-z0-9]{12,}|(?:^|[\\/])(?:Users|home|private|tmp|workspace|var)[\\/]|\b(?:patient\s+name|medical\s+record|diagnosis|social\s+security|date\s+of\s+birth)\b|[?&](?:access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|token)=[^&#\s]{8,})",
     re.IGNORECASE,
 )
 
@@ -57,6 +57,27 @@ def _check(path: Path, violations: set[str]) -> bool:
     if not isinstance(value, dict) or value.get("manifest_schema") not in ALLOWED_INPUT_SCHEMAS:
         violations.add("unexpected_manifest")
         return False
+
+    schema = value["manifest_schema"]
+    required = (
+        {"metadata", "checks", "overall"}
+        if schema == "patient-app-platform/release-evidence"
+        else {"metadata", "decisions", "missing_evidence", "overall"}
+    )
+    if (
+        value.get("schema_version") != "1.0.0"
+        or any(key not in value for key in required)
+        or not isinstance(value.get("metadata"), dict)
+        or not isinstance(value.get("overall"), dict)
+        or (schema.endswith("release-evidence") and not isinstance(value.get("checks"), dict))
+        or (schema.endswith("production-gate") and (
+            not isinstance(value.get("decisions"), dict)
+            or not isinstance(value.get("missing_evidence"), list)
+        ))
+    ):
+        violations.add("invalid_manifest")
+        return False
+
     _walk(value, violations)
     return True
 
