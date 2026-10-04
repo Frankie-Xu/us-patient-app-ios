@@ -89,7 +89,18 @@ jobs:
       - name: Run API and HTTP route tests when present
         run: bash scripts/run-python-tests.sh services/api
       - name: Run API readiness and health smoke
+        if: always()
+        env:
+          READINESS_ARTIFACT_PATH: artifacts/api-readiness.json
         run: bash scripts/run-api-readiness.sh services/api
+      - name: Upload API readiness result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-readiness-result
+          path: artifacts/api-readiness.json
+          if-no-files-found: error
+          retention-days: 7
 
   ai-tests:
     name: AI tests
@@ -107,9 +118,19 @@ jobs:
       - name: Install pinned test tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Run AI golden-set regression report
+        env:
+          AI_GOLDEN_ARTIFACT_PATH: artifacts/ai-golden-regression.json
         run: bash scripts/run-ai-golden-regression.sh services/ai
       - name: Run AI tests when present
         run: bash scripts/run-python-tests.sh services/ai
+      - name: Upload AI golden regression result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ai-golden-regression-result
+          path: artifacts/ai-golden-regression.json
+          if-no-files-found: error
+          retention-days: 7
 
   ios-tests:
     name: iOS tests
