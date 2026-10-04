@@ -289,7 +289,7 @@ private struct ShareVisitSheet: View {
                 case .failed:
                     Section {
                         if let error = model.error {
-                            Text(error.displayMessage).foregroundStyle(.red)
+                            Text(error.shareMessage).foregroundStyle(.red)
                         }
                         Button("Try again") { _Concurrency.Task { await model.retry() } }
                             .disabled(model.isBusy)
@@ -332,7 +332,7 @@ private struct ShareCreationSection: View {
 }
 
 private extension PatientAPIClientError {
-    var displayMessage: String {
+    var shareMessage: String {
         switch self {
         case .invalidRequest, .validation: "The share request is no longer valid."
         case .unauthorized, .missingBearerToken: "Sign in before sharing this visit."
