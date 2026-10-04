@@ -28,3 +28,12 @@ Views do not build URLs, parse vendor payloads, or infer clinical meaning. Domai
 The API/auth gateway maps external identity to an internal owner and passes an explicit `AuthContext` to domain services. PostgreSQL owns relational metadata, ownership, versions, idempotency and audit references. Encrypted object storage owns originals and rendered artifacts. A durable queue carries opaque job IDs and signed worker envelopes. iOS keeps the minimum protected cache and supports explicit logout/account-delete purge. Operational telemetry is PHI-redacted; audit events are scalar and append-only.
 
 The executable threat model and evidence matrix are in [ADR-0002](../adr/adr-0002-production-boundary-threat-model.md), with the release runbook in [security-verification.md](security-verification.md). Product scope, US pilot defaults and the Go/Pause/No-Go decision register are frozen as a proposed build baseline in [ADR-0003](../adr/adr-0003-pilot-operating-baseline.md).
+
+
+## Runtime composition
+
+Local and staging startup composes MetadataStore, ObjectStore, JobQueue,
+RetentionPolicy and DeletionCoordinator through one provider-neutral dependency
+graph. Aggregate readiness fails closed when any boundary is unavailable. The
+local factory is synthetic-data-only; production startup must inject approved
+provider implementations after ADR-0004 and Issue #37 are accepted.
