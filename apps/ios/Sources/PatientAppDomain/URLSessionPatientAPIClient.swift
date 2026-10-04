@@ -218,6 +218,44 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return try response.domainValue()
     }
 
+    public func shareStatus(id: UUID) async throws -> ShareAccessStatus {
+        let response: ContractShareVersionPayload = try await send(
+            path: "/v1/shares/\(id.uuidString)",
+            method: "GET",
+            body: Optional<EmptyBody>.none,
+            idempotent: false
+        )
+        return try response.accessStatus()
+    }
+
+    public func exportPDF(documentID: UUID, documentVersion: Int) async throws -> PDFExportArtifact {
+        guard documentVersion > 0 else { throw PatientAPIClientError.invalidRequest }
+        let payload = PDFExportRequest(documentVersion: documentVersion)
+        let bodyData: Data
+        do {
+            bodyData = try encoder.encode(payload)
+        } catch {
+            throw PatientAPIClientError.invalidRequest
+        }
+        let response = try await sendBinary(
+            path: "/v1/documents/\(documentID.uuidString)/exports/pdf",
+            method: "POST",
+            body: bodyData,
+            idempotent: true
+        )
+        guard !response.body.isEmpty else { throw PatientAPIClientError.decoding }
+        guard let contentType = response.header(named: "Content-Type"), !contentType.isEmpty else {
+            throw PatientAPIClientError.decoding
+        }
+        guard let versionValue = response.header(named: "X-Document-Version"), let returnedVersion = Int(versionValue), returnedVersion == documentVersion else {
+            throw PatientAPIClientError.decoding
+        }
+        guard let sha256 = response.header(named: "X-Content-SHA256"), !sha256.isEmpty else {
+            throw PatientAPIClientError.decoding
+        }
+        return PDFExportArtifact(data: response.body, contentType: contentType, documentVersion: returnedVersion, sha256: sha256)
+    }
+
     private func send<Response: Decodable, Body: Encodable>(
         path: String,
         method: String,
@@ -247,7 +285,7 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         }
         do {
             let response = try await transport.send(PatientAPITransportRequest(method: method, path: path, headers: headers, body: bodyData, idempotent: idempotent))
-            guard (200..<300).contains(response.statusCode) else { throw map(statusCode: response.statusCode) }
+            guard (200..<300).contains(response.statusCode) else { throw map(statusCode: response.statusCode, body: response.body) }
             do {
                 return try decoder.decode(Response.self, from: response.body)
             } catch {
@@ -295,16 +333,61 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         }
     }
 
-    private func map(statusCode: Int) -> PatientAPIClientError {
+    private func sendBinary(
+        path: String,
+        method: String,
+        body: Data,
+        idempotent: Bool
+    ) async throws -> PatientAPITransportResponse {
+        var headers = ["Content-Type": "application/json"]
+        if idempotent {
+            let key = requestIDProvider?.requestID() ?? UUID().uuidString
+            guard !key.isEmpty else { throw PatientAPIClientError.invalidRequest }
+            headers["Idempotency-Key"] = key
+        }
+        do {
+            let response = try await transport.send(
+                PatientAPITransportRequest(method: method, path: path, headers: headers, body: body, idempotent: idempotent)
+            )
+            guard (200..<300).contains(response.statusCode) else {
+                throw map(statusCode: response.statusCode, body: response.body)
+            }
+            return response
+        } catch let error as PatientAPIClientError {
+            throw error
+        } catch PatientAPITransportError.missingBearerToken {
+            throw PatientAPIClientError.missingBearerToken
+        } catch PatientAPITransportError.invalidURL {
+            throw PatientAPIClientError.invalidBaseURL
+        } catch PatientAPITransportError.invalidRequest {
+            throw PatientAPIClientError.invalidRequest
+        } catch {
+            throw PatientAPIClientError.transport
+        }
+    }
+
+    private func map(statusCode: Int, body: Data = Data()) -> PatientAPIClientError {
         switch statusCode {
         case 401: .unauthorized
         case 403: .forbidden
         case 404: .notFound
         case 409: .versionConflict
+        case 410:
+            switch responseErrorCode(from: body) {
+            case "SHARE_REVOKED": .shareRevoked
+            default: .shareExpired
+            }
         case 422: .validation
         case 500...599: .server(statusCode)
         default: .server(statusCode)
         }
+    }
+
+    private func responseErrorCode(from body: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+            return nil
+        }
+        return object["code"] as? String
     }
 }
 
@@ -324,6 +407,14 @@ private struct ProcessingJobCreatePayload: Encodable {
 
     enum CodingKeys: String, CodingKey {
         case jobType = "job_type"
+    }
+}
+
+private struct PDFExportRequest: Encodable {
+    let documentVersion: Int
+
+    enum CodingKeys: String, CodingKey {
+        case documentVersion = "document_version"
     }
 }
 
