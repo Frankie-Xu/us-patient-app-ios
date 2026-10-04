@@ -21,6 +21,8 @@ public protocol PatientAPIClient: Sendable {
     func listTasks() async throws -> [Task]
     func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation
     func revokeShare(id: UUID) async throws -> ShareVersion
+    func shareStatus(id: UUID) async throws -> ShareAccessStatus
+    func exportPDF(documentID: UUID, documentVersion: Int) async throws -> PDFExportArtifact
 }
 
 public struct TopicCreateRequest: Codable, Equatable, Hashable, Sendable {
@@ -144,6 +146,14 @@ public extension PatientAPIClient {
 
     func revokeShare(id: UUID) async throws -> ShareVersion {
         throw PatientAPIClientError.unsupported(.shareRevocationNotInClient)
+    }
+
+    func shareStatus(id: UUID) async throws -> ShareAccessStatus {
+        throw PatientAPIClientError.unsupported(.shareStatusNotInClient)
+    }
+
+    func exportPDF(documentID: UUID, documentVersion: Int) async throws -> PDFExportArtifact {
+        throw PatientAPIClientError.unsupported(.pdfExportNotInClient)
     }
 
     func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession {
