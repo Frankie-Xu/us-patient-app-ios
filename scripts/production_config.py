@@ -62,7 +62,10 @@ def load_env_file(path: str | Path) -> dict[str, str]:
             raise ConfigParseError(f"invalid configuration name on line {line_number}")
         if name in values:
             raise ConfigParseError(f"duplicate configuration name on line {line_number}")
-        values[name] = value.strip().strip(""'")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in (chr(34), "'"):
+            value = value[1:-1]
+        values[name] = value
     return values
 
 
