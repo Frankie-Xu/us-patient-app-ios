@@ -31,6 +31,33 @@ final class TypedTransportTests: XCTestCase {
         let request = try XCTUnwrap(recorder.first)
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer synthetic-token")
         XCTAssertEqual(request.value(forHTTPHeaderField: "X-Request-ID"), "request-123")
+        XCTAssertEqual(Set(recorder.all.compactMap { $0.value(forHTTPHeaderField: "X-Request-ID") }), ["request-123"], "retries must preserve the request ID")
+    }
+
+    func testURLSessionTransportPropagatesCancellationDuringBackoff() async throws {
+        let recorder = RequestRecorder()
+        TransportStubURLProtocol.handler = { request in
+            recorder.append(request)
+            return (HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!, Data())
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [TransportStubURLProtocol.self]
+        let transport = try URLSessionPatientAPITransport(
+            baseURLProvider: StaticBaseURLProvider(baseURL: URL(string: "https://example.invalid")!),
+            tokenProvider: StaticBearerTokenProvider(value: "synthetic-token"),
+            requestIDProvider: FixedRequestIDProvider(value: "request-cancel"),
+            session: URLSession(configuration: configuration),
+            retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 3, baseDelay: .milliseconds(1)),
+            sleeper: { _ in throw CancellationError() }
+        )
+
+        do {
+            _ = try await transport.send(PatientAPITransportRequest(method: "GET", path: "/v1/visits", idempotent: true))
+            XCTFail("cancellation during retry backoff must stop the request")
+        } catch is CancellationError {
+            // Expected: cancellation must not be converted into another retry.
+        }
+        XCTAssertEqual(recorder.count, 1)
     }
 
     func testURLSessionTransportDoesNotRetryNonIdempotentFailures() async throws {
@@ -99,6 +126,25 @@ final class TypedTransportTests: XCTestCase {
         _ = try await client.listVisits()
     }
 
+    func testAuthenticatedClientRejectsResponseAfterAccountSwitch() async throws {
+        let session = InMemorySessionStore()
+        _ = await session.signIn(identifier: "patient-1")
+        let transport = BlockingTransport()
+        let client = AuthenticatedPatientAPIClient(client: URLSessionPatientAPIClient(transport: transport), authSession: session)
+
+        let request = _Concurrency.Task { try await client.listVisits() }
+        await transport.waitUntilStarted()
+        _ = await session.switchAccount(identifier: "patient-2")
+        await transport.release()
+
+        do {
+            _ = try await request.value
+            XCTFail("a response from the prior authorization epoch must be rejected")
+        } catch let error as PatientAPIClientError {
+            XCTAssertEqual(error, .unauthorized)
+        }
+    }
+
 }
 
 private func encodedResponse<T: Encodable>(_ value: T) throws -> PatientAPITransportResponse {
@@ -123,12 +169,45 @@ private actor ScriptedTransport: PatientAPITransport {
     func requests() -> [PatientAPITransportRequest] { recorded }
 }
 
+private actor BlockingTransport: PatientAPITransport {
+    private var started = false
+    private var released = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func send(_ request: PatientAPITransportRequest) async throws -> PatientAPITransportResponse {
+        started = true
+        startWaiters.forEach { $0.resume() }
+        startWaiters.removeAll()
+        if !released {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                releaseWaiters.append(continuation)
+            }
+        }
+        return PatientAPITransportResponse(statusCode: 200, body: Data("[]".utf8))
+    }
+
+    func waitUntilStarted() async {
+        if started { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        released = true
+        releaseWaiters.forEach { $0.resume() }
+        releaseWaiters.removeAll()
+    }
+}
+
 private final class RequestRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var requests: [URLRequest] = []
 
     var count: Int { lock.lock(); defer { lock.unlock() }; return requests.count }
     var first: URLRequest? { lock.lock(); defer { lock.unlock() }; return requests.first }
+    var all: [URLRequest] { lock.lock(); defer { lock.unlock() }; return requests }
     func append(_ request: URLRequest) { lock.lock(); defer { lock.unlock() }; requests.append(request) }
 }
 
