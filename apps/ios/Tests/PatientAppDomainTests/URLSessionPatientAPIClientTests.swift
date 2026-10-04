@@ -167,6 +167,63 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
         XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "Idempotency-Key") == nil })
     }
 
+
+    func testUploadSessionCreatesAndSendsRawContent() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let sessionID = UUID()
+        let content = Data([1, 2, 3, 4])
+        let pending = ContractUploadSessionPayload(
+            id: sessionID,
+            ownerID: "owner",
+            documentID: documentID,
+            documentVersion: 2,
+            sizeBytes: content.count,
+            sha256: String(repeating: "a", count: 64),
+            mediaType: "application/pdf",
+            expiresAt: now.addingTimeInterval(900),
+            createdAt: now,
+            status: .pending,
+            verifiedAt: nil
+        )
+        let verified = ContractUploadSessionPayload(
+            id: sessionID,
+            ownerID: "owner",
+            documentID: documentID,
+            documentVersion: 2,
+            sizeBytes: content.count,
+            sha256: String(repeating: "a", count: 64),
+            mediaType: "application/pdf",
+            expiresAt: now.addingTimeInterval(900),
+            createdAt: now,
+            status: .verified,
+            verifiedAt: now.addingTimeInterval(1)
+        )
+        var callCount = 0
+        let client = try makeClient { request in
+            callCount += 1
+            if callCount == 1 {
+                XCTAssertEqual(request.httpMethod, "POST")
+                XCTAssertEqual(request.url?.path, "/v1/documents/\(self.documentID.uuidString)/upload-sessions")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "upload-key")
+                XCTAssertEqual(try request.bodyData().jsonObject() as? [String: Any], [:])
+                return (201, try JSONEncoder.iso8601.encode(pending))
+            }
+            XCTAssertEqual(request.httpMethod, "PUT")
+            XCTAssertEqual(request.url?.path, "/v1/upload-sessions/\(sessionID.uuidString)/content")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/octet-stream")
+            XCTAssertNil(request.value(forHTTPHeaderField: "Idempotency-Key"))
+            XCTAssertEqual(try request.bodyData(), content)
+            return (200, try JSONEncoder.iso8601.encode(verified))
+        }
+
+        let created = try await client.createUploadSession(documentID: documentID, idempotencyKey: "upload-key")
+        let uploaded = try await client.uploadSessionContent(sessionID: created.id, content: content)
+        XCTAssertEqual(created.status, .pending)
+        XCTAssertEqual(uploaded.status, .verified)
+        XCTAssertEqual(uploaded.verifiedAt, now.addingTimeInterval(1))
+        XCTAssertEqual(callCount, 2)
+    }
+
     private func makeClient(token: String? = "test-token", handler: @escaping (URLRequest) throws -> (Int, Data)) throws -> URLSessionPatientAPIClient {
         StubURLProtocol.handler = { request in
             do {
