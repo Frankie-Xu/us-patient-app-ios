@@ -1,0 +1,112 @@
+name: TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-tests:
+    name: iOS package tests
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run Swift package tests
+        run: swift test --package-path apps/ios
+
+  archive-and-upload:
+    name: Archive and optionally upload
+    needs: package-tests
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      IOS_XCODE_PROJECT: ${{ vars.IOS_XCODE_PROJECT }}
+      IOS_XCODE_SCHEME: ${{ vars.IOS_XCODE_SCHEME }}
+      IOS_EXPORT_OPTIONS: ${{ vars.IOS_EXPORT_OPTIONS }}
+      IOS_TESTFLIGHT_UPLOAD: ${{ vars.IOS_TESTFLIGHT_UPLOAD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Check release configuration
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${IOS_XCODE_PROJECT:-}" ]]; then
+            echo "::notice::IOS_XCODE_PROJECT is not configured; package-only CI is complete."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          for required in IOS_XCODE_SCHEME IOS_EXPORT_OPTIONS; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "::error::Missing repository variable $required"
+              exit 1
+            fi
+          done
+          if [[ ! -f "$IOS_XCODE_PROJECT" ]]; then
+            echo "::error::Configured Xcode project does not exist: $IOS_XCODE_PROJECT"
+            exit 1
+          fi
+          if [[ ! -f "$IOS_EXPORT_OPTIONS" ]]; then
+            echo "::error::Configured export options plist does not exist: $IOS_EXPORT_OPTIONS"
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+      - name: Archive release build
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_path="$RUNNER_TEMP/PatientApp.xcarchive"
+          if [[ "$IOS_XCODE_PROJECT" == *.xcworkspace ]]; then
+            xcodebuild -workspace "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+          else
+            xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+          fi
+          echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
+      - name: Export IPA
+        if: steps.config.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive -archivePath "$ARCHIVE_PATH" -exportOptionsPlist "$IOS_EXPORT_OPTIONS" -exportPath "$RUNNER_TEMP/export"
+      - name: Upload to TestFlight when explicitly enabled
+        if: steps.config.outputs.configured == 'true' && env.IOS_TESTFLIGHT_UPLOAD == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for required in APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_PRIVATE_KEY; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "::error::Missing App Store Connect secret $required"
+              exit 1
+            fi
+          done
+          key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$key_path"
+          ipa_path="$(find "$RUNNER_TEMP/export" -maxdepth 1 -name '*.ipa' -print -quit)"
+          if [[ -z "$ipa_path" ]]; then
+            echo "::error::No IPA was produced by the export step"
+            exit 1
+          fi
+          xcrun iTMSTransporter -m upload -assetFile "$ipa_path" -apiKey "$APP_STORE_CONNECT_KEY_ID" -apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" -apiPrivateKey "$key_path"
+      - name: Keep upload disabled by default
+        if: steps.config.outputs.configured == 'true' && env.IOS_TESTFLIGHT_UPLOAD != 'true'
+        run: echo "::notice::Archive/export completed; set IOS_TESTFLIGHT_UPLOAD=true for an intentional upload."
