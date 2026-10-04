@@ -16,6 +16,11 @@ public enum ContractJobStatus: String, Codable, Sendable {
     case cancelled
 }
 
+public enum ContractUploadStatus: String, Codable, Sendable {
+    case pending
+    case verified
+}
+
 public enum ContractShareStatus: String, Codable, Sendable {
     case active
     case expired
@@ -143,6 +148,38 @@ public struct ContractTaskPayload: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey { case title, visitID = "visit_id", dueAt = "due_at", id, ownerID = "owner_id", status, version, createdAt = "created_at", updatedAt = "updated_at" }
+}
+
+public struct ContractUploadSessionPayload: Codable, Equatable, Sendable {
+    public let id: UUID
+    public let ownerID: String
+    public let documentID: UUID
+    public let documentVersion: Int
+    public let sizeBytes: Int
+    public let sha256: String
+    public let mediaType: String
+    public let expiresAt: Date
+    public let createdAt: Date
+    public let status: ContractUploadStatus
+    public let verifiedAt: Date?
+
+    public init(id: UUID, ownerID: String, documentID: UUID, documentVersion: Int, sizeBytes: Int, sha256: String, mediaType: String, expiresAt: Date, createdAt: Date, status: ContractUploadStatus, verifiedAt: Date?) {
+        self.id = id
+        self.ownerID = ownerID
+        self.documentID = documentID
+        self.documentVersion = documentVersion
+        self.sizeBytes = sizeBytes
+        self.sha256 = sha256
+        self.mediaType = mediaType
+        self.expiresAt = expiresAt
+        self.createdAt = createdAt
+        self.status = status
+        self.verifiedAt = verifiedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, ownerID = "owner_id", documentID = "document_id", documentVersion = "document_version", sizeBytes = "size_bytes", sha256, mediaType = "media_type", expiresAt = "expires_at", createdAt = "created_at", status, verifiedAt = "verified_at"
+    }
 }
 
 public struct ContractDocumentPayload: Codable, Equatable, Sendable {
@@ -408,5 +445,22 @@ public extension ContractTaskPayload {
         case .cancelled: .cancelled
         }
         return Task(id: id, title: title, status: status, visitID: visitID, dueAt: dueAt, version: version, createdAt: createdAt, updatedAt: updatedAt)
+    }
+}
+
+public extension ContractUploadSessionPayload {
+    func domainValue() -> UploadSession {
+        UploadSession(
+            id: id,
+            documentID: documentID,
+            documentVersion: documentVersion,
+            sizeBytes: sizeBytes,
+            sha256: sha256,
+            mediaType: mediaType,
+            expiresAt: expiresAt,
+            createdAt: createdAt,
+            status: UploadSessionStatus(rawValue: status.rawValue) ?? .pending,
+            verifiedAt: verifiedAt
+        )
     }
 }

@@ -115,6 +115,26 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         return ImportTicket(id: document.id, documentID: document.id, title: document.title)
     }
 
+    public func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession {
+        let response: ContractUploadSessionPayload = try await send(
+            path: "/v1/documents/\(documentID.uuidString)/upload-sessions",
+            method: "POST",
+            body: EmptyBody(),
+            idempotent: true,
+            idempotencyKey: idempotencyKey
+        )
+        return response.domainValue()
+    }
+
+    public func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession {
+        let response: ContractUploadSessionPayload = try await sendRaw(
+            path: "/v1/upload-sessions/\(sessionID.uuidString)/content",
+            method: "PUT",
+            body: content
+        )
+        return response.domainValue()
+    }
+
     public func upload(_ request: UploadRequest) async throws -> UploadReceipt {
         let payload = ProcessingJobCreatePayload(jobType: .extractFacts)
         let response: ContractProcessingJobPayload = try await send(path: "/v1/documents/\(request.ticketID.uuidString)/processing-jobs", method: "POST", body: payload, idempotent: true)
@@ -222,6 +242,35 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         }
         do {
             let response = try await transport.send(PatientAPITransportRequest(method: method, path: path, headers: headers, body: bodyData, idempotent: idempotent))
+            guard (200..<300).contains(response.statusCode) else { throw map(statusCode: response.statusCode) }
+            do {
+                return try decoder.decode(Response.self, from: response.body)
+            } catch {
+                throw PatientAPIClientError.decoding
+            }
+        } catch let error as PatientAPIClientError {
+            throw error
+        } catch PatientAPITransportError.missingBearerToken {
+            throw PatientAPIClientError.missingBearerToken
+        } catch PatientAPITransportError.invalidURL {
+            throw PatientAPIClientError.invalidBaseURL
+        } catch PatientAPITransportError.invalidRequest {
+            throw PatientAPIClientError.invalidRequest
+        } catch {
+            throw PatientAPIClientError.transport
+        }
+    }
+
+    private func sendRaw<Response: Decodable>(
+        path: String,
+        method: String,
+        body: Data
+    ) async throws -> Response {
+        var headers = ["Content-Type": "application/octet-stream"]
+        do {
+            let response = try await transport.send(
+                PatientAPITransportRequest(method: method, path: path, headers: headers, body: body, idempotent: false)
+            )
             guard (200..<300).contains(response.statusCode) else { throw map(statusCode: response.statusCode) }
             do {
                 return try decoder.decode(Response.self, from: response.body)

@@ -32,6 +32,8 @@ public enum UnsupportedOperation: Equatable, Sendable {
     case taskListingNotInClient
     case shareCreationNotInClient
     case shareRevocationNotInClient
+    case uploadSessionCreationNotInClient
+    case uploadContentNotInClient
 }
 
 public enum PatientAPIClientError: Error, Equatable, Sendable {
@@ -65,6 +67,11 @@ public enum DocumentProcessingStatus: String, Codable, CaseIterable, Sendable {
     case ready
     case failed
     case deleted
+}
+
+public enum UploadSessionStatus: String, Codable, CaseIterable, Sendable {
+    case pending
+    case verified
 }
 
 public enum JobType: String, Codable, CaseIterable, Sendable {
@@ -406,19 +413,59 @@ public enum LoadState<Value: Equatable & Sendable>: Equatable, Sendable {
     }
 }
 
+public struct UploadSession: Codable, Equatable, Hashable, Sendable, Identifiable {
+    public let id: UUID
+    public let documentID: UUID
+    public let documentVersion: Int
+    public let sizeBytes: Int
+    public let sha256: String
+    public let mediaType: String
+    public let expiresAt: Date
+    public let createdAt: Date
+    public var status: UploadSessionStatus
+    public var verifiedAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        documentID: UUID,
+        documentVersion: Int = 1,
+        sizeBytes: Int,
+        sha256: String,
+        mediaType: String,
+        expiresAt: Date,
+        createdAt: Date = .now,
+        status: UploadSessionStatus = .pending,
+        verifiedAt: Date? = nil
+    ) {
+        self.id = id
+        self.documentID = documentID
+        self.documentVersion = documentVersion
+        self.sizeBytes = sizeBytes
+        self.sha256 = sha256
+        self.mediaType = mediaType
+        self.expiresAt = expiresAt
+        self.createdAt = createdAt
+        self.status = status
+        self.verifiedAt = verifiedAt
+    }
+}
+
 public struct ImportRequest: Codable, Equatable, Hashable, Sendable {
     public let fileName: String
     public let title: String
     public let byteCount: Int
     public let mediaType: String?
     public let sha256: String?
+    /// File bytes stay in memory for the upload-session handoff and are never persisted.
+    public let content: Data?
 
-    public init(fileName: String, title: String, byteCount: Int = 1, mediaType: String? = nil, sha256: String? = nil) {
+    public init(fileName: String, title: String, byteCount: Int = 1, mediaType: String? = nil, sha256: String? = nil, content: Data? = nil) {
         self.fileName = fileName
         self.title = title
         self.byteCount = byteCount
         self.mediaType = mediaType
         self.sha256 = sha256
+        self.content = content
     }
 }
 

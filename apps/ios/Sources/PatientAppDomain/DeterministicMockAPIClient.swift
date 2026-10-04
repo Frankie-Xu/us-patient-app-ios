@@ -3,6 +3,8 @@ import Foundation
 public enum MockFailurePoint: Equatable, Sendable {
     case createImport
     case upload
+    case createUploadSession
+    case uploadSessionContent
     case processingStatus
     case facts
     case editFact
@@ -64,6 +66,7 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     private var storedTopics: [UUID: Topic]
     private var storedVisits: [UUID: Visit]
     private var storedTasks: [UUID: Task]
+    private var storedUploadSessions: [UUID: UploadSession] = [:]
     private var storedShares: [UUID: ShareVersion] = [:]
 
     public init(scenario: MockImportScenario = MockImportScenario()) {
@@ -83,6 +86,30 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     public func upload(_ request: UploadRequest) async throws -> UploadReceipt {
         try failIfNeeded(at: .upload)
         return UploadReceipt(ticketID: request.ticketID, documentID: scenario.documentID)
+    }
+
+    public func createUploadSession(documentID: UUID, idempotencyKey: String?) async throws -> UploadSession {
+        try failIfNeeded(at: .createUploadSession)
+        let session = UploadSession(
+            documentID: documentID,
+            sizeBytes: 1,
+            sha256: String(repeating: "0", count: 64),
+            mediaType: "application/octet-stream",
+            expiresAt: Date().addingTimeInterval(900)
+        )
+        storedUploadSessions[session.id] = session
+        return session
+    }
+
+    public func uploadSessionContent(sessionID: UUID, content: Data) async throws -> UploadSession {
+        try failIfNeeded(at: .uploadSessionContent)
+        guard var session = storedUploadSessions[sessionID], !content.isEmpty else {
+            throw PatientAPIClientError.notFound
+        }
+        session.status = .verified
+        session.verifiedAt = Date()
+        storedUploadSessions[sessionID] = session
+        return session
     }
 
     public func processingStatus(documentID: UUID) async throws -> ProcessingStatus {
