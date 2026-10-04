@@ -2,7 +2,7 @@ import SwiftUI
 import PatientAppDomain
 
 public enum AppSection: String, CaseIterable, Identifiable, Sendable {
-    case home, records, review, visits, tasks
+    case home, records, review, visits, tasks, account
 
     public var id: Self { self }
 
@@ -13,6 +13,7 @@ public enum AppSection: String, CaseIterable, Identifiable, Sendable {
         case .review: "Review"
         case .visits: "Visits"
         case .tasks: "Tasks"
+        case .account: "Account"
         }
     }
 
@@ -23,6 +24,7 @@ public enum AppSection: String, CaseIterable, Identifiable, Sendable {
         case .review: "checkmark.circle"
         case .visits: "calendar"
         case .tasks: "checklist"
+        case .account: "person.crop.circle"
         }
     }
 }
@@ -124,6 +126,7 @@ public struct AppShellView: View {
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
+            AccountView(model: model).tabItem { Label(AppSection.account.title, systemImage: AppSection.account.systemImage) }.tag(AppSection.account)
         }
     }
 }
