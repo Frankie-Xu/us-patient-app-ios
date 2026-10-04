@@ -24,7 +24,8 @@ import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert value["manifest_schema"] == "patient-app-platform/release-evidence"
 assert value["overall"]["status"] == "passed"
-assert value["checks"]["ios"]["status"] == "skipped"\nassert value["checks"]["synthetic_gate"]["status"] == "passed"
+assert value["checks"]["ios"]["status"] == "skipped"
+assert value["checks"]["synthetic_gate"]["status"] == "passed"
 serialized=json.dumps(value)
 for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in serialized
 PY
