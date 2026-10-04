@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Callable, Mapping
 
 from .auth import require_owner, require_role, require_scope
+from .dependencies import InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
 from .models import (
     AuditEvent,
     AuthContext,
@@ -45,15 +46,38 @@ class ShareAccessError(ServiceError):
 class ApiService:
     """Use-case boundary with explicit auth, audit and PHI-safe adapters."""
 
-    def __init__(self, store: InMemoryStore | None = None, clock: Callable[[], datetime] = utc_now) -> None:
+    def __init__(
+        self,
+        store: InMemoryStore | None = None,
+        clock: Callable[[], datetime] = utc_now,
+        object_store: ObjectStore | None = None,
+        job_queue: JobQueue | None = None,
+    ) -> None:
         self.store = store or InMemoryStore()
         self.clock = clock
+        self.object_store = object_store if object_store is not None else InMemoryObjectStore()
+        self.job_queue = job_queue if job_queue is not None else InMemoryJobQueue()
         # Raw share tokens live only in this process memory for idempotent replay.
         # The store receives only a digest, so a durable adapter never persists a token.
         self._ephemeral_share_tokens: dict[str, str] = {}
 
     def _id(self) -> str:
         return str(uuid.uuid4())
+
+    def readiness(self) -> dict[str, object]:
+        checks: dict[str, bool] = {
+            "metadata_store": True,
+            "object_store": self._dependency_ready(self.object_store),
+            "job_queue": self._dependency_ready(self.job_queue),
+        }
+        return {"status": "ready" if all(checks.values()) else "not_ready", "checks": checks}
+
+    @staticmethod
+    def _dependency_ready(dependency: ObjectStore | JobQueue) -> bool:
+        try:
+            return bool(dependency.is_ready())
+        except Exception:
+            return False
 
     def _audit(self, auth: AuthContext, action: str, resource_type: str, resource_id: str, **metadata: str) -> None:
         # Metadata is intentionally scalar and caller-provided; no document text,
@@ -134,6 +158,7 @@ class ApiService:
             return self.store.get(self.store.jobs, replay["value"]["id"])
         now = self.clock()
         job = UploadProcessingJob(self._id(), auth.subject_id, document_id, job_type, idempotency_key=idempotency_key, created_at=now, updated_at=now)
+        self.job_queue.enqueue(job.id, {"document_id": document_id, "job_type": job_type.value})
         self.store.jobs[job.id] = job
         self.store.documents[document_id] = replace(document, status=DocumentStatus.PROCESSING, version=document.version + 1, updated_at=now)
         self._audit(auth, "upload_processing.queued", "upload_processing_job", job.id, job_type=job_type.value)

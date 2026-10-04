@@ -17,6 +17,7 @@ from typing import Any, Mapping
 from urllib.parse import parse_qs, urlsplit
 
 from .auth import AuthorizationError
+from .dependencies import DependencyUnavailableError
 from .models import (
     AuthContext,
     ContractError,
@@ -124,6 +125,9 @@ class ApiHttpAdapter:
         try:
             if method == "GET" and route == "/healthz":
                 return HttpResponse(200, {"status": "ok"})
+            if method == "GET" and route == "/readyz":
+                readiness = self.service.readiness()
+                return HttpResponse(200 if readiness["status"] == "ready" else 503, readiness)
             if method == "GET" and route == "/v1/shared" or route.startswith("/v1/shared/") and method == "GET":
                 token = route.split("/", 3)[3] if route.count("/") >= 3 else ""
                 share, resource = self.service.access_share(token)
@@ -219,6 +223,8 @@ class ApiHttpAdapter:
             return HttpResponse(401, {"detail": str(exc)})
         except AuthorizationError as exc:
             return HttpResponse(403, {"detail": str(exc)})
+        except DependencyUnavailableError as exc:
+            return HttpResponse(503, {"detail": str(exc)})
         except (IdempotencyConflictError, VersionConflictError) as exc:
             return HttpResponse(409, {"detail": str(exc)})
         except ShareAccessError as exc:
