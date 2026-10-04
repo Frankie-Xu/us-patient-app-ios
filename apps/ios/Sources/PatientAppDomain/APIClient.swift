@@ -16,6 +16,8 @@ public protocol PatientAPIClient: Sendable {
     func listTopics() async throws -> [Topic]
     func listVisits() async throws -> [Visit]
     func listTasks() async throws -> [Task]
+    func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation
+    func revokeShare(id: UUID) async throws -> ShareVersion
 }
 
 public struct TopicCreateRequest: Codable, Equatable, Hashable, Sendable {
@@ -52,6 +54,62 @@ public struct TaskCreateRequest: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+public struct ShareCreateRequest: Codable, Equatable, Hashable, Sendable {
+    public let resourceType: SharedResourceType
+    public let resourceID: UUID
+    public let resourceVersion: Int
+    public let expiresAt: Date
+    public let idempotencyKey: String?
+
+    public init(resourceType: SharedResourceType, resourceID: UUID, resourceVersion: Int, expiresAt: Date, idempotencyKey: String? = nil) {
+        self.resourceType = resourceType
+        self.resourceID = resourceID
+        self.resourceVersion = resourceVersion
+        self.expiresAt = expiresAt
+        self.idempotencyKey = idempotencyKey
+    }
+}
+
+public struct ShareCreation: Codable, Equatable, Hashable, Sendable {
+    public let share: ShareVersion
+    /// The raw access token is returned only for immediate handoff to the
+    /// recipient. It is never persisted by this package.
+    public let token: String
+
+    public init(share: ShareVersion, token: String) {
+        self.share = share
+        self.token = token
+    }
+}
+
+public struct VisitPack: Equatable, Sendable {
+    public let visit: Visit
+    public let topics: [Topic]
+    public let tasks: [Task]
+
+    public init(visit: Visit, topics: [Topic] = [], tasks: [Task] = []) {
+        self.visit = visit
+        self.topics = topics
+        self.tasks = tasks
+    }
+}
+
+public extension PatientAPIClient {
+    /// Assembles a visit pack from the frozen typed visit/history endpoints;
+    /// generation of a dedicated server pack endpoint remains replaceable.
+    func visitPack(visitID: UUID) async throws -> VisitPack {
+        async let visits = listVisits()
+        async let topics = listTopics()
+        async let tasks = listTasks()
+        guard let visit = try await visits.first(where: { $0.id == visitID }) else {
+            throw PatientAPIClientError.notFound
+        }
+        let allTopics = try await topics
+        let allTasks = try await tasks
+        return VisitPack(visit: visit, topics: allTopics.filter { visit.topicIDs.contains($0.id) }, tasks: allTasks.filter { $0.visitID == visitID })
+    }
+}
+
 public extension PatientAPIClient {
     func createTopic(_ request: TopicCreateRequest) async throws -> Topic {
         throw PatientAPIClientError.unsupported(.topicCreationNotInClient)
@@ -75,6 +133,14 @@ public extension PatientAPIClient {
 
     func listTasks() async throws -> [Task] {
         throw PatientAPIClientError.unsupported(.taskListingNotInClient)
+    }
+
+    func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation {
+        throw PatientAPIClientError.unsupported(.shareCreationNotInClient)
+    }
+
+    func revokeShare(id: UUID) async throws -> ShareVersion {
+        throw PatientAPIClientError.unsupported(.shareRevocationNotInClient)
     }
 }
 

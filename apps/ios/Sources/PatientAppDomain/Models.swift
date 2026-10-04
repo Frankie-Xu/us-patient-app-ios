@@ -30,6 +30,8 @@ public enum UnsupportedOperation: Equatable, Sendable {
     case topicListingNotInClient
     case visitListingNotInClient
     case taskListingNotInClient
+    case shareCreationNotInClient
+    case shareRevocationNotInClient
 }
 
 public enum PatientAPIClientError: Error, Equatable, Sendable {
