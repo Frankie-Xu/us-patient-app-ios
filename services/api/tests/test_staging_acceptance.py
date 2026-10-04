@@ -58,7 +58,7 @@ def test_full_flow_failure_identifies_the_stage(tmp_path: Path) -> None:
     assert patient_flow["details"]["exception_type"] == "RuntimeError"
 
 
-def test_required_full_flow_missing_returns_blocked(tmp_path: Path) -> None:
+def test_required_full_flow_missing_returns_failed(tmp_path: Path) -> None:
     _runtime_fixture(tmp_path, include_flow=False)
 
     def runner(path: Path, functions: object) -> object:
