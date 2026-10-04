@@ -82,6 +82,13 @@ struct HomeView: View {
 struct RecordsView: View {
     @ObservedObject var model: ImportFlowModel
     @ObservedObject var history: DocumentHistoryModel
+    let onReview: () -> Void
+
+    init(model: ImportFlowModel, history: DocumentHistoryModel, onReview: @escaping () -> Void = {}) {
+        self.model = model
+        self.history = history
+        self.onReview = onReview
+    }
 
     var body: some View {
         NavigationStack {
@@ -89,7 +96,7 @@ struct RecordsView: View {
                 VStack(spacing: 16) {
                     FlowContent(model: model, allowsReview: false)
                     Divider()
-                    DocumentHistoryContent(history: history, importModel: model)
+                    DocumentHistoryContent(history: history, importModel: model, onReview: onReview)
                 }
                 .padding()
             }
@@ -113,6 +120,7 @@ struct RecordsView: View {
 private struct DocumentHistoryContent: View {
     @ObservedObject var history: DocumentHistoryModel
     @ObservedObject var importModel: ImportFlowModel
+    let onReview: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -133,7 +141,12 @@ private struct DocumentHistoryContent: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         Button("Review facts") {
-                            _Concurrency.Task { await importModel.loadExisting(document: document) }
+                            _Concurrency.Task {
+                                await importModel.loadExisting(document: document)
+                                if case .reviewRequired = importModel.state {
+                                    onReview()
+                                }
+                            }
                         }
                         .buttonStyle(.bordered)
                         .disabled(importModel.isBusy)

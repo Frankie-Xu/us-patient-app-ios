@@ -122,7 +122,7 @@ public struct AppShellView: View {
     public var body: some View {
         TabView(selection: $model.selection) {
             HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
-            RecordsView(model: model.importFlow, history: model.documentHistory).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
+            RecordsView(model: model.importFlow, history: model.documentHistory, onReview: { model.selection = .review }).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
