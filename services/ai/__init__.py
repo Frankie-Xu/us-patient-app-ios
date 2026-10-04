@@ -6,6 +6,14 @@ extraction implementations.
 """
 
 from .golden_set import load_golden_set, synthetic_golden_set
+from .api_projection import (
+    API_VERSION,
+    ApiProjection,
+    ApiReviewStatus,
+    FactCreate,
+    FactReview,
+    project_evaluation,
+)
 from .mock_predictions import MockPredictionVariant, fixed_mock_predictions
 from .output_evaluator import (
     ClassifiedError,
@@ -38,6 +46,9 @@ from .schema import (
 
 __all__ = [
     "Claim",
+    "API_VERSION",
+    "ApiProjection",
+    "ApiReviewStatus",
     "ClassifiedError",
     "CitationCoverageResult",
     "Conflict",
@@ -46,6 +57,8 @@ __all__ = [
     "ErrorCategory",
     "EvaluationPipeline",
     "FactExtractionResult",
+    "FactCreate",
+    "FactReview",
     "GoldenCase",
     "GoldenSet",
     "ExtractionEvaluation",
@@ -62,6 +75,7 @@ __all__ = [
     "evaluate_golden_set",
     "evaluate_extraction_output",
     "fixed_mock_predictions",
+    "project_evaluation",
     "load_golden_set",
     "synthetic_golden_set",
 ]

@@ -23,6 +23,8 @@ class ErrorCategory(str, Enum):
     UNEXPECTED_CLAIM = "unexpected_claim"
     SOURCE_REFERENCE_MISMATCH = "source_reference_mismatch"
     SOURCE_SPAN_UNRESOLVED = "source_span_unresolved"
+    LOW_CONFIDENCE = "low_confidence"
+    CONFLICT_DETECTED = "conflict_detected"
 
 
 VALUE_FIELDS = ("text_en", "text_zh", "normalized_key", "normalized_value")

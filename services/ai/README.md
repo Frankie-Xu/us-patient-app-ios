@@ -20,6 +20,14 @@ source spans, confidence error and review-required precision/recall. Its
 `review_decisions` payload contains `claim_id`, `review_required`,
 `review_status` and stable error categories for the API review queue.
 
+`project_evaluation` maps this result to API v0.2.0 `FactCreate` and
+`FactReview` payloads. Both payloads carry `claim_id`, source metadata,
+confidence, error categories and `review_required=true`. Missing spans,
+confidence below the projection threshold and detected conflicts add review
+categories and remain `needs_review`; rejected inputs remain `rejected`.
+The projection deserializer rejects `confirmed`, leaving confirmation to an
+explicit API review event.
+
 `fixed_mock_predictions` supplies deterministic variants for value mismatch,
 source-span mismatch, low confidence, missing review, missing claims and
 unexpected claims. These fixtures are synthetic test inputs only.
