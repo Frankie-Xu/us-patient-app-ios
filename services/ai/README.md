@@ -28,6 +28,12 @@ categories and remain `needs_review`; rejected inputs remain `rejected`.
 The projection deserializer rejects `confirmed`, leaving confirmation to an
 explicit API review event.
 
+`route_compatibility.py` validates the HTTP JSON envelope and the checked-in
+[`api_v0_2_projection.json`](fixtures/api_v0_2_projection.json) fixture. It
+checks the frozen field set and version, requires every created fact to have a
+matching review item, and rejects low-confidence, missing-span or conflict
+payloads that omit their review category or attempt confirmation.
+
 `fixed_mock_predictions` supplies deterministic variants for value mismatch,
 source-span mismatch, low confidence, missing review, missing claims and
 unexpected claims. These fixtures are synthetic test inputs only.

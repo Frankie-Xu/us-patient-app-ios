@@ -33,6 +33,15 @@ from .pipeline import (
     PipelineError,
     PipelineOutput,
 )
+from .route_compatibility import (
+    RouteCompatibilityError,
+    RouteCompatibilityReport,
+    projection_to_route_payload,
+    validate_fact_create_payload,
+    validate_fact_review_payload,
+    validate_route_json,
+    validate_route_payload,
+)
 from .reporting import RegressionReport, evaluate_golden_set
 from .schema import (
     Claim,
@@ -68,6 +77,8 @@ __all__ = [
     "PipelineError",
     "PipelineOutput",
     "RegressionReport",
+    "RouteCompatibilityError",
+    "RouteCompatibilityReport",
     "ReviewStatus",
     "ReviewDecision",
     "Severity",
@@ -76,6 +87,11 @@ __all__ = [
     "evaluate_extraction_output",
     "fixed_mock_predictions",
     "project_evaluation",
+    "projection_to_route_payload",
+    "validate_fact_create_payload",
+    "validate_fact_review_payload",
+    "validate_route_json",
+    "validate_route_payload",
     "load_golden_set",
     "synthetic_golden_set",
 ]
