@@ -6,6 +6,7 @@ from services.ai.provider_pipeline import (
     ModelTelemetry,
     ProviderNeutralPipeline,
     align_source_spans,
+    summarize_telemetry,
 )
 from services.ai.schema import SourceSpan
 
@@ -74,6 +75,40 @@ class ProviderNeutralPipelineTests(unittest.TestCase):
         checks, errors = align_source_spans(ocr, claims)
         self.assertEqual(checks, ())
         self.assertEqual({error.code for error in errors}, {"span.out_of_bounds"})
+
+
+    def test_telemetry_summary_aggregates_only_accounting_fields(self) -> None:
+        fixture = synthetic_golden_set()
+        pipeline = ProviderNeutralPipeline(DeterministicStubPipeline())
+        first = pipeline.run(
+            fixture.cases[0],
+            telemetry=ModelTelemetry(
+                provider="deterministic-stub",
+                model_version="1",
+                input_units=10,
+                output_units=4,
+                cost_usd=0.01,
+                latency_ms=100,
+            ),
+        )
+        second = pipeline.run(
+            fixture.cases[1],
+            telemetry=ModelTelemetry(
+                provider="deterministic-stub",
+                model_version="1",
+                input_units=20,
+                output_units=8,
+                cost_usd=0.03,
+                latency_ms=300,
+            ),
+        )
+        summary = summarize_telemetry((first, second)).to_dict()
+        self.assertEqual(summary["sample_count"], 2)
+        self.assertEqual(summary["total_input_units"], 30)
+        self.assertEqual(summary["total_output_units"], 12)
+        self.assertEqual(summary["total_cost_usd"], 0.04)
+        self.assertEqual(summary["average_latency_ms"], 200.0)
+        self.assertNotIn("text_en", summary)
 
     def test_telemetry_rejects_negative_and_non_finite_values(self) -> None:
         with self.assertRaises(ValueError):
