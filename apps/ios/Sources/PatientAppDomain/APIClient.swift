@@ -25,11 +25,13 @@ public struct VisitCreateRequest: Codable, Equatable, Hashable, Sendable {
     public let title: String
     public let startsAt: Date?
     public let topicIDs: [UUID]
+    public let idempotencyKey: String?
 
-    public init(title: String, startsAt: Date? = nil, topicIDs: [UUID] = []) {
+    public init(title: String, startsAt: Date? = nil, topicIDs: [UUID] = [], idempotencyKey: String? = nil) {
         self.title = title
         self.startsAt = startsAt
         self.topicIDs = topicIDs
+        self.idempotencyKey = idempotencyKey
     }
 }
 
@@ -37,11 +39,13 @@ public struct TaskCreateRequest: Codable, Equatable, Hashable, Sendable {
     public let title: String
     public let visitID: UUID?
     public let dueAt: Date?
+    public let idempotencyKey: String?
 
-    public init(title: String, visitID: UUID? = nil, dueAt: Date? = nil) {
+    public init(title: String, visitID: UUID? = nil, dueAt: Date? = nil, idempotencyKey: String? = nil) {
         self.title = title
         self.visitID = visitID
         self.dueAt = dueAt
+        self.idempotencyKey = idempotencyKey
     }
 }
 

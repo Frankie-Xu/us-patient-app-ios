@@ -140,13 +140,13 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
 
     public func createVisit(_ request: VisitCreateRequest) async throws -> Visit {
         let payload = ContractVisitCreatePayload(title: request.title, startsAt: request.startsAt, topicIDs: request.topicIDs)
-        let response: ContractVisitPayload = try await send(path: "/v1/visits", method: "POST", body: payload, idempotent: true)
+        let response: ContractVisitPayload = try await send(path: "/v1/visits", method: "POST", body: payload, idempotent: true, idempotencyKey: request.idempotencyKey)
         return try response.domainValue()
     }
 
     public func createTask(_ request: TaskCreateRequest) async throws -> Task {
         let payload = ContractTaskCreatePayload(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
-        let response: ContractTaskPayload = try await send(path: "/v1/tasks", method: "POST", body: payload, idempotent: true)
+        let response: ContractTaskPayload = try await send(path: "/v1/tasks", method: "POST", body: payload, idempotent: true, idempotencyKey: request.idempotencyKey)
         return try response.domainValue()
     }
 
@@ -155,7 +155,8 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         method: String,
         body: Body?,
         ifMatchVersion: Int? = nil,
-        idempotent: Bool
+        idempotent: Bool,
+        idempotencyKey: String? = nil
     ) async throws -> Response {
         guard let url = URL(string: path, relativeTo: baseURLProvider.baseURL)?.absoluteURL else {
             throw PatientAPIClientError.invalidBaseURL
@@ -166,7 +167,11 @@ public struct URLSessionPatientAPIClient: PatientAPIClient, Sendable {
         let requestID = requestIDProvider.requestID()
         guard !requestID.isEmpty else { throw PatientAPIClientError.invalidRequest }
         request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
-        if idempotent { request.setValue(requestID, forHTTPHeaderField: "Idempotency-Key") }
+        if idempotent {
+            let key = idempotencyKey ?? requestID
+            guard !key.isEmpty else { throw PatientAPIClientError.invalidRequest }
+            request.setValue(key, forHTTPHeaderField: "Idempotency-Key")
+        }
         if let ifMatchVersion {
             guard ifMatchVersion > 0 else { throw PatientAPIClientError.invalidRequest }
             request.setValue(String(ifMatchVersion), forHTTPHeaderField: "If-Match-Version")

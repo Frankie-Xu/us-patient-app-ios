@@ -120,24 +120,6 @@ private struct FactReviewRow: View {
     }
 }
 
-struct VisitsView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView("No visits", systemImage: "calendar", description: Text("Visit preparation will be available in a later phase."))
-                .navigationTitle("Visits")
-        }
-    }
-}
-
-struct TasksView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView("No tasks", systemImage: "checklist", description: Text("Follow-up tasks will appear here."))
-                .navigationTitle("Tasks")
-        }
-    }
-}
-
 private extension PatientAppError {
     var displayMessage: String {
         switch self {
