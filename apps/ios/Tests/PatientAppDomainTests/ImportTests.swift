@@ -54,6 +54,25 @@ final class ImportTests: XCTestCase {
         let confirmed = try await useCase.confirmFact(FactReviewCommand(documentID: snapshot.ticket.documentID, factID: edited.id))
         XCTAssertTrue(confirmed.canAppearInDoctorView)
     }
+    func testLoadingExistingDocumentUsesFactsWithoutUpload() async throws {
+        let documentID = UUID()
+        let fact = Fact(
+            documentID: documentID,
+            value: "Historical fact",
+            sourceReference: SourceReference(documentID: documentID, locator: "page:2"),
+            state: .needsReview
+        )
+        let client = DeterministicMockAPIClient(
+            scenario: MockImportScenario(documentID: documentID, facts: [fact], pollsBeforeReady: 0)
+        )
+        let document = Document(id: documentID, title: "history.pdf", processingStatus: .ready)
+
+        let snapshot = try await ImportUseCase(client: client).loadExisting(document)
+
+        XCTAssertEqual(snapshot.ticket.title, "history.pdf")
+        XCTAssertEqual(snapshot.status, .ready)
+        XCTAssertEqual(snapshot.facts, [fact])
+    }
 }
 
 private actor StageRecorder {
@@ -64,4 +83,6 @@ private actor StageRecorder {
     }
 
     var values: [ImportStage] { recorded }
+
+
 }

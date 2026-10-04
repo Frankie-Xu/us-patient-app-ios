@@ -7,6 +7,7 @@ public final class ImportFlowModel: ObservableObject {
 
     private let useCase: ImportUseCase
     private var lastRequest: ImportRequest?
+    private var lastDocument: Document?
 
     public init(client: any PatientAPIClient) {
         self.useCase = ImportUseCase(client: client)
@@ -25,11 +26,12 @@ public final class ImportFlowModel: ObservableObject {
     }
 
     public var currentImportTitle: String {
-        lastRequest?.title ?? "record"
+        lastRequest?.title ?? lastDocument?.title ?? "record"
     }
 
     public func start(_ request: ImportRequest) async {
         lastRequest = request
+        lastDocument = nil
         state = .processing
         do {
             let snapshot = try await useCase.run(request) { [weak self] stage in
@@ -44,8 +46,27 @@ public final class ImportFlowModel: ObservableObject {
     }
 
     public func retry() async {
-        guard let lastRequest else { return }
-        await start(lastRequest)
+        if let lastRequest {
+            await start(lastRequest)
+        } else if let lastDocument {
+            await loadExisting(document: lastDocument)
+        }
+    }
+
+    public func loadExisting(document: Document) async {
+        lastRequest = nil
+        lastDocument = document
+        state = .processing
+        do {
+            let snapshot = try await useCase.loadExisting(document) { [weak self] stage in
+                await self?.update(stage: stage)
+            }
+            state = snapshot.facts.isEmpty ? .empty(snapshot) : .reviewRequired(snapshot)
+        } catch let error as PatientAppError {
+            state = .failed(error)
+        } catch {
+            state = .failed(.unavailable)
+        }
     }
 
     public func editFact(_ fact: Fact, value: String) async {
