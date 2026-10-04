@@ -76,7 +76,9 @@ def _required(data: Mapping[str, Any], *fields: str) -> None:
 def _reject_extra(data: Mapping[str, Any], *fields: str) -> None:
     extra = sorted(set(data) - set(fields))
     if extra:
-        raise RequestValidationError(f"unknown field(s): {', '.join(extra)}")
+        # Extra keys are caller-controlled and can themselves contain a token,
+        # path or other sensitive label. Keep the public error stable.
+        raise RequestValidationError("request contains unknown field(s)")
 
 
 def _as_datetime(value: Any, field: str) -> datetime:
@@ -294,8 +296,10 @@ class ApiHttpAdapter:
             if "revoked" in message:
                 return _error_response(410, "SHARE_REVOKED", message)
             return _error_response(404, "SHARE_NOT_FOUND", "share token is invalid")
-        except NotFoundError as exc:
-            return _error_response(404, "NOT_FOUND", str(exc))
+        except NotFoundError:
+            # Resource identifiers are often opaque IDs or path-like values;
+            # do not reflect them into an HTTP error body.
+            return _error_response(404, "NOT_FOUND", "resource not found")
         except (ContractError, RequestValidationError, ValueError, TypeError) as exc:
             return _error_response(422, "VALIDATION_ERROR", str(exc))
         except UploadSessionError as exc:

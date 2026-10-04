@@ -232,7 +232,11 @@ def parse_openapi_shapes(text: str) -> dict[str, SchemaShape]:
 
 def assert_frozen_openapi_contract(path: Path | None = None) -> dict[str, SchemaShape]:
     """Return parsed shapes or fail closed when the frozen snapshot drifts."""
-    source = (path or _openapi_path()).read_text(encoding="utf-8")
+    try:
+        source = (path or _openapi_path()).read_text(encoding="utf-8")
+    except OSError as exc:
+        # Never reflect a caller-controlled local path in a contract error.
+        raise ContractDriftError("OpenAPI contract source is unavailable") from exc
     actual = parse_openapi_shapes(source)
     for name, expected in FROZEN_SHAPES.items():
         observed = actual.get(name)
