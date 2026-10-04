@@ -205,7 +205,7 @@ final class URLSessionPatientAPIClientTests: XCTestCase {
                 XCTAssertEqual(request.httpMethod, "POST")
                 XCTAssertEqual(request.url?.path, "/v1/documents/\(self.documentID.uuidString)/upload-sessions")
                 XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "upload-key")
-                XCTAssertEqual(try request.bodyData().jsonObject() as? [String: Any], [:])
+                XCTAssertTrue(try request.bodyData().jsonObject().isEmpty)
                 return (201, try JSONEncoder.iso8601.encode(pending))
             }
             XCTAssertEqual(request.httpMethod, "PUT")
