@@ -55,6 +55,10 @@ class MissingBearerError(PermissionError):
     pass
 
 
+def _error_response(status_code: int, code: str, detail: str) -> HttpResponse:
+    return HttpResponse(status_code, {"code": code, "detail": detail})
+
+
 def _header(headers: Mapping[str, str], name: str) -> str | None:
     wanted = name.lower()
     for key, value in headers.items():
@@ -127,7 +131,9 @@ class ApiHttpAdapter:
                 return HttpResponse(200, {"status": "ok"})
             if method == "GET" and route == "/readyz":
                 readiness = self.service.readiness()
-                return HttpResponse(200 if readiness["status"] == "ready" else 503, readiness)
+                if readiness["status"] == "ready":
+                    return HttpResponse(200, readiness)
+                return HttpResponse(503, {**readiness, "code": "DEPENDENCY_UNAVAILABLE", "detail": "one or more dependencies are unavailable"})
             if method == "GET" and route == "/v1/shared" or route.startswith("/v1/shared/") and method == "GET":
                 token = route.split("/", 3)[3] if route.count("/") >= 3 else ""
                 share, resource = self.service.access_share(token)
@@ -220,20 +226,31 @@ class ApiHttpAdapter:
                 return HttpResponse(200, [to_jsonable(event) for event in self.service.list_audit(auth, resource_id=resource_id)])
             return HttpResponse(404, {"detail": "route not found"})
         except MissingBearerError as exc:
-            return HttpResponse(401, {"detail": str(exc)})
+            return _error_response(401, "AUTHENTICATION_REQUIRED", str(exc))
         except AuthorizationError as exc:
-            return HttpResponse(403, {"detail": str(exc)})
+            return _error_response(403, "FORBIDDEN", str(exc))
         except DependencyUnavailableError as exc:
-            return HttpResponse(503, {"detail": str(exc)})
-        except (IdempotencyConflictError, VersionConflictError) as exc:
-            return HttpResponse(409, {"detail": str(exc)})
+            return _error_response(503, "DEPENDENCY_UNAVAILABLE", str(exc))
+        except IdempotencyConflictError as exc:
+            return _error_response(409, "IDEMPOTENCY_CONFLICT", str(exc))
+        except VersionConflictError as exc:
+            return _error_response(409, "VERSION_CONFLICT", str(exc))
         except ShareAccessError as exc:
-            status = 410 if "expired" in str(exc) or "revoked" in str(exc) else 404
-            return HttpResponse(status, {"detail": str(exc)})
+            message = str(exc)
+            if "expired" in message:
+                return _error_response(410, "SHARE_EXPIRED", message)
+            if "revoked" in message:
+                return _error_response(410, "SHARE_REVOKED", message)
+            return _error_response(404, "SHARE_NOT_FOUND", "share token is invalid")
         except NotFoundError as exc:
-            return HttpResponse(404, {"detail": str(exc)})
-        except (ContractError, RequestValidationError, ServiceError, ValueError, TypeError) as exc:
-            return HttpResponse(422, {"detail": str(exc)})
+            return _error_response(404, "NOT_FOUND", str(exc))
+        except (ContractError, RequestValidationError, ValueError, TypeError) as exc:
+            return _error_response(422, "VALIDATION_ERROR", str(exc))
+        except ServiceError as exc:
+            return _error_response(422, "SERVICE_ERROR", str(exc))
+        except Exception:
+            # Never reflect unexpected exception text: it may contain request or PHI data.
+            return _error_response(500, "INTERNAL_ERROR", "internal server error")
 
     @staticmethod
     def _body(body: Any) -> dict[str, Any]:

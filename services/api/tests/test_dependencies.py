@@ -36,6 +36,7 @@ class DependencyBoundaryTests(unittest.TestCase):
         self.object_store.available = False
         not_ready = self.http.handle("GET", "/readyz")
         self.assertEqual(not_ready.status_code, 503)
+        self.assertEqual(not_ready.body["code"], "DEPENDENCY_UNAVAILABLE")
         self.assertEqual(not_ready.body["status"], "not_ready")
         self.assertFalse(not_ready.body["checks"]["object_store"])
 
@@ -43,7 +44,25 @@ class DependencyBoundaryTests(unittest.TestCase):
         self.job_queue.available = False
         not_ready = self.http.handle("GET", "/readyz")
         self.assertEqual(not_ready.status_code, 503)
+        self.assertEqual(not_ready.body["code"], "DEPENDENCY_UNAVAILABLE")
         self.assertFalse(not_ready.body["checks"]["job_queue"])
+
+        document = self.service.create_document(
+            self.auth,
+            filename="synthetic.pdf",
+            media_type="application/pdf",
+            size_bytes=1,
+            sha256="b" * 64,
+            idempotency_key="dependency-http-doc",
+        )
+        queued = self.http.handle(
+            "POST",
+            f"/v1/documents/{document.id}/processing-jobs",
+            headers={"Authorization": "Bearer patient-1|documents:write|patient", "Idempotency-Key": "dependency-http-job"},
+            body={"job_type": "ocr"},
+        )
+        self.assertEqual(queued.status_code, 503)
+        self.assertEqual(queued.body["code"], "DEPENDENCY_UNAVAILABLE")
 
     def test_job_queue_is_injected_and_unavailable_queue_does_not_mutate_state(self) -> None:
         document = self.service.create_document(

@@ -97,7 +97,26 @@ class HttpAdapterTests(unittest.TestCase):
             headers=self.bearer(),
         )
         self.assertEqual(revoked.status_code, 200)
-        self.assertEqual(self.http.handle("GET", f"/v1/shared/{token}").status_code, 410)
+        revoked_access = self.http.handle("GET", f"/v1/shared/{token}")
+        self.assertEqual(revoked_access.status_code, 410)
+        self.assertEqual(revoked_access.body["code"], "SHARE_REVOKED")
+
+        expiring = self.http.handle(
+            "POST",
+            "/v1/shares",
+            headers={**self.bearer(), "Idempotency-Key": "http-share-expiring"},
+            body={
+                "resource_type": "document",
+                "resource_id": document_id,
+                "resource_version": ready_document.version,
+                "expires_at": (self.now + timedelta(minutes=1)).isoformat(),
+            },
+        )
+        self.assertEqual(expiring.status_code, 201)
+        self.now += timedelta(minutes=2)
+        expired_access = self.http.handle("GET", f"/v1/shared/{expiring.body['token']}")
+        self.assertEqual(expired_access.status_code, 410)
+        self.assertEqual(expired_access.body["code"], "SHARE_EXPIRED")
 
     def test_401_403_409_and_404_boundaries(self) -> None:
         no_auth = self.http.handle(
@@ -107,6 +126,7 @@ class HttpAdapterTests(unittest.TestCase):
             body={"filename": "synthetic.pdf", "media_type": "application/pdf", "size_bytes": 1, "sha256": "e" * 64},
         )
         self.assertEqual(no_auth.status_code, 401)
+        self.assertEqual(no_auth.body["code"], "AUTHENTICATION_REQUIRED")
 
         no_write_scope = self.http.handle(
             "POST",
@@ -115,6 +135,7 @@ class HttpAdapterTests(unittest.TestCase):
             body={"filename": "synthetic.pdf", "media_type": "application/pdf", "size_bytes": 1, "sha256": "e" * 64},
         )
         self.assertEqual(no_write_scope.status_code, 403)
+        self.assertEqual(no_write_scope.body["code"], "FORBIDDEN")
 
         owned = self.http.handle(
             "POST",
@@ -129,6 +150,17 @@ class HttpAdapterTests(unittest.TestCase):
             headers=self.bearer(subject="patient-2"),
         )
         self.assertEqual(other_owner.status_code, 403)
+        self.assertEqual(other_owner.body["code"], "FORBIDDEN")
+
+        invalid_body = self.http.handle(
+            "POST",
+            "/v1/documents",
+            headers={**self.bearer(), "Idempotency-Key": "http-error-validation"},
+            body={"filename": "private-name.pdf"},
+        )
+        self.assertEqual(invalid_body.status_code, 422)
+        self.assertEqual(invalid_body.body["code"], "VALIDATION_ERROR")
+        self.assertNotIn("private-name.pdf", invalid_body.body["detail"])
 
         body = {"filename": "synthetic.pdf", "media_type": "application/pdf", "size_bytes": 1, "sha256": "e" * 64}
         first = self.http.handle("POST", "/v1/documents", headers={**self.bearer(), "Idempotency-Key": "http-error-003"}, body=body)
@@ -140,11 +172,58 @@ class HttpAdapterTests(unittest.TestCase):
             body={**body, "filename": "different.pdf"},
         )
         self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.body["code"], "IDEMPOTENCY_CONFLICT")
 
         missing = self.http.handle("GET", "/v1/documents/does-not-exist", headers=self.bearer())
         self.assertEqual(missing.status_code, 404)
+        self.assertEqual(missing.body["code"], "NOT_FOUND")
         invalid_share = self.http.handle("GET", "/v1/shared/no-such-token")
         self.assertEqual(invalid_share.status_code, 404)
+        self.assertEqual(invalid_share.body["code"], "SHARE_NOT_FOUND")
+
+        class BrokenService(ApiService):
+            def get_document(self, auth, document_id):
+                raise RuntimeError("private request payload")
+
+        internal = ApiHttpAdapter(BrokenService()).handle(
+            "GET",
+            "/v1/documents/synthetic-id",
+            headers=self.bearer(),
+        )
+        self.assertEqual(internal.status_code, 500)
+        self.assertEqual(internal.body["code"], "INTERNAL_ERROR")
+        self.assertEqual(internal.body["detail"], "internal server error")
+        self.assertNotIn("private request payload", str(internal.body))
+
+    def test_version_conflict_has_stable_code(self) -> None:
+        fact = self.http.handle(
+            "POST",
+            "/v1/facts",
+            headers={**self.bearer(), "Idempotency-Key": "http-version-fact"},
+            body={
+                "label": "synthetic_label",
+                "value": "synthetic_value",
+                "source_ref": "synthetic:page-1",
+                "source_type": "ai_extraction",
+                "confidence": 0.5,
+            },
+        )
+        self.assertEqual(fact.status_code, 201)
+        first = self.http.handle(
+            "POST",
+            f"/v1/facts/{fact.body['id']}/review",
+            headers={**self.bearer(), "If-Match-Version": "1"},
+            body={"review_status": "confirmed"},
+        )
+        self.assertEqual(first.status_code, 200)
+        stale = self.http.handle(
+            "POST",
+            f"/v1/facts/{fact.body['id']}/review",
+            headers={**self.bearer(), "If-Match-Version": "1"},
+            body={"review_status": "rejected"},
+        )
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.body["code"], "VERSION_CONFLICT")
 
 
 if __name__ == "__main__":

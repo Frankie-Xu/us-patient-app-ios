@@ -15,3 +15,6 @@ python3 -m unittest discover -s services/api/tests -p 'test_*.py'
 `app.py` exposes `create_app()` when the optional FastAPI dependencies are installed. The framework-neutral `ApiHttpAdapter` is the local integration seam used by tests. Its temporary bearer header format is `Bearer <subject>|<comma-separated scopes>|<comma-separated roles>`; this only adapts test headers to `AuthContext` and does not validate production credentials.
 
 `ApiService` accepts `ObjectStore` and `JobQueue` protocols through dependency injection. `InMemoryObjectStore` and `InMemoryJobQueue` are local doubles only; no network, credentials, or real patient payloads are used. `/healthz` reports process liveness, while `/readyz` reports metadata, object-store, and queue availability and returns `503` when any dependency is unavailable.
+
+
+HTTP errors use the stable envelope `{ "code": "...", "detail": "..." }`. Current codes are `AUTHENTICATION_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `SHARE_NOT_FOUND`, `IDEMPOTENCY_CONFLICT`, `VERSION_CONFLICT`, `VALIDATION_ERROR`, `SERVICE_ERROR`, `SHARE_EXPIRED`, `SHARE_REVOKED`, `DEPENDENCY_UNAVAILABLE`, and `INTERNAL_ERROR`. Details are kept operational and never echo request bodies, filenames, claims, or tokens.
