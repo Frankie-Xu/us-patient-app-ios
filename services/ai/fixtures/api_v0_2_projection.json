@@ -10,7 +10,7 @@
       "normalized_value": "active",
       "source_ref": "synthetic:medication:page-1",
       "source_type": "synthetic_medication_list",
-      "source_span": {"start": 0, "end": 40, "page": 1},
+      "source_span": {"start": 0, "end": 41, "page": 1},
       "confidence": 1.0,
       "review_required": true,
       "review_status": "needs_review",
@@ -42,7 +42,7 @@
       "confidence": 1.0,
       "source_ref": "synthetic:medication:page-1",
       "source_type": "synthetic_medication_list",
-      "source_span": {"start": 0, "end": 40, "page": 1}
+      "source_span": {"start": 0, "end": 41, "page": 1}
     },
     {
       "api_version": "0.2.0",

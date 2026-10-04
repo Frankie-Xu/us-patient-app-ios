@@ -38,6 +38,20 @@ payloads that omit their review category or attempt confirmation.
 source-span mismatch, low confidence, missing review, missing claims and
 unexpected claims. These fixtures are synthetic test inputs only.
 
+`generate_regression_report` produces the offline pilot exit artifact. Its
+JSON contains `api_version`, dataset identity, `sample_count`, quality
+metrics, stable `error_categories` counts and `delivery_blocked`. The same
+entry point is available from the CLI:
+
+```sh
+python3 -m services.ai.regression_cli \
+  --golden-set services/ai/fixtures/synthetic_golden_set.json
+```
+
+The default synthetic fixture includes an unresolved high-severity conflict,
+so its report is intentionally blocked. A clean case-only set demonstrates an
+unblocked report in the regression tests.
+
 High and critical errors, unresolved conflicts, missing claims and provenance
 failures set `delivery_blocked=true`. A report can therefore be used as a
 delivery gate without treating a metric average as a safety decision.

@@ -43,6 +43,7 @@ from .route_compatibility import (
     validate_route_payload,
 )
 from .reporting import RegressionReport, evaluate_golden_set
+from .regression_report import GoldenSetRegressionReport, generate_regression_report, generate_regression_report_from_json
 from .schema import (
     Claim,
     Conflict,
@@ -77,6 +78,7 @@ __all__ = [
     "PipelineError",
     "PipelineOutput",
     "RegressionReport",
+    "GoldenSetRegressionReport",
     "RouteCompatibilityError",
     "RouteCompatibilityReport",
     "ReviewStatus",
@@ -93,5 +95,7 @@ __all__ = [
     "validate_route_json",
     "validate_route_payload",
     "load_golden_set",
+    "generate_regression_report",
+    "generate_regression_report_from_json",
     "synthetic_golden_set",
 ]
