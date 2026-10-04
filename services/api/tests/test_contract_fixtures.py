@@ -240,5 +240,10 @@ class ContractFixtureTests(unittest.TestCase):
             serialize_payload({"path": Path("/private/synthetic-token")})
         self.assertNotIn("/private/synthetic-token", str(error.exception))
 
+        missing_path = Path("/private/synthetic-contract/openapi.yaml")
+        with self.assertRaises(ContractDriftError) as error:
+            assert_frozen_openapi_contract(missing_path)
+        self.assertNotIn(str(missing_path), str(error.exception))
+
 if __name__ == "__main__":
     unittest.main()
