@@ -7,6 +7,7 @@ from services.ai.provider_pipeline import (
     ProviderNeutralPipeline,
     align_source_spans,
 )
+from services.ai.schema import SourceSpan
 
 
 class ProviderNeutralPipelineTests(unittest.TestCase):
@@ -65,7 +66,7 @@ class ProviderNeutralPipelineTests(unittest.TestCase):
         case = synthetic_golden_set().cases[0]
         claims = tuple(
             claim.__class__(
-                **{**claim.to_dict(), "source_span": {"start": 0, "end": 10_000, "page": 1}}
+                **{**claim.to_dict(), "source_span": SourceSpan(start=0, end=10_000, page=1)}
             )
             for claim in case.expected_claims
         )
