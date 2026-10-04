@@ -55,7 +55,7 @@ struct VisitsView: View {
                             Text("No saved visits yet.").foregroundStyle(.secondary)
                         } else {
                             ForEach(snapshot.visits) { visit in
-                                HistoryVisitRow(visit: visit)
+                                HistoryVisitRow(visit: visit, share: { sharingVisit = visit })
                             }
                         }
                     } else {
@@ -191,6 +191,7 @@ private struct AccountHistoryStatusView: View {
 
 private struct HistoryVisitRow: View {
     let visit: Visit
+    let share: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -199,6 +200,8 @@ private struct HistoryVisitRow: View {
                 Text(scheduledAt, format: .dateTime.month().day().hour().minute())
             } else { Text("Appointment date not provided") }
             Text("Account record · Version \(visit.version)").font(.caption)
+            Button("Share with clinician", action: share)
+                .buttonStyle(.bordered)
         }
     }
 }
