@@ -86,6 +86,7 @@ public struct PDFExportUseCase: Sendable {
 }
 
 
+// Header names are case-insensitive on HTTP responses; normalize them before validation.
 extension PatientAPITransportResponse {
     func header(named name: String) -> String? {
         let wanted = name.lowercased()
