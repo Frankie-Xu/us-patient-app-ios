@@ -15,6 +15,8 @@ public enum MockFailurePoint: Equatable, Sendable {
     case listTasks
     case createShare
     case revokeShare
+    case shareStatus
+    case exportPDF
 }
 
 public struct MockImportScenario: Sendable {
@@ -217,6 +219,30 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
         try share.revoke()
         storedShares[id] = share
         return share
+    }
+
+    public func shareStatus(id: UUID) async throws -> ShareAccessStatus {
+        try failIfNeeded(at: .shareStatus)
+        guard let share = storedShares[id] else { throw PatientAPIClientError.notFound }
+        if share.state == .revoked {
+            return ShareAccessStatus(share: share, state: .revoked)
+        }
+        if let expiresAt = share.expiresAt, expiresAt <= Date() {
+            return ShareAccessStatus(share: share, state: .expired)
+        }
+        return ShareAccessStatus(share: share, state: .active)
+    }
+
+    public func exportPDF(documentID: UUID, documentVersion: Int) async throws -> PDFExportArtifact {
+        try failIfNeeded(at: .exportPDF)
+        guard documentVersion > 0 else { throw PatientAPIClientError.invalidRequest }
+        let data = Data("%PDF-1.4\nsynthetic export\n".utf8)
+        return PDFExportArtifact(
+            data: data,
+            contentType: "application/pdf",
+            documentVersion: documentVersion,
+            sha256: String(repeating: "a", count: 64)
+        )
     }
 
     private func failIfNeeded(at point: MockFailurePoint) throws {
