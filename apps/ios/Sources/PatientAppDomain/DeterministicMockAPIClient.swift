@@ -61,12 +61,18 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     private var remainingFailures: Int
     private var processingPolls = 0
     private var storedFacts: [UUID: Fact]
+    private var storedTopics: [UUID: Topic]
+    private var storedVisits: [UUID: Visit]
+    private var storedTasks: [UUID: Task]
     private var storedShares: [UUID: ShareVersion] = [:]
 
     public init(scenario: MockImportScenario = MockImportScenario()) {
         self.scenario = scenario
         self.remainingFailures = scenario.failuresRemaining
         self.storedFacts = Dictionary(uniqueKeysWithValues: scenario.facts.map { ($0.id, $0) })
+        self.storedTopics = Dictionary(uniqueKeysWithValues: scenario.topics.map { ($0.id, $0) })
+        self.storedVisits = Dictionary(uniqueKeysWithValues: scenario.visits.map { ($0.id, $0) })
+        self.storedTasks = Dictionary(uniqueKeysWithValues: scenario.tasks.map { ($0.id, $0) })
     }
 
     public func createImport(_ request: ImportRequest) async throws -> ImportTicket {
@@ -117,30 +123,36 @@ public actor DeterministicMockAPIClient: PatientAPIClient {
     }
 
     public func createTopic(_ request: TopicCreateRequest) async throws -> Topic {
-        Topic(name: request.name)
+        let topic = Topic(name: request.name)
+        storedTopics[topic.id] = topic
+        return topic
     }
 
     public func createVisit(_ request: VisitCreateRequest) async throws -> Visit {
-        Visit(title: request.title, scheduledAt: request.startsAt, topicIDs: request.topicIDs)
+        let visit = Visit(title: request.title, scheduledAt: request.startsAt, topicIDs: request.topicIDs)
+        storedVisits[visit.id] = visit
+        return visit
     }
 
     public func createTask(_ request: TaskCreateRequest) async throws -> Task {
-        Task(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
+        let task = Task(title: request.title, visitID: request.visitID, dueAt: request.dueAt)
+        storedTasks[task.id] = task
+        return task
     }
 
     public func listTopics() async throws -> [Topic] {
         try failIfNeeded(at: .listTopics)
-        return scenario.topics
+        return storedTopics.values.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     public func listVisits() async throws -> [Visit] {
         try failIfNeeded(at: .listVisits)
-        return scenario.visits
+        return storedVisits.values.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     public func listTasks() async throws -> [Task] {
         try failIfNeeded(at: .listTasks)
-        return scenario.tasks
+        return storedTasks.values.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     public func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation {
