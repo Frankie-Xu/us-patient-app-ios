@@ -1,6 +1,6 @@
 # US Patient App · iOS
 
-Private product repository for a bilingual patient app that organizes medical records into source-traceable visit preparation packs. The MVP loop is:
+Public source-available repository for a bilingual patient app that organizes medical records into source-traceable visit preparation packs. The MVP loop is:
 
 `upload → review → generate → share → continue`
 
@@ -37,7 +37,14 @@ scripts/           Local validation and developer utilities
 
 Every feature must have empty, loading, failure, retry, success and permission-boundary states. API changes update the OpenAPI contract first. AI changes rerun the de-identified golden set and the high-severity error list. A shareable report must display version, source coverage and the limits of revocation.
 
-## License and data use
+## License and commercial use
 
-This is a private, internal repository. Do not add real patient records. Use synthetic or appropriately de-identified fixtures only after the data-handling decision is recorded.
+This repository is public for review, research, and non-commercial collaboration. The software is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
+Commercial use is not permitted without a separate written license from the copyright holder. This includes using, selling, offering, hosting, deploying, integrating, or providing the software as part of a paid product or service. Forks, copies, and modifications must keep the same commercial-use restriction. Third-party dependencies remain under their own licenses.
+
+This is source-available software, not an OSI-approved open-source license. The license does not grant rights to the product name, trademarks, branding, data, or patient content.
+
+## Data use
+
+Do not add real patient records. Use synthetic or appropriately de-identified fixtures only after the data-handling decision is recorded.
