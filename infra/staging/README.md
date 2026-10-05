@@ -42,6 +42,20 @@ closed. This local staging mode remains limited to synthetic or de-identified
 data; an external provider contract and approved data processing terms are
 required before any real patient data is considered.
 
+To configure the ignored local env file without exposing the key in shell history
+or chat, run the helper and enter the key at its hidden prompt:
+
+```sh
+scripts/staging/configure-bailian-ocr.py \
+  --region us-east-1 \
+  --workspace-id '<workspace-id-from-console>'
+```
+
+The helper supports `us-east-1`, `ap-southeast-1`, `cn-beijing`,
+`ap-northeast-1`, `eu-central-1`, and `cn-hongkong`. The API key must belong to
+the same region and workspace as the endpoint; use the matching endpoint shown
+in the Bailian console.
+
 ## Start
 
 Create a local env file from the checked-in example and replace all placeholder
