@@ -164,7 +164,7 @@ struct DocumentShareView: View {
                         Text("Expires \(expiresAt, format: .dateTime.month().day().hour().minute())").font(.caption)
                     }
                     Button("Revoke share", role: .destructive) { _Concurrency.Task { await shell.shareFlow.revoke() } }
-                        .disabled(shell.shareFlow.isBusy)
+                        .disabled(shell.shareFlow.isBusy || shell.shareFlow.accessStatus?.isAccessible == false)
                     if shell.shareFlow.isBusy { ProgressView() }
                 case .revoked:
                     Label("Share revoked", systemImage: "checkmark.shield")
@@ -173,6 +173,7 @@ struct DocumentShareView: View {
                     Button("Try again") { _Concurrency.Task { await shell.shareFlow.retry() } }
                 }
             }
+            ShareAccessStatusSection(model: shell.shareFlow)
         }
         .navigationTitle("Share record")
         .onAppear { shell.shareFlow.reset() }
@@ -208,5 +209,87 @@ private struct SectionCard<Content: View>: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+/// Displays server-reported access state separately from share creation state.
+/// A status lookup may fail after a token was created, so the token remains
+/// visible while this section offers an independent retry action.
+struct ShareAccessStatusSection: View {
+    @ObservedObject var model: ShareFlowModel
+
+    var body: some View {
+        Section("Access status") {
+            switch model.statusState {
+            case .idle:
+                Label(model.statusLabel, systemImage: "questionmark.circle")
+                    .foregroundStyle(.secondary)
+                Text(model.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .refreshing:
+                ProgressView(model.statusMessage)
+                    .accessibilityIdentifier("share.status.refreshing")
+            case let .loaded(status):
+                Label(model.statusLabel, systemImage: icon(for: status.state))
+                    .foregroundStyle(color(for: status.state))
+                    .accessibilityIdentifier("share.status.\(status.state.rawValue)")
+                Text(model.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let expiresAt = status.share.expiresAt, status.state != .revoked {
+                    Text("Valid until \(expiresAt, format: .dateTime.month().day().hour().minute())")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if status.state != .revoked, model.shareCreation != nil {
+                    Button("Refresh status") { _Concurrency.Task { await model.refreshStatus() } }
+                        .disabled(model.isRefreshingStatus)
+                }
+            case .failed:
+                Label(model.statusLabel, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                Text(model.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let error = model.statusError {
+                    Text(error.statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                Button("Retry status") { _Concurrency.Task { await model.retryStatus() } }
+                    .disabled(model.shareCreation == nil || model.isRefreshingStatus)
+            }
+        }
+    }
+
+    private func icon(for state: ShareAccessState) -> String {
+        switch state {
+        case .active: "checkmark.shield"
+        case .expired: "clock.badge.exclamationmark"
+        case .revoked: "xmark.shield"
+        }
+    }
+
+    private func color(for state: ShareAccessState) -> Color {
+        switch state {
+        case .active: .green
+        case .expired, .revoked: .secondary
+        }
+    }
+}
+
+private extension PatientAPIClientError {
+    var statusMessage: String {
+        switch self {
+        case .unauthorized, .missingBearerToken: "Sign in to refresh this share status."
+        case .forbidden: "You do not have permission to view this share status."
+        case .notFound: "This share link is no longer available."
+        case .shareExpired: "This share link has expired."
+        case .shareRevoked: "This share link has been revoked."
+        case .transport, .server: "The share status service is unavailable."
+        case .decoding: "The share status response was not understood."
+        case .invalidBaseURL, .invalidRequest, .validation, .versionConflict, .unsupported: "The share status request could not be completed."
+        }
     }
 }

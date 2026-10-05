@@ -27,12 +27,18 @@
 - Records now open a document detail view with processing status, version metadata, source guidance, fact review, and version-history navigation; the latest deterministic build was installed and launched again; see `patient-app-demo-record-detail.png`.
 - The local URLSession fixture now completes review, PDF export, document share, status lookup, and revoke through the authenticated client; the latest launch was reinstalled after this flow was validated; see `patient-app-phase43-fixture.png`.
 - The fixture state resets per runtime and returns contract-aligned 201/202 write responses; a regression test confirms a fresh runtime starts with an unconfirmed fact.
-- The latest Debug build was installed and launched on the booted iPhone 18 Pro Simulator with the deterministic fixture; see `patient-app-phase44-final.png`.
+- Document and visit share surfaces now show active, expired, revoked, refreshing, and failed access states, with retry and revoke controls gated by status.
+- The latest Debug build was installed and launched on the booted iPhone 18 Pro Simulator with the deterministic fixture; see `patient-app-phase45-final.png`.
+- `scripts/ios-release-preflight.sh`: passed with two expected local warnings; strict signing mode correctly fails until a distribution bundle ID, development team, and signing style are configured.
 - SwiftPM PatientAppUI build: passed.
 - SwiftPM tests: 112 tests passed (61 Domain + 51 UI/model).
 - `bash scripts/validate-repo.sh`: passed.
 - `git diff --check`: passed.
 - Simulator boot and `simctl io screenshot`: passed; see `iphone18pro-boot.png`.
+
+## Contract follow-up
+
+- The current base contract inventory does not yet include owner-scoped `GET /v1/shares/{shareId}`. The iOS client keeps that route because API PR #71 adds the matching operation while preserving `/v1/shared/{token}` for public access. Re-run `scripts/check-contract-drift.sh` and the share status error mapping after PR #71 is integrated.
 
 ## Managed-host limitations
 
