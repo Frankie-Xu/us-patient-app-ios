@@ -6,6 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY services/api/pyproject.toml /app/services/api/pyproject.toml
 RUN pip install --no-cache-dir \
       'fastapi>=0.115,<1' \

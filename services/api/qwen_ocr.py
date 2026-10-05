@@ -10,7 +10,11 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
+import subprocess
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -32,6 +36,8 @@ class QwenOCRSettings:
     model: str = "qwen3.5-ocr"
     task: str = "text_recognition"
     timeout_seconds: float = 60.0
+    max_pdf_pages: int = 20
+    raster_dpi: int = 150
 
     @classmethod
     def from_environment(cls, env: Mapping[str, str] | None = None) -> "QwenOCRSettings":
@@ -48,9 +54,24 @@ class QwenOCRSettings:
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False) from exc
         if timeout <= 0:
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
+        try:
+            max_pdf_pages = int(values.get("DASHSCOPE_MAX_PDF_PAGES", "20"))
+            raster_dpi = int(values.get("DASHSCOPE_PDF_RASTER_DPI", "150"))
+        except (TypeError, ValueError) as exc:
+            raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False) from exc
+        if not 1 <= max_pdf_pages <= 50 or not 72 <= raster_dpi <= 300:
+            raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
         model = str(values.get("DASHSCOPE_MODEL", "qwen3.5-ocr")).strip() or "qwen3.5-ocr"
         task = str(values.get("DASHSCOPE_OCR_TASK", "text_recognition")).strip() or "text_recognition"
-        return cls(api_key=api_key, base_url=base_url, model=model, task=task, timeout_seconds=timeout)
+        return cls(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            task=task,
+            timeout_seconds=timeout,
+            max_pdf_pages=max_pdf_pages,
+            raster_dpi=raster_dpi,
+        )
 
 
 class Qwen35OCRProvider:
@@ -66,10 +87,18 @@ class Qwen35OCRProvider:
         "image/tiff",
         "image/webp",
     }
+    _PDF_PAGE_RE = re.compile(rb"^Pages:\s+(\d+)\s*$", re.MULTILINE)
 
-    def __init__(self, settings: QwenOCRSettings, *, opener: Callable[..., Any] = urlopen) -> None:
+    def __init__(
+        self,
+        settings: QwenOCRSettings,
+        *,
+        opener: Callable[..., Any] = urlopen,
+        rasterizer: Callable[[bytes], list[bytes]] | None = None,
+    ) -> None:
         self.settings = settings
         self._opener = opener
+        self._rasterizer = rasterizer or self._rasterize_pdf
 
     @classmethod
     def from_environment(
@@ -77,8 +106,9 @@ class Qwen35OCRProvider:
         env: Mapping[str, str] | None = None,
         *,
         opener: Callable[..., Any] = urlopen,
+        rasterizer: Callable[[bytes], list[bytes]] | None = None,
     ) -> "Qwen35OCRProvider":
-        return cls(QwenOCRSettings.from_environment(env), opener=opener)
+        return cls(QwenOCRSettings.from_environment(env), opener=opener, rasterizer=rasterizer)
 
     @staticmethod
     def _response_text(payload: Mapping[str, Any]) -> str:
@@ -102,12 +132,63 @@ class Qwen35OCRProvider:
             return "".join(chunks).strip()
         return ""
 
-    def extract(self, content: bytes, media_type: str, *, filename: str = "") -> str:
-        del filename  # The provider receives the MIME type as the source of truth.
+    def _rasterize_pdf(self, content: bytes) -> list[bytes]:
+        """Rasterize a bounded PDF with a local binary before image OCR.
+
+        Qwen3.5-OCR accepts image input. Rasterization stays inside the Worker,
+        uses stdin/stdout-free temporary files, and never writes source bytes to
+        logs or a persistent volume.
+        """
+        with tempfile.TemporaryDirectory(prefix="patient-app-ocr-") as directory:
+            prefix = str(Path(directory) / "page")
+            try:
+                info = subprocess.run(
+                    ["pdfinfo", "-"],
+                    input=content,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                    timeout=max(1.0, min(self.settings.timeout_seconds, 30.0)),
+                )
+                match = self._PDF_PAGE_RE.search(info.stdout)
+                if match is None:
+                    raise QwenOCRError("OCR_PDF_RASTERIZE_FAILED", retryable=False)
+                page_count = int(match.group(1))
+                if page_count > self.settings.max_pdf_pages:
+                    raise QwenOCRError("OCR_PDF_TOO_MANY_PAGES", retryable=False)
+                subprocess.run(
+                    [
+                        "pdftoppm",
+                        "-png",
+                        "-r",
+                        str(self.settings.raster_dpi),
+                        "-f",
+                        "1",
+                        "-l",
+                        str(page_count),
+                        "-",
+                        prefix,
+                    ],
+                    input=content,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                    timeout=max(1.0, min(self.settings.timeout_seconds, 120.0)),
+                )
+            except FileNotFoundError as exc:
+                raise QwenOCRError("OCR_PDF_RASTERIZER_UNAVAILABLE", retryable=False) from exc
+            except QwenOCRError:
+                raise
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
+                raise QwenOCRError("OCR_PDF_RASTERIZE_FAILED", retryable=False) from exc
+            pages = sorted(Path(directory).glob("page-*.png"))
+            if not pages:
+                raise QwenOCRError("OCR_EMPTY_RESULT", retryable=False)
+            return [page.read_bytes() for page in pages[: self.settings.max_pdf_pages]]
+
+    def _extract_image(self, content: bytes, media_type: str) -> str:
         normalized_type = (media_type or "").lower().split(";", 1)[0].strip()
         if normalized_type not in self._IMAGE_TYPES:
-            # PDF requires the Responses API file input or a server-side
-            # rasterization step; silently treating it as an image is unsafe.
             raise QwenOCRError("OCR_MEDIA_UNSUPPORTED", retryable=False)
         if not isinstance(content, bytes) or not content:
             raise QwenOCRError("OCR_EMPTY_INPUT", retryable=False)
@@ -187,3 +268,19 @@ class Qwen35OCRProvider:
         if not text:
             raise QwenOCRError("OCR_EMPTY_RESULT", retryable=False)
         return text
+
+    def extract(self, content: bytes, media_type: str, *, filename: str = "") -> str:
+        normalized_type = (media_type or "").lower().split(";", 1)[0].strip()
+        if normalized_type == "application/pdf" or filename.lower().endswith(".pdf"):
+            if not isinstance(content, bytes) or not content:
+                raise QwenOCRError("OCR_EMPTY_INPUT", retryable=False)
+            if len(content) > 100 * 1024 * 1024:
+                raise QwenOCRError("OCR_INPUT_TOO_LARGE", retryable=False)
+            pages = self._rasterizer(content)
+            texts = [self._extract_image(page, "image/png") for page in pages]
+            return "\n\f\n".join(text for text in texts if text.strip()) or self._raise_empty_result()
+        return self._extract_image(content, normalized_type)
+
+    @staticmethod
+    def _raise_empty_result() -> str:
+        raise QwenOCRError("OCR_EMPTY_RESULT", retryable=False)

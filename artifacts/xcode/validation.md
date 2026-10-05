@@ -41,7 +41,7 @@
 - SwiftPM PatientAppUI build: passed.
 - SwiftPM `swift test --package-path apps/ios`: passed with 72 XCTest cases in the domain test target; the authoritative app/UI validation remains the Xcode result bundle above.
 - `bash scripts/staging/test-smoke.sh`: passed for upload → OCR → fact review → doctor brief → PDF → share → revoke, including dependency retry, idempotency, version conflict, and post-revoke denial.
-- API tests: 78 passed, including signed local JWT session/refresh/logout rotation, checksum deduplication, the queue worker pipeline, and the server-side Qwen3.5-OCR boundary (key isolation, HTTPS configuration, retry mapping, and PDF fail-closed behavior).
+- API tests: 79 passed, including signed local JWT session/refresh/logout rotation, checksum deduplication, the queue worker pipeline, and the server-side Qwen3.5-OCR boundary (key isolation, HTTPS configuration, retry mapping, bounded PDF rasterization, and terminal rasterizer failures).
 - Worker/provider checks: worker pipeline and retry tests 4 passed; Redis provider adapter tests 9 passed. The queue consumer has bounded retry, lease recovery, idempotent acknowledgement, and an explicit metadata-write race retry.
 - AI tests: 59 passed, including 7 deterministic staging-adapter tests covering OCR normalization, bilingual de-identified fixtures, source spans, low-confidence/conflict gates, explicit review, summary provider replacement, and model/latency/cost reporting.
 - `scripts/run-ai-staging-regression.sh`: passed for 3 de-identified cases; report records model version, latency, cost, conflict count, missing spans, and blocked delivery.
@@ -58,7 +58,8 @@
 - Docker Hub access uses a VM-local loopback tunnel to the existing host proxy; the host proxy listener remains loopback-only.
 - `docker compose --env-file .env.staging.example -f infra/staging/compose.yaml config --quiet`: passed.
 - `scripts/staging/test-compose.sh`: passed.
-- Provider adapter unit tests: 9 passed; Qwen3.5-OCR boundary tests: 4 passed; the current API test suite reported 78 tests passed.
+- Provider adapter unit tests: 9 passed; Qwen3.5-OCR boundary tests: 5 passed; the current API test suite reported 79 tests passed.
+- The rebuilt staging Worker image includes `poppler-utils`; `/usr/bin/pdftoppm` was present in the container, and a synthetic one-page PDF rasterized to PNG without a provider call. The live Worker remains `queue-consumer-fixture-ocr` because no Bailian credentials or approved external provider run were supplied.
 - The API image installs the PostgreSQL, S3-compatible, and Redis clients and starts through `scripts/staging/api_entrypoint.py`; startup applies the PostgreSQL migration and fails closed when a required provider is unavailable.
 - Live local staging now passes: PostgreSQL, the pinned LocalStack-compatible S3 persistence image, Redis, API, and worker are healthy; `/readyz` reports all three API dependencies ready.
 - A synthetic 35-byte document was persisted through the API, uploaded to S3, queued in Redis, and replayed with the same idempotency key without creating a duplicate job.

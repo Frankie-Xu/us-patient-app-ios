@@ -63,11 +63,43 @@ class QwenOCRTests(unittest.TestCase):
         self.assertEqual(insecure.exception.code, "OCR_CONFIGURATION_INVALID")
         self.assertFalse(insecure.exception.retryable)
 
-    def test_pdf_fails_closed_until_responses_file_path_is_configured(self) -> None:
-        provider = Qwen35OCRProvider(self.settings(), opener=lambda *_args, **_kwargs: self.fail("network must not be called"))
+    def test_pdf_is_rasterized_server_side_and_each_page_uses_image_ocr(self) -> None:
+        responses = iter(
+            [
+                _Response({"choices": [{"message": {"content": "page one"}}]}),
+                _Response({"choices": [{"message": {"content": "page two"}}]}),
+            ]
+        )
+        requests: list[dict[str, object]] = []
+
+        def opener(request, *, timeout):
+            del timeout
+            requests.append(json.loads(request.data.decode("utf-8")))
+            return next(responses)
+
+        provider = Qwen35OCRProvider(
+            self.settings(),
+            opener=opener,
+            rasterizer=lambda content: [b"png-page-one", b"png-page-two"] if content == b"synthetic-pdf" else [],
+        )
+        result = provider.extract(b"synthetic-pdf", "application/pdf", filename="synthetic.pdf")
+
+        self.assertEqual(result, "page one\n\f\npage two")
+        self.assertEqual(len(requests), 2)
+        self.assertTrue(requests[0]["messages"][0]["content"][0]["image_url"]["url"].startswith("data:image/png;base64,"))
+
+    def test_pdf_rasterizer_failure_is_terminal_and_bounded(self) -> None:
+        def rasterizer(_content: bytes) -> list[bytes]:
+            raise QwenOCRError("OCR_PDF_RASTERIZE_FAILED", retryable=False)
+
+        provider = Qwen35OCRProvider(
+            self.settings(),
+            opener=lambda *_args, **_kwargs: self.fail("network must not be called"),
+            rasterizer=rasterizer,
+        )
         with self.assertRaises(QwenOCRError) as error:
-            provider.extract(b"synthetic-pdf", "application/pdf", filename="synthetic.pdf")
-        self.assertEqual(error.exception.code, "OCR_MEDIA_UNSUPPORTED")
+            provider.extract(b"synthetic-pdf", "application/pdf")
+        self.assertEqual(error.exception.code, "OCR_PDF_RASTERIZE_FAILED")
         self.assertFalse(error.exception.retryable)
 
     def test_throttle_is_retryable_without_exposing_provider_body(self) -> None:

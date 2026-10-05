@@ -26,6 +26,8 @@ OCR_PROVIDER=qwen3.5-ocr
 DASHSCOPE_BASE_URL=https://<workspace>.<region>.maas.aliyuncs.com/compatible-mode/v1
 DASHSCOPE_MODEL=qwen3.5-ocr
 DASHSCOPE_OCR_TASK=text_recognition
+DASHSCOPE_MAX_PDF_PAGES=20
+DASHSCOPE_PDF_RASTER_DPI=150
 DASHSCOPE_API_KEY=<secret-managed-value>
 WORKER_MODE=queue-consumer-qwen3.5-ocr
 STAGING_DATA_CLASSIFICATION=deidentified
@@ -34,10 +36,11 @@ STAGING_DATA_CLASSIFICATION=deidentified
 The key is read by the Worker only and is never returned to iOS or included in
 request bodies. The adapter requires HTTPS, rejects invalid configuration at
 startup, and currently accepts image inputs through the OpenAI-compatible chat
-endpoint. PDF input fails closed until a separately reviewed server-side file
-parsing/rasterization path is enabled. This local staging mode remains limited to
-synthetic or de-identified data; an external provider contract and approved data
-processing terms are required before any real patient data is considered.
+endpoint. PDF input is rasterized inside the Worker with a bounded page count and
+resolution, then sent page by page as image input. Rasterization failures fail
+closed. This local staging mode remains limited to synthetic or de-identified
+data; an external provider contract and approved data processing terms are
+required before any real patient data is considered.
 
 ## Start
 
