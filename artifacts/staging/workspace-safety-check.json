@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "branch": "feat/phase42-ios-xcode-toolchain",
+  "worktree": "clean",
+  "remote_branch": "origin/feat/phase42-ios-xcode-toolchain",
+  "draft_pr": 93,
+  "sources_changed": false,
+  "ignored_local_env": true,
+  "local_env_mode": "0600",
+  "api_key_recorded": false,
+  "proxy_address_recorded": false,
+  "phi_recorded": false
+}
