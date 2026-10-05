@@ -52,6 +52,12 @@
       "status": "passed",
       "verification": "live_http"
     },
+    "retention": {
+      "metadata": "retained",
+      "object": "retained",
+      "status": "passed",
+      "verification": "live_http"
+    },
     "share": {
       "active_access": "passed",
       "expiry_access": "passed",
@@ -93,10 +99,6 @@
     "verification": "mock"
   },
   "not_validated": [
-    {
-      "reason": "not_run_without_explicit_check_retention",
-      "stage": "retention"
-    },
     {
       "reason": "no_HTTP_route_in_current_contract; deterministic fixture covers projection",
       "stage": "doctor_brief"
@@ -149,6 +151,12 @@
     },
     "readiness": {
       "http_status": 200,
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "retention": {
+      "metadata": "retained",
+      "object": "retained",
       "status": "passed",
       "verification": "live_http"
     },
