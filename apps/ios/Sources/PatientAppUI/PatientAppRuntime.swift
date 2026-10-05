@@ -57,6 +57,32 @@ public enum PatientAppRuntime {
             return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
         }
 
+        // A staging client is opt-in. Invalid or incomplete staging settings
+        // fail closed to the deterministic fixture so a simulator launch never
+        // sends data to an unexpected endpoint.
+        if let environment = try? PatientAPIEnvironmentConfiguration.resolve(
+            arguments: arguments,
+            environment: ProcessInfo.processInfo.environment
+        ), environment.mode == .staging, let baseURL = environment.baseURL {
+            let configuration = URLSessionConfiguration.ephemeral
+            let session = URLSession(configuration: configuration)
+            let tokenProvider = SessionBearerTokenProvider(sessionStore: sessionStore)
+            let requestIDs = RuntimeRequestIDProvider()
+            do {
+                return try PatientAPIClientFactory.makeLive(
+                    configuration: LivePatientAPIClientConfiguration(
+                        baseURLProvider: StaticBaseURLProvider(baseURL: baseURL),
+                        tokenProvider: tokenProvider,
+                        requestIDProvider: requestIDs,
+                        retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 3, baseDelay: .milliseconds(100))
+                    ),
+                    session: session
+                )
+            } catch {
+                return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
+            }
+        }
+
         // Every runtime gets a clean fixture boundary. This keeps UI previews,
         // tests, and simulator relaunches deterministic without sharing review
         // or share state between sessions.
@@ -83,6 +109,10 @@ public enum PatientAppRuntime {
             return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
         }
     }
+}
+
+private struct RuntimeRequestIDProvider: RequestIDProvider, Sendable {
+    func requestID() -> String { UUID().uuidString.lowercased() }
 }
 
 private enum FixtureIDs {
