@@ -34,4 +34,6 @@ Secrets.swift
 fixtures/private/
 tmp/
 coverage/
-
+artifacts/
+__pycache__/
+.venv/
