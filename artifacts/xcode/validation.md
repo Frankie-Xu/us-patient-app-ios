@@ -37,9 +37,9 @@
 - `scripts/test-ios-release-preflight.sh`: passed with deterministic default, bundle/version mismatch, strict-signing, and missing crash-monitoring configuration cases.
 - The release checklist and PHI-safe crash-monitoring placeholder are checked in under `artifacts/xcode/`; no DSN or signing material is committed.
 - SwiftPM PatientAppUI build: passed.
-- SwiftPM tests: 114 tests passed (63 Domain + 51 UI/model).
+- SwiftPM tests: 120 tests passed (69 Domain + 51 UI/model), with Xcode XCTest result bundles saved outside the repository.
 - `bash scripts/staging/test-smoke.sh`: passed for upload → OCR → fact review → doctor brief → PDF → share → revoke, including dependency retry, idempotency, version conflict, and post-revoke denial.
-- API tests: 54 passed; the staging fix preserves the storage version for immutable UploadSession records while retaining optimistic concurrency for versioned resources.
+- API tests: 63 passed; the staging fix preserves the storage version for immutable UploadSession records while retaining optimistic concurrency for versioned resources.
 - AI tests: 59 passed, including 7 deterministic staging-adapter tests covering OCR normalization, bilingual de-identified fixtures, source spans, low-confidence/conflict gates, explicit review, summary provider replacement, and model/latency/cost reporting.
 - `scripts/run-ai-staging-regression.sh`: passed for 3 de-identified cases; report records model version, latency, cost, conflict count, missing spans, and blocked delivery.
 - `scripts/check-contract-drift.sh`: passed with the current 19-route inventory, including the strict PyYAML-free fallback used on hosts without the optional parser dependency.
@@ -50,8 +50,8 @@
 
 ## Real staging composition
 
-- Provider adapter commit: `a243e85`; staging wiring commit: `314ea3a`.
-- Local Docker runtime: Colima 0.10.3 with Docker Engine 29.5.2 on arm64.
+- Provider adapter commit: `a243e85`; staging wiring commit: `314ea3a`; LocalStack and readiness commits: `957f535`, `25abd09`.
+- Local Docker runtime: Colima 0.10.3 with Docker Engine 29.5.2, Docker Compose 5.5.1, and Buildx 0.37.2 on arm64.
 - Docker Hub access uses a VM-local loopback tunnel to the existing host proxy; the host proxy listener remains loopback-only.
 - `docker compose --env-file .env.staging.example -f infra/staging/compose.yaml config --quiet`: passed.
 - `scripts/staging/test-compose.sh`: passed.
@@ -59,6 +59,12 @@
 - The API image installs the PostgreSQL, S3-compatible, and Redis clients and starts through `scripts/staging/api_entrypoint.py`; startup applies the PostgreSQL migration and fails closed when a required provider is unavailable.
 - Live local staging now passes: PostgreSQL, LocalStack S3, Redis, API, and worker are healthy; `/readyz` reports all three API dependencies ready.
 - A synthetic 25-byte document was persisted through the API, uploaded to S3, queued in Redis, and replayed with the same idempotency key without creating a duplicate job.
+- Provider-backed HTTP checks passed for duplicate document/job submission, fact version conflict (`409`), fact confirmation, share access, revoke denial (`410`), and short-TTL expiry denial (`410`).
+- Redis failure injection passed: stopping Redis made API `/readyz` fail as expected, restarting Redis restored API/worker readiness, and the synthetic queue length remained stable at four metadata-only jobs.
+- The live worker remains `fixture-health-only`; the provider-backed job stays metadata-only and is not claimed as OCR completion. The deterministic staging smoke covers the full OCR → fact review → doctor brief → PDF → share → revoke lifecycle.
+- A loopback-only HTTPS staging proxy is now available through `scripts/staging/start-local-https.sh` and `scripts/staging/local_https_proxy.py`. It generated a 30-day test CA under `/tmp`, the CA was installed into the booted iPhone 18 Pro Simulator with `simctl keychain`, and `curl --cacert` reached `/readyz` over `https://127.0.0.1:58443`. The proxy is test-only and forwards to the local API; it does not provide remote staging or production trust.
+- The staging-parameter Simulator launch completed with the HTTPS URL and saved `patientapp-staging-live-configuration.png`; no production URL, token, or credential was embedded.
+- Real OAuth/JWT, remote HTTPS staging, and TestFlight distribution signing are not configured on this host; iOS keeps deterministic mock fallback when a valid HTTPS staging endpoint is unavailable.
 - The checked-in `.env.staging.example` contains placeholder credentials only. A remote staging run still requires an approved HTTPS API endpoint, secret-manager references for provider credentials, and an identity issuer/audience; no production credential or PHI is stored here.
 
 ## Contract follow-up
