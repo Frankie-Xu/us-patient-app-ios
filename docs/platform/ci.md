@@ -26,7 +26,14 @@ All `uses:` references in `.github/workflows` must be full 40-character commit S
 
 ## Local commands
 
-The Python gates use the pinned tools in `scripts/requirements-ci.txt`; install them in a disposable environment before running the contract or workflow-policy checks locally.
+The Python gates use the pinned tools in `scripts/requirements-ci.txt`; install them in a disposable environment before running the contract or workflow-policy checks locally. The one-command entrypoint keeps local checks aligned with CI:
+
+```text
+bash scripts/verify.sh --quick
+bash scripts/verify.sh --full
+```
+
+`--quick` is intended for fast iteration. `--full` runs the release evidence gate locally and writes the same redacted aggregate artifact used by CI. The artifact contains statuses and safe metadata only.
 
 Run these before opening a pull request:
 
