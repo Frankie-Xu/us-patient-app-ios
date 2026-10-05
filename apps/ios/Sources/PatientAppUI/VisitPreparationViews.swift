@@ -248,6 +248,7 @@ private extension PatientAPIClientError {
         case .transport: "Could not load account history. Try again."
         case .decoding: "The service returned unsupported account history."
         case .unsupported: "Account history is unavailable with the current service."
+        case .shareExpired, .shareRevoked: "The shared account history is no longer available."
         }
     }
 }
@@ -390,6 +391,7 @@ private extension PatientAPIClientError {
         case .forbidden: "You do not have permission to load this visit."
         case .unsupported: "Visit preparation is unavailable with the current service."
         case .server, .transport, .decoding, .invalidBaseURL, .invalidRequest, .validation, .versionConflict: "Visit preparation could not be loaded."
+        case .shareExpired, .shareRevoked: "The visit preparation share is no longer available."
         }
     }
 
@@ -402,6 +404,7 @@ private extension PatientAPIClientError {
         case .versionConflict: "This visit changed. Reload it before sharing."
         case .unsupported: "Sharing is unavailable with the current service."
         case .server, .transport, .decoding, .invalidBaseURL: "The share could not be created. Try again."
+        case .shareExpired, .shareRevoked: "This share is no longer active."
         }
     }
 }

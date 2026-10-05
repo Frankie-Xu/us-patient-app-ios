@@ -32,6 +32,8 @@ public enum UnsupportedOperation: Equatable, Sendable {
     case taskListingNotInClient
     case shareCreationNotInClient
     case shareRevocationNotInClient
+    case shareStatusNotInClient
+    case pdfExportNotInClient
     case uploadSessionCreationNotInClient
     case uploadContentNotInClient
     case documentListingNotInClient
@@ -50,6 +52,8 @@ public enum PatientAPIClientError: Error, Equatable, Sendable {
     case server(Int)
     case transport
     case decoding
+    case shareExpired
+    case shareRevoked
 }
 
 public enum SourceType: String, Codable, CaseIterable, Sendable {
