@@ -109,6 +109,47 @@ final class OfflineUploadCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.items.first?.state, .failed(.uploadFailed))
         XCTAssertEqual(coordinator.items.first?.attempts, 1)
     }
+
+    func testCancelledUploadStateRestoresAndResumesWithoutDuplicateEnqueue() async {
+        let persistence = InMemoryUploadQueuePersistence()
+        let client = DeterministicMockAPIClient(scenario: MockImportScenario(pollsBeforeReady: 0))
+        let clock = FixedImportClock(now: Date(timeIntervalSince1970: 1_700_000_000))
+        let request = ImportRequest(
+            fileName: "cancelled.pdf",
+            title: "Cancelled synthetic upload",
+            byteCount: 1,
+            mediaType: "application/pdf",
+            sha256: "cancelled-sha",
+            content: Data([1])
+        )
+        let cancelled = UploadQueueItem(
+            id: UUID(),
+            request: request,
+            state: .failed(.processingCancelled),
+            progress: 0,
+            attempts: 1,
+            snapshot: nil
+        )
+        try! await persistence.save([PersistedUploadQueueItem(item: cancelled, now: clock.now)])
+
+        let coordinator = OfflineUploadCoordinator(
+            client: client,
+            persistence: persistence,
+            clock: clock,
+            isOnline: true
+        )
+        await coordinator.restore()
+
+        XCTAssertEqual(coordinator.items.count, 1)
+        XCTAssertEqual(coordinator.items.first?.state, .failed(.processingCancelled))
+        XCTAssertEqual(coordinator.enqueue(request), cancelled.id)
+
+        await coordinator.retry(id: cancelled.id)
+
+        XCTAssertEqual(coordinator.items.count, 1)
+        XCTAssertEqual(coordinator.items.first?.state, .ready)
+        XCTAssertEqual(coordinator.items.first?.attempts, 2)
+    }
 }
 
 @MainActor

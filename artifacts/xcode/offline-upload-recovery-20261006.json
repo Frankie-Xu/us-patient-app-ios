@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-06",
+  "classification": "synthetic-no-phi",
+  "scope": "iOS offline upload recovery",
+  "scheme": "PatientAppTests",
+  "destination": "platform=iOS Simulator,id=39E5F9B7-5C5B-477B-B573-725920F120A3",
+  "test_target": "OfflineUploadCoordinatorTests",
+  "tests": {
+    "executed": 5,
+    "failures": 0,
+    "status": "passed",
+    "coverage": [
+      "metadata persistence across coordinator recreation without file bytes",
+      "duplicate enqueue fingerprint idempotency",
+      "offline start, network recovery, background scheduling, and notifications",
+      "bounded upload retry",
+      "processingCancelled persistence, recovery, and retry without duplicate enqueue"
+    ]
+  },
+  "related_existing_coverage": [
+    "ImportRetryTests verifies cancellation during processing maps to processingCancelled",
+    "UploadQueueModelTests verifies failed upload retry without reenqueuing",
+    "OfflineDocumentCacheTests verifies stale cache reporting"
+  ],
+  "external_dependencies": {
+    "background_task_scheduler": "deterministic recording scheduler",
+    "network": "deterministic mock client",
+    "remote_staging": "not used"
+  }
+}

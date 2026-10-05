@@ -97,3 +97,10 @@
 - Fresh `PatientApp-Debug` Debug and Release Simulator builds passed with signing disabled.
 - The Debug app was installed and launched on the booted iPhone 18 Pro Simulator with the deterministic signed-in argument. Screenshot evidence is stored at `artifacts/xcode/simulator-flow-20261006.png`; the machine-readable record is `artifacts/xcode/simulator-flow-20261006.json`.
 - External remote staging, OAuth/JWT issuer configuration, Apple Team signing, and TestFlight publishing remain unverified and are intentionally not reported as complete.
+
+## 2026-10-06 Offline upload recovery follow-up (Step 7)
+
+- `OfflineUploadCoordinatorTests` passed 5/5 on the booted iPhone 18 Pro Simulator.
+- Coverage includes offline start, network recovery, background scheduling, notifications, duplicate fingerprint idempotency, bounded retry, metadata restoration without file bytes, and a persisted `processingCancelled` state that resumes through a single retry without creating a second queue item.
+- Existing domain cancellation tests continue to cover cancellation during processing and map it to `processingCancelled`; no real network or patient data was used.
+- Machine-readable evidence is stored at `artifacts/xcode/offline-upload-recovery-20261006.json`.
