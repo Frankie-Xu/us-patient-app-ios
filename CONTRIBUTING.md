@@ -13,6 +13,7 @@ Every pull request should state the user-visible behavior, linked requirement or
 Required before merge:
 
 - CI is green. A skipped component is acceptable only when its source and tests are not present; record the skip in the pull request.
+- Run `bash scripts/verify.sh --quick` while iterating and `bash scripts/verify.sh --full` before opening a pull request. The full command produces the same redacted release evidence shape as CI.
 - Tests cover the changed boundary, or the pull request explains why no automated test is available.
 - API and data-contract changes are reviewed by the owning area.
 - iOS flows include empty, loading, failure, retry, permission, and success states.
