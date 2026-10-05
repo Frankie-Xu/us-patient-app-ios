@@ -10,6 +10,7 @@ from typing import Any
 
 from services.api.models import DocumentStatus, JobStatus, UploadProcessingJob
 from services.api.provider_adapters import PostgresMetadataStore, ProviderSettings, RedisJobQueue, S3ObjectStore
+from services.api.qwen_ocr import Qwen35OCRProvider, QwenOCRError
 from services.api.store import NotFoundError
 from services.api.worker_pipeline import ProcessingError, WorkerPipeline
 
@@ -37,13 +38,32 @@ class WorkerRuntime:
         except Exception:
             self.store.close()
             raise
+        ocr_provider_name = os.getenv("OCR_PROVIDER", "fixture").strip().lower()
+        ocr_provider = None
+        provider_label = ""
+        if ocr_provider_name in {"qwen3.5-ocr", "qwen35-ocr", "bailian"}:
+            try:
+                provider = Qwen35OCRProvider.from_environment()
+            except QwenOCRError:
+                # Fail closed at startup instead of silently processing with
+                # fixtures when an explicitly selected provider is invalid.
+                self.store.close()
+                raise
+            ocr_provider = provider.extract
+            provider_label = provider.provider_name
+        elif ocr_provider_name not in {"fixture", "local"}:
+            self.store.close()
+            raise RuntimeError("unsupported OCR_PROVIDER")
         self.pipeline = WorkerPipeline(
             self.store,
             self.objects,
             data_classification=os.getenv("STAGING_DATA_CLASSIFICATION", "deidentified"),
+            ocr_provider=ocr_provider,
+            ocr_provider_name=provider_label,
         )
         self.consumer_enabled = _enabled(os.getenv("WORKER_CONSUMER_ENABLED", "1"))
-        self.mode = os.getenv("WORKER_MODE", "provider-consumer" if self.consumer_enabled else "fixture-health-only")
+        default_mode = "queue-consumer-qwen3.5-ocr" if provider_label else ("queue-consumer-fixture-ocr" if self.consumer_enabled else "fixture-health-only")
+        self.mode = os.getenv("WORKER_MODE", default_mode)
         self.max_attempts = max(1, int(os.getenv("WORKER_MAX_ATTEMPTS", "3")))
         # The API writes the Redis message just before its metadata row.  A
         # fast consumer can therefore observe a job a few milliseconds before

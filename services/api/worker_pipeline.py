@@ -87,12 +87,14 @@ def extract_text(content: bytes, media_type: str, *, filename: str = "") -> Text
 class WorkerPipeline:
     """Process one persisted API job with durable, idempotent side effects."""
 
-    def __init__(self, store: MetadataStore, object_store: ObjectStore, *, adapter: StagingAdapter | None = None, clock: Callable[[], datetime] = utc_now, data_classification: str = "deidentified") -> None:
+    def __init__(self, store: MetadataStore, object_store: ObjectStore, *, adapter: StagingAdapter | None = None, ocr_provider: Callable[..., str] | None = None, ocr_provider_name: str = "", clock: Callable[[], datetime] = utc_now, data_classification: str = "deidentified") -> None:
         if data_classification not in {"synthetic", "deidentified"}:
             raise ValueError("worker data classification must be synthetic or deidentified")
         self.store = store
         self.object_store = object_store
         self.adapter = adapter or StagingAdapter()
+        self.ocr_provider = ocr_provider
+        self.ocr_provider_name = ocr_provider_name
         self.clock = clock
         self.data_classification = data_classification
 
@@ -148,7 +150,17 @@ class WorkerPipeline:
             if running.job_type not in {JobType.OCR, JobType.EXTRACT_FACTS, JobType.TRANSLATE}:
                 raise ProcessingError("JOB_TYPE_UNSUPPORTED", retryable=False)
             session = self._verified_session(running.document_id)
-            extraction = extract_text(self.object_store.get(session.object_key or ""), document.media_type, filename=document.filename)
+            source_bytes = self.object_store.get(session.object_key or "")
+            if self.ocr_provider is None:
+                extraction = extract_text(source_bytes, document.media_type, filename=document.filename)
+            else:
+                try:
+                    text = self.ocr_provider(source_bytes, document.media_type, filename=document.filename)
+                except Exception as exc:
+                    code = str(getattr(exc, "code", "OCR_PROVIDER_UNAVAILABLE"))
+                    retryable = bool(getattr(exc, "retryable", True))
+                    raise ProcessingError(code, retryable=retryable) from exc
+                extraction = TextExtraction(text=text, mode=self.ocr_provider_name or "provider-ocr", provider=self.ocr_provider_name or "provider")
             output = self.adapter.run(StagingInput(case_id=document.id, source_ref=session.object_key or document.id, source_type="ocr", document_text=extraction.text, data_classification=self.data_classification))
             claim_count = self._persist_claims(running, output)
             self._set_document_status(document, DocumentStatus.READY)

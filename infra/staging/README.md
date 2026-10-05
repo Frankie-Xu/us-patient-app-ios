@@ -17,6 +17,28 @@ installed. A ready worker therefore confirms queue consumption and dependency
 health, while the acceptance report still labels fixture processing separately
 from provider OCR/AI results.
 
+The worker can opt into the server-side Alibaba Cloud Model Studio Qwen3.5-OCR
+adapter with values supplied only through the ignored staging environment file or
+an external secret manager:
+
+```dotenv
+OCR_PROVIDER=qwen3.5-ocr
+DASHSCOPE_BASE_URL=https://<workspace>.<region>.maas.aliyuncs.com/compatible-mode/v1
+DASHSCOPE_MODEL=qwen3.5-ocr
+DASHSCOPE_OCR_TASK=text_recognition
+DASHSCOPE_API_KEY=<secret-managed-value>
+WORKER_MODE=queue-consumer-qwen3.5-ocr
+STAGING_DATA_CLASSIFICATION=deidentified
+```
+
+The key is read by the Worker only and is never returned to iOS or included in
+request bodies. The adapter requires HTTPS, rejects invalid configuration at
+startup, and currently accepts image inputs through the OpenAI-compatible chat
+endpoint. PDF input fails closed until a separately reviewed server-side file
+parsing/rasterization path is enabled. This local staging mode remains limited to
+synthetic or de-identified data; an external provider contract and approved data
+processing terms are required before any real patient data is considered.
+
 ## Start
 
 Create a local env file from the checked-in example and replace all placeholder
