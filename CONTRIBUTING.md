@@ -33,6 +33,10 @@ Logs, traces, crash reports, test output, screenshots, analytics events, and pul
 
 Log request IDs, operation names, status codes, elapsed time, counts, and stable non-reversible identifiers instead. Redact query strings, headers, filenames, and exception payloads at the logging boundary. Test fixtures and test names use synthetic labels. A failure should identify the component and rule that failed without printing the protected value.
 
+## License boundary
+
+Contributions are accepted under the [PolyForm Noncommercial License 1.0.0](LICENSE). Submit only work that you have the right to license on those terms. The repository is source-available for non-commercial use; commercial use requires a separate written license from the copyright holder.
+
 ## Review language
 
 Review facts, behavior, failure modes, privacy boundaries, and maintainability. Do not paste protected medical content into issues, pull requests, logs, or chat.
