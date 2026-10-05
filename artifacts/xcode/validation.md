@@ -48,6 +48,16 @@
 - `git diff --check`: passed.
 - Simulator boot and `simctl io screenshot`: passed; see `iphone18pro-boot.png`.
 
+## Real staging composition
+
+- Provider adapter commit: `a243e85`; staging wiring commit: `314ea3a`.
+- `docker compose --env-file .env.staging.example -f infra/staging/compose.yaml config --quiet`: passed.
+- `scripts/staging/test-compose.sh`: passed.
+- Provider adapter unit tests: 9 passed; the pinned API environment reported 63 API tests passed.
+- The API image installs the PostgreSQL, S3-compatible, and Redis clients and starts through `scripts/staging/api_entrypoint.py`; startup applies the PostgreSQL migration and fails closed when a required provider is unavailable.
+- `scripts/staging/compose-health.sh` could not start services on this host because the Docker daemon socket is unavailable (`unix:///var/run/docker.sock`); no container start, image pull, or live staging smoke result is claimed.
+- The checked-in `.env.staging.example` contains placeholder credentials only. A remote staging run still requires an approved HTTPS API endpoint, secret-manager references for provider credentials, and an identity issuer/audience; no production credential or PHI is stored here.
+
 ## Contract follow-up
 
 - The checked-in 19-route inventory now passes locally without requiring PyYAML; the fallback parser accepts only the repository's reviewed OpenAPI layout and fails closed on malformed input.
