@@ -10,14 +10,18 @@ COPY services/api/pyproject.toml /app/services/api/pyproject.toml
 RUN pip install --no-cache-dir \
       'fastapi>=0.115,<1' \
       'pydantic>=2.7,<3' \
-      'uvicorn[standard]>=0.30,<1'
+      'uvicorn[standard]>=0.30,<1' \
+      'psycopg[binary]>=3.2,<4' \
+      'boto3>=1.35,<2' \
+      'redis>=5,<6'
 
 COPY services /app/services
 COPY scripts/staging/worker.py /app/scripts/staging/worker.py
+COPY scripts/staging/api_entrypoint.py /app/scripts/staging/api_entrypoint.py
 
 FROM runtime AS api
 EXPOSE 8000
-CMD ["uvicorn", "services.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "scripts.staging.api_entrypoint:app", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM runtime AS worker
 EXPOSE 8081

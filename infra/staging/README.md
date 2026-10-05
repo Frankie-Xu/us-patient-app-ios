@@ -1,11 +1,16 @@
 # Real staging composition
 
 This directory defines a reproducible, synthetic/de-identified staging
-composition. It starts PostgreSQL, MinIO (S3-compatible), Redis, the current
-API HTTP adapter, and a metadata-only worker health boundary. It does not claim
-that the current API has production PostgreSQL, S3, or Redis adapters: the
-checked-in API still uses its provider-neutral local runtime until those
-adapters are approved and implemented behind the existing protocols.
+composition. It starts PostgreSQL, MinIO (S3-compatible), Redis, the API
+HTTP adapter wired to the checked-in provider adapters, and a metadata-only
+worker health boundary. The API applies the checked-in PostgreSQL migration on
+startup and fails readiness when PostgreSQL, MinIO, or Redis is unavailable.
+
+The worker is intentionally health-only in this iteration (`WORKER_MODE` is
+`fixture-health-only`, `WORKER_CONSUMER_ENABLED=0`). It does not acknowledge or
+discard queue messages and therefore cannot imply that OCR has completed. A
+metadata-only Redis consumer can be enabled only after its idempotent ack and
+retry contract is reviewed; API readiness and worker readiness remain separate.
 
 ## Start
 

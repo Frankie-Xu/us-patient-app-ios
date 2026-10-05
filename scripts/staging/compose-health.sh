@@ -12,5 +12,7 @@ api_port="${api_port:-58000}"
 worker_port="${worker_port:-58001}"
 
 curl --fail --silent --show-error "http://127.0.0.1:${api_port}/healthz" >/dev/null
+curl --fail --silent --show-error "http://127.0.0.1:${api_port}/readyz" >/dev/null
 curl --fail --silent --show-error "http://127.0.0.1:${worker_port}/healthz" >/dev/null
-echo "staging API and worker health checks passed"
+curl --fail --silent --show-error "http://127.0.0.1:${worker_port}/readyz" >/dev/null
+echo "staging API and worker liveness/readiness checks passed"
