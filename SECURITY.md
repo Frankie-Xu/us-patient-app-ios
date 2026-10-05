@@ -1,6 +1,6 @@
 # Security policy
 
-This private repository handles product code and de-identified fixtures only. Never report a vulnerability with patient records, credentials, access tokens, or unredacted vendor responses.
+This public repository contains product code and de-identified fixtures only. Never report a vulnerability with patient records, credentials, access tokens, or unredacted vendor responses. Assume every committed file, branch, issue, and pull request is public.
 
 ## Reporting
 
