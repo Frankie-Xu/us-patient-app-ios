@@ -41,7 +41,7 @@ class WorkerRuntime:
         ocr_provider_name = os.getenv("OCR_PROVIDER", "fixture").strip().lower()
         ocr_provider = None
         provider_label = ""
-        if ocr_provider_name in {"qwen3.5-ocr", "qwen35-ocr", "bailian"}:
+        if ocr_provider_name in {"qwen3.5-ocr", "qwen35-ocr", "qwen-vl-ocr", "qwen-vl-ocr-latest", "bailian"}:
             try:
                 provider = Qwen35OCRProvider.from_environment()
             except QwenOCRError:
@@ -62,7 +62,7 @@ class WorkerRuntime:
             ocr_provider_name=provider_label,
         )
         self.consumer_enabled = _enabled(os.getenv("WORKER_CONSUMER_ENABLED", "1"))
-        default_mode = "queue-consumer-qwen3.5-ocr" if provider_label else ("queue-consumer-fixture-ocr" if self.consumer_enabled else "fixture-health-only")
+        default_mode = f"queue-consumer-{ocr_provider_name}" if provider_label else ("queue-consumer-fixture-ocr" if self.consumer_enabled else "fixture-health-only")
         self.mode = os.getenv("WORKER_MODE", default_mode)
         self.max_attempts = max(1, int(os.getenv("WORKER_MAX_ATTEMPTS", "3")))
         # The API writes the Redis message just before its metadata row.  A

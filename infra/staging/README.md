@@ -22,14 +22,14 @@ adapter with values supplied only through the ignored staging environment file o
 an external secret manager:
 
 ```dotenv
-OCR_PROVIDER=qwen3.5-ocr
+OCR_PROVIDER=qwen-vl-ocr
 DASHSCOPE_BASE_URL=https://<workspace>.<region>.maas.aliyuncs.com/compatible-mode/v1
-DASHSCOPE_MODEL=qwen3.5-ocr
+DASHSCOPE_MODEL=<region-compatible-ocr-model>
 DASHSCOPE_OCR_TASK=text_recognition
 DASHSCOPE_MAX_PDF_PAGES=20
 DASHSCOPE_PDF_RASTER_DPI=150
 DASHSCOPE_API_KEY=<secret-managed-value>
-WORKER_MODE=queue-consumer-qwen3.5-ocr
+WORKER_MODE=queue-consumer-qwen-vl-ocr
 STAGING_DATA_CLASSIFICATION=deidentified
 ```
 
@@ -55,6 +55,19 @@ The helper supports `us-east-1`, `ap-southeast-1`, `cn-beijing`,
 `ap-northeast-1`, `eu-central-1`, and `cn-hongkong`. The API key must belong to
 the same region and workspace as the endpoint; use the matching endpoint shown
 in the Bailian console.
+
+For the current US Virginia workspace, use `DASHSCOPE_MODEL=qwen-vl-ocr`.
+The same endpoint and key returned `model_not_found` for `qwen3.5-ocr`, while
+`qwen-vl-ocr` completed a synthetic image request. The helper selects the
+regional default automatically; pass `--model` only when the console confirms a
+different model is available.
+
+When an embedded terminal cannot receive pasted text, add `--key-from-dialog`
+to the command above to open a macOS hidden-input dialog. Alternatively, after
+explicitly copying the full Key, use `--key-from-clipboard` to import it locally
+without displaying it. Invalid input or cancellation leaves the configuration
+unchanged. The helper rejects non-ignored paths inside the repository and writes
+the environment atomically with owner-only permissions.
 
 ## Start
 
