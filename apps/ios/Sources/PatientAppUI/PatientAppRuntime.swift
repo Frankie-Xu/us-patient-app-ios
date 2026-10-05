@@ -150,6 +150,8 @@ private final class FixtureState: @unchecked Sendable {
     private var documentExists = false
     private var uploadSessionID: UUID?
     private var processingJobID: UUID?
+    private var factConfirmed = false
+    private var shares: [UUID: FixtureShareRecord] = [:]
     private let lock = NSLock()
 
     init() {
@@ -165,7 +167,17 @@ private final class FixtureState: @unchecked Sendable {
         let method = request.httpMethod ?? "GET"
         let response: AnyEncodable
 
-        if method == "POST", path == "/v1/documents" {
+        if method == "POST", path.hasSuffix("/exports/pdf") {
+            return FixtureResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Type": "application/pdf",
+                    "X-Document-Version": "1",
+                    "X-Content-SHA256": String(repeating: "a", count: 64)
+                ],
+                body: Data("%PDF-1.4\nlocal fixture export\n".utf8)
+            )
+        } else if method == "POST", path == "/v1/documents" {
             documentExists = true
             response = AnyEncodable(documentPayload(status: .uploaded))
         } else if method == "POST", path.hasSuffix("/upload-sessions") {
@@ -180,8 +192,31 @@ private final class FixtureState: @unchecked Sendable {
             response = AnyEncodable(documentExists ? [documentPayload(status: .ready)] : [])
         } else if method == "GET", path.hasPrefix("/v1/documents/") {
             response = AnyEncodable(documentPayload(status: .ready))
+        } else if method == "POST", path.hasPrefix("/v1/facts/"), path.hasSuffix("/review") {
+            factConfirmed = true
+            response = AnyEncodable(factPayload)
         } else if method == "GET", path == "/v1/facts" {
             response = AnyEncodable([factPayload])
+        } else if method == "POST", path == "/v1/shares" {
+            guard let request = decodeShareRequest(from: request.httpBody) else {
+                return FixtureResponse(statusCode: 400, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
+            }
+            let shareID = UUID(uuidString: "00000000-0000-4000-8000-000000000046")!
+            shares[shareID] = FixtureShareRecord(id: shareID, resourceType: request.resourceType, resourceID: request.resourceID, version: request.resourceVersion, expiresAt: request.expiresAt, revokedAt: nil)
+            let token = ["fixture", "share", shareID.uuidString].joined(separator: "-")
+            response = AnyEncodable(ContractShareCreateResponse(share: sharePayload(shares[shareID]!), token: token))
+        } else if method == "POST", path.contains("/v1/shares/"), path.hasSuffix("/revoke") {
+            guard let shareID = shareID(from: path), var share = shares[shareID] else {
+                return FixtureResponse(statusCode: 404, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
+            }
+            share.revokedAt = FixtureDate.created
+            shares[shareID] = share
+            response = AnyEncodable(sharePayload(share))
+        } else if method == "GET", path.contains("/v1/shares/") {
+            guard let shareID = shareID(from: path), let share = shares[shareID] else {
+                return FixtureResponse(statusCode: 404, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
+            }
+            response = AnyEncodable(sharePayload(share))
         } else if method == "GET", path == "/v1/topics" || method == "GET", path == "/v1/visits" || method == "GET", path == "/v1/tasks" {
             response = AnyEncodable([String]())
         } else {
@@ -253,10 +288,75 @@ private final class FixtureState: @unchecked Sendable {
             topicID: nil,
             id: FixtureIDs.fact,
             ownerID: "fixture-account",
-            reviewStatus: .inReview,
+            reviewStatus: factConfirmed ? .confirmed : .inReview,
             version: 1,
             createdAt: FixtureDate.created,
             updatedAt: FixtureDate.created
+        )
+    }
+
+    private struct FixtureShareRequest: Decodable {
+        let resourceType: SharedResourceType
+        let resourceID: UUID
+        let resourceVersion: Int
+        let expiresAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case resourceType = "resource_type"
+            case resourceID = "resource_id"
+            case resourceVersion = "resource_version"
+            case expiresAt = "expires_at"
+        }
+    }
+
+    private struct FixtureShareRecord {
+        let id: UUID
+        let resourceType: SharedResourceType
+        let resourceID: UUID
+        let version: Int
+        let expiresAt: Date
+        var revokedAt: Date?
+    }
+
+    private func decodeShareRequest(from data: Data?) -> FixtureShareRequest? {
+        guard let data else {
+            return FixtureShareRequest(resourceType: .document, resourceID: FixtureIDs.document, resourceVersion: 1, expiresAt: FixtureDate.expires)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(FixtureShareRequest.self, from: data)) ?? FixtureShareRequest(
+            resourceType: .document,
+            resourceID: FixtureIDs.document,
+            resourceVersion: 1,
+            expiresAt: FixtureDate.expires
+        )
+    }
+
+    private func shareID(from path: String) -> UUID? {
+        let components = path.split(separator: "/")
+        guard let index = components.firstIndex(of: "shares"), components.indices.contains(index + 1) else { return nil }
+        return UUID(uuidString: String(components[index + 1]))
+    }
+
+    private func sharePayload(_ share: FixtureShareRecord) -> ContractShareVersionPayload {
+        let status: ContractShareStatus
+        if share.revokedAt != nil {
+            status = .revoked
+        } else if share.expiresAt <= FixtureDate.created {
+            status = .expired
+        } else {
+            status = .active
+        }
+        return ContractShareVersionPayload(
+            id: share.id,
+            ownerID: "fixture-account",
+            resourceType: share.resourceType,
+            resourceID: share.resourceID,
+            resourceVersion: share.version,
+            expiresAt: share.expiresAt,
+            status: status,
+            revokedAt: share.revokedAt,
+            createdAt: FixtureDate.created
         )
     }
 }

@@ -8,6 +8,7 @@ public final class ImportFlowModel: ObservableObject {
     private let useCase: ImportUseCase
     private var lastRequest: ImportRequest?
     private var lastDocument: Document?
+    private var lastSnapshot: ImportSnapshot?
 
     public init(client: any PatientAPIClient) {
         self.useCase = ImportUseCase(client: client)
@@ -36,24 +37,36 @@ public final class ImportFlowModel: ObservableObject {
         switch state {
         case let .reviewRequired(snapshot), let .empty(snapshot), let .completed(snapshot):
             snapshot
-        case .idle, .uploading, .processing, .failed:
+        case .failed:
+            lastSnapshot
+        case .idle, .uploading, .processing:
             nil
         }
     }
 
     public var canPrepareVisit: Bool {
-        guard let snapshot = currentSnapshot, !snapshot.facts.isEmpty else { return false }
+        guard case .reviewRequired = state else {
+            guard case .completed = state else { return false }
+            return canPrepareVisit(from: lastSnapshot)
+        }
+        return canPrepareVisit(from: lastSnapshot)
+    }
+
+    private func canPrepareVisit(from snapshot: ImportSnapshot?) -> Bool {
+        guard let snapshot, !snapshot.facts.isEmpty else { return false }
         return snapshot.facts.allSatisfy { $0.state == .confirmed && $0.canAppearInDoctorView }
     }
 
     public func start(_ request: ImportRequest) async {
         lastRequest = request
         lastDocument = nil
+        lastSnapshot = nil
         state = .processing
         do {
             let snapshot = try await useCase.run(request) { [weak self] stage in
                 await self?.update(stage: stage)
             }
+            lastSnapshot = snapshot
             state = snapshot.facts.isEmpty ? .empty(snapshot) : .reviewRequired(snapshot)
         } catch let error as PatientAppError {
             state = .failed(error)
@@ -73,11 +86,13 @@ public final class ImportFlowModel: ObservableObject {
     public func loadExisting(document: Document) async {
         lastRequest = nil
         lastDocument = document
+        lastSnapshot = nil
         state = .processing
         do {
             let snapshot = try await useCase.loadExisting(document) { [weak self] stage in
                 await self?.update(stage: stage)
             }
+            lastSnapshot = snapshot
             state = snapshot.facts.isEmpty ? .empty(snapshot) : .reviewRequired(snapshot)
         } catch let error as PatientAppError {
             state = .failed(error)
@@ -101,8 +116,9 @@ public final class ImportFlowModel: ObservableObject {
     public func confirmFact(_ fact: Fact) async {
         guard case let .reviewRequired(snapshot) = state else { return }
         do {
-            let confirmed = try await useCase.confirmFact(FactReviewCommand(documentID: snapshot.ticket.documentID, factID: fact.id))
+            let confirmed = try await useCase.confirmFact(FactReviewCommand(documentID: snapshot.ticket.documentID, factID: fact.id, ifMatchVersion: fact.version))
             let updated = snapshot.replacing(fact: confirmed)
+            lastSnapshot = updated
             state = updated.facts.contains(where: { $0.state == .needsReview }) ? .reviewRequired(updated) : .completed(updated)
         } catch let error as PatientAppError {
             state = .failed(error)
@@ -119,6 +135,7 @@ public final class ImportFlowModel: ObservableObject {
     }
 
     private func update(snapshot: ImportSnapshot) {
+        lastSnapshot = snapshot
         state = .reviewRequired(snapshot)
     }
 }
