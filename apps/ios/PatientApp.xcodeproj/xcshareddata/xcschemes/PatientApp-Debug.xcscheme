@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+        <Scheme LastUpgradeVersion = "2700" version = "1.7">
+           <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+              <BuildActionEntries>
+                 <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
+                    <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "43632BF6C289C7736DC43195" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+                 </BuildActionEntry>
+              </BuildActionEntries>
+           </BuildAction>
+           <TestAction buildConfiguration = "Debug" codeCoverageEnabled = "YES" shouldUseLaunchSchemeArgsEnv = "YES">
+        <TestableReference skipped = "NO">
+   <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "C265D45766726AF26DA79769" BuildableName = "PatientAppDomainTests.xctest" BlueprintName = "PatientAppDomainTests" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+</TestableReference>
+<TestableReference skipped = "NO">
+   <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "694858C3C8DE3F55D72AFEDA" BuildableName = "PatientAppUITests.xctest" BlueprintName = "PatientAppUITests" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+</TestableReference>
+           </TestAction>
+           <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">
+              <BuildableProductRunnable runnableDebuggingMode = "0">
+                 <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "43632BF6C289C7736DC43195" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+              </BuildableProductRunnable>
+           </LaunchAction>
+           <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES"/>
+           <AnalyzeAction buildConfiguration = "Debug"/>
+           <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"/>
+        </Scheme>

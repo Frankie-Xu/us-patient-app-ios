@@ -2,11 +2,27 @@ import CryptoKit
 import SwiftUI
 import UniformTypeIdentifiers
 import PatientAppDomain
+#if canImport(PhotosUI)
+import PhotosUI
+#endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct HomeView: View {
     @ObservedObject var model: ImportFlowModel
+    @ObservedObject private var observedQueue: OfflineUploadCoordinator
+    let uploadQueue: OfflineUploadCoordinator?
     @State private var isFileImporterPresented = false
+    @State private var isCameraPresented = false
+    @State private var photoItem: PhotosPickerItem?
     @State private var fileError: String?
+
+    init(model: ImportFlowModel, uploadQueue: OfflineUploadCoordinator? = nil) {
+        self.model = model
+        self.uploadQueue = uploadQueue
+        _observedQueue = ObservedObject(wrappedValue: uploadQueue ?? OfflineUploadCoordinator(client: DeterministicMockAPIClient()))
+    }
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
@@ -16,14 +32,56 @@ struct HomeView: View {
                     isFileImporterPresented = true
                 }
                 .buttonStyle(.bordered)
+                .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportFile)
                 .disabled(model.isBusy)
+#if canImport(PhotosUI)
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("Import from Photos", systemImage: "photo")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isBusy)
+                .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportPhotos)
+#endif
+#if canImport(UIKit)
+                Button("Take a photo") {
+                    isCameraPresented = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isBusy)
+                .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportCamera)
+                .sheet(isPresented: $isCameraPresented) {
+                    CameraCaptureView { imageData in
+                        isCameraPresented = false
+                        guard let imageData else { return }
+                        _Concurrency.Task { await importImage(imageData) }
+                    }
+                }
+#endif
                 Button("Import synthetic record") {
+                    let content = Data("synthetic fixture content".utf8)
                     _Concurrency.Task {
-                        await model.start(ImportRequest(fileName: "synthetic-record.txt", title: "Synthetic record"))
+                        await importRequest(ImportRequest(fileName: "synthetic-record.txt", title: "Synthetic record", byteCount: content.count, mediaType: "text/plain", sha256: String(repeating: "0", count: 64), content: content))
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportSynthetic)
                 .disabled(model.isBusy)
+                if uploadQueue != nil {
+                    Button("Queue for background upload") {
+                        let content = Data("queued fixture content".utf8)
+                        let request = ImportRequest(fileName: "queued-record.txt", title: "Queued synthetic record", byteCount: content.count, mediaType: "text/plain", sha256: String(repeating: "1", count: 64), content: content)
+                        _ = observedQueue.enqueue(request)
+                    }
+                    .buttonStyle(.bordered)
+                    Button("Process queued uploads") {
+                        _Concurrency.Task { await observedQueue.start() }
+                    }
+                    .buttonStyle(.bordered)
+                    Text("Queued items: \(observedQueue.items.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(PatientAccessibilityIdentifier.homeUploadQueue)
+                }
                 if let fileError {
                     Text(fileError).foregroundStyle(.red)
                 }
@@ -31,6 +89,10 @@ struct HomeView: View {
             }
             .padding()
             .navigationTitle("Home")
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                _Concurrency.Task { await importPhoto(item) }
+            }
             .fileImporter(
                 isPresented: $isFileImporterPresented,
                 allowedContentTypes: [.pdf, .plainText, .data],
@@ -45,6 +107,34 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func importRequest(_ request: ImportRequest) async {
+        if let uploadQueue { _ = uploadQueue.enqueue(request) }
+        await model.start(request)
+    }
+
+#if canImport(PhotosUI)
+    @MainActor
+    private func importPhoto(_ item: PhotosPickerItem) async {
+        defer { photoItem = nil }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
+                fileError = "The selected photo is empty."
+                return
+            }
+            await importImage(data)
+        } catch {
+            fileError = "The selected photo could not be read."
+        }
+    }
+#endif
+
+    @MainActor
+    private func importImage(_ data: Data) async {
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        await importRequest(ImportRequest(fileName: "camera-record.jpg", title: "Camera record", byteCount: data.count, mediaType: "image/jpeg", sha256: digest, content: data))
     }
 
     @MainActor
@@ -63,8 +153,7 @@ struct HomeView: View {
             let mediaType = values.contentType?.preferredMIMEType ?? "application/octet-stream"
             let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
             fileError = nil
-            await model.start(
-                ImportRequest(
+            await importRequest(ImportRequest(
                     fileName: url.lastPathComponent,
                     title: url.deletingPathExtension().lastPathComponent,
                     byteCount: data.count,
@@ -230,6 +319,21 @@ private struct FactReviewRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(fact.state.displayName).font(.caption)
+            if let confidence = fact.confidence {
+                Text("Confidence \(Int((confidence * 100).rounded()))%")
+                    .font(.caption2)
+                    .foregroundStyle(confidence < 0.8 ? .orange : .secondary)
+                    .accessibilityLabel(Text("Confidence \(Int((confidence * 100).rounded())) percent"))
+            } else {
+                Text("Confidence unavailable")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+            if fact.reviewStatus != .confirmed {
+                Label("Explicit review required before confirmation", systemImage: "exclamationmark.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
             TextField("Fact", text: $value)
             if let source = fact.sourceReference {
                 Text("Source document: \(source.documentID.uuidString)")
@@ -272,7 +376,7 @@ private extension PatientAPIClientError {
         case .server: "The service could not load records. Try again."
         case .transport: "The records could not be loaded. Try again."
         case .decoding, .invalidRequest, .invalidBaseURL, .unsupported: "The service returned an unsupported record list."
-        case .versionConflict, .validation: "The records changed. Try again."
+        case .versionConflict, .validation, .shareExpired, .shareRevoked: "The records changed. Try again."
         }
     }
 }

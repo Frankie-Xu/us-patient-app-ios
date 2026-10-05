@@ -1,0 +1,790 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 90;
+	objects = {
+2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */ = {
+    isa = PBXFileReference;
+    explicitFileType = wrapper.framework;
+    includeInIndex = 0;
+    path = "PatientAppDomain.framework";
+    sourceTree = "<group>";
+};
+
+C1803A2087201FBB21891472 /* PatientAppUI.framework */ = {
+    isa = PBXFileReference;
+    explicitFileType = wrapper.framework;
+    includeInIndex = 0;
+    path = "PatientAppUI.framework";
+    sourceTree = "<group>";
+};
+
+D5E9FA491848DED75584A092 /* PatientApp.app */ = {
+    isa = PBXFileReference;
+    explicitFileType = wrapper.application;
+    includeInIndex = 0;
+    path = "PatientApp.app";
+    sourceTree = "<group>";
+};
+
+C37B586370063C09AAAAFA9E /* PatientAppDomainTests.xctest */ = {
+    isa = PBXFileReference;
+    explicitFileType = wrapper.cfbundle;
+    includeInIndex = 0;
+    path = "PatientAppDomainTests.xctest";
+    sourceTree = "<group>";
+};
+
+A079A3AD9BD267BEBDA64FC6 /* PatientAppUITests.xctest */ = {
+    isa = PBXFileReference;
+    explicitFileType = wrapper.cfbundle;
+    includeInIndex = 0;
+    path = "PatientAppUITests.xctest";
+    sourceTree = "<group>";
+};
+70830447848E8E7DF4A933CB /* PatientAppDomain */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Sources/PatientAppDomain";
+    sourceTree = "<group>";
+};
+
+CC8863A4AEA3F85886274D90 /* PatientAppUI */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Sources/PatientAppUI";
+    sourceTree = "<group>";
+};
+
+BD20A4938C4077EA98669576 /* PatientApp */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Sources/PatientApp";
+    sourceTree = "<group>";
+};
+
+29454CFD54E388FECDAC5F12 /* PatientAppDomainTests */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Tests/PatientAppDomainTests";
+    sourceTree = "<group>";
+};
+
+F62EEDC851716BBC1D41BB9E /* PatientAppUITests */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Tests/PatientAppUITests";
+    sourceTree = "<group>";
+};
+
+A024F06580C79B7582C3806A /* Resources */ = {
+    isa = PBXFileSystemSynchronizedRootGroup;
+    path = "Resources";
+    sourceTree = "<group>";
+};
+
+        5151B46607EBC8890D8DFCC2 /* Products */ = {
+            isa = PBXGroup;
+            children = (
+			2A02814EB70D84C2CB4F12F1 /* PatientAppDomain */,
+			C1803A2087201FBB21891472 /* PatientAppUI */,
+			D5E9FA491848DED75584A092 /* PatientApp */,
+			C37B586370063C09AAAAFA9E /* PatientAppDomainTests */,
+			A079A3AD9BD267BEBDA64FC6 /* PatientAppUITests */,
+
+            );
+            name = Products;
+            sourceTree = "<group>";
+        };
+        931BAC40E0989DC841B8C1D2 /* PatientApp */ = {
+            isa = PBXGroup;
+            children = (
+			70830447848E8E7DF4A933CB /* PatientAppDomain */,
+			CC8863A4AEA3F85886274D90 /* PatientAppUI */,
+			BD20A4938C4077EA98669576 /* PatientApp */,
+			29454CFD54E388FECDAC5F12 /* PatientAppDomainTests */,
+			F62EEDC851716BBC1D41BB9E /* PatientAppUITests */,
+			A024F06580C79B7582C3806A /* Resources */,
+
+                5151B46607EBC8890D8DFCC2 /* Products */,
+            );
+            sourceTree = "<group>";
+        };
+		2F7E65C77BE6E59E015FA135 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
+
+		501BDA6EADAC19B04EBDDDD5 /* PatientAppUI.framework */ = {isa = PBXBuildFile; fileRef = C1803A2087201FBB21891472 /* PatientAppUI.framework */;};
+
+		B7BF23FA08315431D4F64087 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
+
+		4E3219F09E42DDF6D6528AC4 /* PatientAppUI.framework */ = {isa = PBXBuildFile; fileRef = C1803A2087201FBB21891472 /* PatientAppUI.framework */;};
+
+		A2A6243EFE8BC9C5154D4F17 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
+
+		970A835A434FDA194390A839 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
+F320D25EA67AE75AD2D8BB46 /* Sources for PatientAppDomain */ = {
+    isa = PBXSourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+B3CB6D12192FE29710ACA2AA /* Frameworks for PatientAppDomain */ = {
+    isa = PBXFrameworksBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+7197AF00BFD23A52C8D478F9 /* Sources for PatientAppUI */ = {
+    isa = PBXSourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+D72B6F5CF01A22EAD11A98C3 /* Frameworks for PatientAppUI */ = {
+    isa = PBXFrameworksBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+			2F7E65C77BE6E59E015FA135,
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+D76C000144480A74BE923699 /* Sources for PatientApp */ = {
+    isa = PBXSourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+        77A72AF346AEBDE4F29CD8C3 /* Frameworks for PatientApp */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+			501BDA6EADAC19B04EBDDDD5,
+			B7BF23FA08315431D4F64087,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+
+9C8524539C1D618C7E2D40B1 /* Resources for PatientApp */ = {
+    isa = PBXResourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+274A18F9D988896CA145D466 /* Sources for PatientAppDomainTests */ = {
+    isa = PBXSourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+529F8AA74DC29D700D1C018A /* Frameworks for PatientAppDomainTests */ = {
+    isa = PBXFrameworksBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+			970A835A434FDA194390A839,
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+FC36CBC277C57F17030E2C82 /* Sources for PatientAppUITests */ = {
+    isa = PBXSourcesBuildPhase;
+    buildActionMask = 2147483647;
+    files = (
+
+    );
+    runOnlyForDeploymentPostprocessing = 0;
+};
+
+        9B0E2F963AA5A0692690B8A0 /* Frameworks for PatientAppUITests */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+			4E3219F09E42DDF6D6528AC4,
+			A2A6243EFE8BC9C5154D4F17,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        1353BE81D9FA107AB9DB583E /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				SWIFT_VERSION = 6.0;
+            };
+            name = "Debug";
+        };
+
+        6DBC438454EB7824E8D90D34 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				SWIFT_VERSION = 6.0;
+            };
+            name = "Release";
+        };
+
+D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        1353BE81D9FA107AB9DB583E /* Debug */,
+        6DBC438454EB7824E8D90D34 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+
+        AF73BB06558C8C5BD30C2D0A /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domain";
+				PRODUCT_NAME = "PatientAppDomain";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Debug";
+        };
+
+        45DC8A9A72E0ED477A9BF393 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domain";
+				PRODUCT_NAME = "PatientAppDomain";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Release";
+        };
+
+6765329E175A27D532CD9993 /* Build configuration list for PatientAppDomain */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        AF73BB06558C8C5BD30C2D0A /* Debug */,
+        45DC8A9A72E0ED477A9BF393 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+
+        CBA067A0806C3D9CA5931260 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.ui";
+				PRODUCT_NAME = "PatientAppUI";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Debug";
+        };
+
+        BE0E00A4DEDEB523BE3F61D5 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.ui";
+				PRODUCT_NAME = "PatientAppUI";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Release";
+        };
+
+C5826D237060BDC445A5EBAE /* Build configuration list for PatientAppUI */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        CBA067A0806C3D9CA5931260 /* Debug */,
+        BE0E00A4DEDEB523BE3F61D5 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+
+        92369B2334B03F4096C41434 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Resources/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Patient App";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp";
+				PRODUCT_MODULE_NAME = "PatientApp";
+				PRODUCT_NAME = "PatientApp";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Debug";
+        };
+
+        DD8B4C559405200D1898BEB0 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Resources/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Patient App";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp";
+				PRODUCT_MODULE_NAME = "PatientApp";
+				PRODUCT_NAME = "PatientApp";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Release";
+        };
+
+97602C7BBAA837BD77717889 /* Build configuration list for PatientApp */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        92369B2334B03F4096C41434 /* Debug */,
+        DD8B4C559405200D1898BEB0 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+
+        4F9D129B1DDB5652B71067D9 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domainTests";
+				PRODUCT_NAME = "PatientAppDomainTests";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Debug";
+        };
+
+        350E9B58DC1FFC962B67F520 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domainTests";
+				PRODUCT_NAME = "PatientAppDomainTests";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Release";
+        };
+
+D6B779340C30A187E4F29DCB /* Build configuration list for PatientAppDomainTests */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        4F9D129B1DDB5652B71067D9 /* Debug */,
+        350E9B58DC1FFC962B67F520 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+
+        0232ACB7861FC2327C4DA8EC /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.uiTests";
+				PRODUCT_NAME = "PatientAppUITests";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Debug";
+        };
+
+        ED0044C1D69797DF63AC3558 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.uiTests";
+				PRODUCT_NAME = "PatientAppUITests";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = "Release";
+        };
+
+FAE2C5179DEE96F7A25A97BB /* Build configuration list for PatientAppUITests */ = {
+    isa = XCConfigurationList;
+    buildConfigurations = (
+        0232ACB7861FC2327C4DA8EC /* Debug */,
+        ED0044C1D69797DF63AC3558 /* Release */,
+    );
+    defaultConfigurationIsVisible = 0;
+    defaultConfigurationName = Release;
+};
+F346FA30EE8D878004FC2362 /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 32DFC289D74AAEE9806FD07B;
+    remoteInfo = "PatientAppDomain";
+};
+
+29DD9BE0F05CFAE22460E85B /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 921D78FDFBBAD0B304784242;
+    remoteInfo = "PatientAppUI";
+};
+
+F3BE05AEBBEFD3FDEC603AC8 /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 32DFC289D74AAEE9806FD07B;
+    remoteInfo = "PatientAppDomain";
+};
+
+A0A887A836AB7A55057FAD73 /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 32DFC289D74AAEE9806FD07B;
+    remoteInfo = "PatientAppDomain";
+};
+
+8F11F68498FABBE3B65DDC58 /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 921D78FDFBBAD0B304784242;
+    remoteInfo = "PatientAppUI";
+};
+
+010E825DD2BCEE0041CB2DFB /* PBXContainerItemProxy */ = {
+    isa = PBXContainerItemProxy;
+    containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+    proxyType = 1;
+    remoteGlobalIDString = 32DFC289D74AAEE9806FD07B;
+    remoteInfo = "PatientAppDomain";
+};
+33C3E6F430447A61BE8F9792 /* PatientAppDomain */ = {
+    isa = PBXTargetDependency;
+    target = 32DFC289D74AAEE9806FD07B /* PatientAppDomain */;
+    targetProxy = F346FA30EE8D878004FC2362 /* PBXContainerItemProxy */;
+};
+
+99B967CC2D194F6F21AE2ADF /* PatientAppUI */ = {
+    isa = PBXTargetDependency;
+    target = 921D78FDFBBAD0B304784242 /* PatientAppUI */;
+    targetProxy = 29DD9BE0F05CFAE22460E85B /* PBXContainerItemProxy */;
+};
+
+9220986FD143114228744BD4 /* PatientAppDomain */ = {
+    isa = PBXTargetDependency;
+    target = 32DFC289D74AAEE9806FD07B /* PatientAppDomain */;
+    targetProxy = F3BE05AEBBEFD3FDEC603AC8 /* PBXContainerItemProxy */;
+};
+
+716F224E8A750A1049E78215 /* PatientAppDomain */ = {
+    isa = PBXTargetDependency;
+    target = 32DFC289D74AAEE9806FD07B /* PatientAppDomain */;
+    targetProxy = A0A887A836AB7A55057FAD73 /* PBXContainerItemProxy */;
+};
+
+0FEFE085DBC9BD76B3459AD8 /* PatientAppUI */ = {
+    isa = PBXTargetDependency;
+    target = 921D78FDFBBAD0B304784242 /* PatientAppUI */;
+    targetProxy = 8F11F68498FABBE3B65DDC58 /* PBXContainerItemProxy */;
+};
+
+AB2ED7B34DF1BE8E6089056B /* PatientAppDomain */ = {
+    isa = PBXTargetDependency;
+    target = 32DFC289D74AAEE9806FD07B /* PatientAppDomain */;
+    targetProxy = 010E825DD2BCEE0041CB2DFB /* PBXContainerItemProxy */;
+};
+        32DFC289D74AAEE9806FD07B /* PatientAppDomain */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 6765329E175A27D532CD9993 /* Build configuration list for PatientAppDomain */;
+            buildPhases = (
+				F320D25EA67AE75AD2D8BB46,
+				B3CB6D12192FE29710ACA2AA,
+            );
+            buildRules = (
+            );
+            dependencies = (
+
+            );
+            fileSystemSynchronizedGroups = (
+				70830447848E8E7DF4A933CB /* PatientAppDomain sources */,
+            );
+            name = "PatientAppDomain";
+            productName = "PatientAppDomain";
+            productReference = 2A02814EB70D84C2CB4F12F1 /* product */;
+            productType = "com.apple.product-type.framework";
+        };
+
+        921D78FDFBBAD0B304784242 /* PatientAppUI */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = C5826D237060BDC445A5EBAE /* Build configuration list for PatientAppUI */;
+            buildPhases = (
+				7197AF00BFD23A52C8D478F9,
+				D72B6F5CF01A22EAD11A98C3,
+            );
+            buildRules = (
+            );
+            dependencies = (
+				33C3E6F430447A61BE8F9792,
+            );
+            fileSystemSynchronizedGroups = (
+				CC8863A4AEA3F85886274D90 /* PatientAppUI sources */,
+            );
+            name = "PatientAppUI";
+            productName = "PatientAppUI";
+            productReference = C1803A2087201FBB21891472 /* product */;
+            productType = "com.apple.product-type.framework";
+        };
+
+        43632BF6C289C7736DC43195 /* PatientApp */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 97602C7BBAA837BD77717889 /* Build configuration list for PatientApp */;
+            buildPhases = (
+				D76C000144480A74BE923699,
+				77A72AF346AEBDE4F29CD8C3,
+				9C8524539C1D618C7E2D40B1,
+            );
+            buildRules = (
+            );
+            dependencies = (
+				99B967CC2D194F6F21AE2ADF,
+				9220986FD143114228744BD4,
+            );
+            fileSystemSynchronizedGroups = (
+				BD20A4938C4077EA98669576 /* PatientApp sources */,
+				A024F06580C79B7582C3806A /* PatientApp sources */,
+            );
+            name = "PatientApp";
+            productName = "PatientApp";
+            productReference = D5E9FA491848DED75584A092 /* product */;
+            productType = "com.apple.product-type.application";
+        };
+
+        C265D45766726AF26DA79769 /* PatientAppDomainTests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = D6B779340C30A187E4F29DCB /* Build configuration list for PatientAppDomainTests */;
+            buildPhases = (
+				274A18F9D988896CA145D466,
+				529F8AA74DC29D700D1C018A,
+            );
+            buildRules = (
+            );
+            dependencies = (
+				716F224E8A750A1049E78215,
+            );
+            fileSystemSynchronizedGroups = (
+				29454CFD54E388FECDAC5F12 /* PatientAppDomainTests sources */,
+            );
+            name = "PatientAppDomainTests";
+            productName = "PatientAppDomainTests";
+            productReference = C37B586370063C09AAAAFA9E /* product */;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
+
+        694858C3C8DE3F55D72AFEDA /* PatientAppUITests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = FAE2C5179DEE96F7A25A97BB /* Build configuration list for PatientAppUITests */;
+            buildPhases = (
+				FC36CBC277C57F17030E2C82,
+				9B0E2F963AA5A0692690B8A0,
+            );
+            buildRules = (
+            );
+            dependencies = (
+				0FEFE085DBC9BD76B3459AD8,
+				AB2ED7B34DF1BE8E6089056B,
+            );
+            fileSystemSynchronizedGroups = (
+				F62EEDC851716BBC1D41BB9E /* PatientAppUITests sources */,
+            );
+            name = "PatientAppUITests";
+            productName = "PatientAppUITests";
+            productReference = A079A3AD9BD267BEBDA64FC6 /* product */;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
+        98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+            isa = PBXProject;
+            attributes = {
+                BuildIndependentTargetsInParallel = 1;
+                LastUpgradeCheck = 2700;
+                TargetAttributes = {
+                    43632BF6C289C7736DC43195 = { CreatedOnToolsVersion = 27.0; };
+                };
+            };
+            buildConfigurationList = D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */;
+            developmentRegion = en;
+            hasScannedForEncodings = 0;
+            knownRegions = (en, Base, "zh-Hans",);
+            mainGroup = 931BAC40E0989DC841B8C1D2;
+            minimizedProjectReferenceProxies = 1;
+            preferredProjectObjectVersion = 90;
+            productRefGroup = 5151B46607EBC8890D8DFCC2 /* Products */;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (
+			32DFC289D74AAEE9806FD07B /* PatientAppDomain */,
+			921D78FDFBBAD0B304784242 /* PatientAppUI */,
+			43632BF6C289C7736DC43195 /* PatientApp */,
+			C265D45766726AF26DA79769 /* PatientAppDomainTests */,
+			694858C3C8DE3F55D72AFEDA /* PatientAppUITests */,
+
+            );
+        };
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}

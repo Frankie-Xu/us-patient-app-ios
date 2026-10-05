@@ -2,8 +2,13 @@ import SwiftUI
 
 /// Stable accessibility identifiers shared by the SwiftUI shell and UI tests.
 public enum PatientAccessibilityIdentifier {
+    public static let loginIdentifier = "patient.login.identifier"
+    public static let loginSubmit = "patient.login.submit"
     public static let homeImportFile = "patient.home.import-file"
     public static let homeImportSynthetic = "patient.home.import-synthetic"
+    public static let homeImportPhotos = "patient.home.import-photos"
+    public static let homeImportCamera = "patient.home.import-camera"
+    public static let homeUploadQueue = "patient.home.upload-queue"
     public static let recordsList = "patient.records.list"
     public static let reviewFactsList = "patient.review.facts"
     public static let retry = "patient.retry"
@@ -121,7 +126,14 @@ public enum PatientLocalization {
         if let localized = fallback[resourceLanguage]?[key] {
             return localized
         }
+        #if SWIFT_PACKAGE
         return Bundle.module.localizedString(forKey: key, value: key, table: "Localizable")
+        #else
+        // The Xcode target ships the same strings through its synchronized
+        // source group. Keep the deterministic fallback available when the
+        // generated package resource accessor is not present.
+        return key
+        #endif
     }
 
     public static func hasResource(_ language: String) -> Bool {

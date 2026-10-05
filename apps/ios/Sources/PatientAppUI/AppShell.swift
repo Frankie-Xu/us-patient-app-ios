@@ -39,11 +39,12 @@ public final class AppShellModel: ObservableObject {
     @Published public var accountHistory: AccountHistoryModel
     @Published public var documentHistory: DocumentHistoryModel
     @Published public private(set) var authState: AuthState = .signedOut
+    public let uploadQueue: OfflineUploadCoordinator
     public let protectedCache: any ProtectedCache
     public let sessionStore: any SessionStore
     public let authSession: any AuthSession
 
-    public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil, authSession: (any AuthSession)? = nil) {
+    public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil, authSession: (any AuthSession)? = nil, uploadQueuePersistence: (any UploadQueuePersistence)? = nil) {
         let auth: any AuthSession
         if let authSession {
             auth = authSession
@@ -53,6 +54,7 @@ public final class AppShellModel: ObservableObject {
             auth = InMemorySessionStore(cache: protectedCache)
         }
         let store: any SessionStore = auth
+        self.uploadQueue = OfflineUploadCoordinator(client: client, persistence: uploadQueuePersistence ?? InMemoryUploadQueuePersistence())
         self.protectedCache = protectedCache
         self.sessionStore = store
         self.authSession = auth
@@ -71,6 +73,7 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         authState = await authSession.signIn(identifier: identifier)
+        await uploadQueue.restore()
         return authState
     }
 
@@ -81,6 +84,7 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         authState = await authSession.switchAccount(identifier: identifier)
+        await uploadQueue.restore()
         return authState
     }
 
@@ -98,6 +102,7 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         await authSession.expire()
+        await uploadQueue.restore()
         authState = await authSession.authState()
     }
 
@@ -108,6 +113,7 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         await authSession.logout()
+        await uploadQueue.restore()
         authState = await authSession.authState()
     }
 }
@@ -115,18 +121,39 @@ public final class AppShellModel: ObservableObject {
 public struct AppShellView: View {
     @StateObject private var model: AppShellModel
 
-    public init(client: any PatientAPIClient = DeterministicMockAPIClient()) {
-        _model = StateObject(wrappedValue: AppShellModel(client: client))
+    /// The application target uses the real URLSession composition by default.
+    /// Tests and previews can inject the deterministic client explicitly.
+    public init(client: (any PatientAPIClient)? = nil) {
+        let model = client.map { AppShellModel(client: $0) } ?? PatientAppRuntime.makeModel()
+        _model = StateObject(wrappedValue: model)
     }
 
     public var body: some View {
+        Group {
+            switch model.authState {
+            case .signedIn:
+                authenticatedContent
+            case .signedOut, .expired:
+                SignInView(model: model)
+            }
+        }
+        .task {
+            _ = await model.restoreSession()
+        }
+    }
+
+    @ViewBuilder
+    private var authenticatedContent: some View {
         TabView(selection: $model.selection) {
-            HomeView(model: model.importFlow).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
+            HomeView(model: model.importFlow, uploadQueue: model.uploadQueue).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
             RecordsView(model: model.importFlow, history: model.documentHistory, onReview: { model.selection = .review }).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
             AccountView(model: model).tabItem { Label(AppSection.account.title, systemImage: AppSection.account.systemImage) }.tag(AppSection.account)
+        }
+        .task {
+            await model.uploadQueue.restore()
         }
     }
 }
