@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import PatientAppDomain
 
@@ -62,7 +63,7 @@ struct DoctorBriefView: View {
 
 struct VisitQuestionsView: View {
     @ObservedObject var model: ImportFlowModel
-    @State private var questions: [String] = []
+    @State private var questions: [VisitQuestion] = []
     @State private var draft = ""
 
     var body: some View {
@@ -73,8 +74,8 @@ struct VisitQuestionsView: View {
                         if questions.isEmpty {
                             Text("No questions added yet.").foregroundStyle(.secondary)
                         } else {
-                            ForEach(questions, id: \.self) { question in
-                                Label(question, systemImage: "questionmark.circle")
+                            ForEach(questions) { question in
+                                Label(question.text, systemImage: "questionmark.circle")
                             }
                             .onDelete { questions.remove(atOffsets: $0) }
                         }
@@ -84,7 +85,7 @@ struct VisitQuestionsView: View {
                         Button("Add question") {
                             let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !value.isEmpty else { return }
-                            questions.append(value)
+                            questions.append(VisitQuestion(text: value))
                             draft = ""
                         }
                         .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -104,8 +105,20 @@ struct VisitQuestionsView: View {
         .navigationTitle("Visit questions")
         .onAppear {
             guard questions.isEmpty, let snapshot = model.currentSnapshot else { return }
-            questions = snapshot.facts.filter(\.canAppearInDoctorView).map { _ in "What should I know about this confirmed result?" }
+            questions = snapshot.facts.filter(\.canAppearInDoctorView).map { _ in
+                VisitQuestion(text: "What should I know about this confirmed result?")
+            }
         }
+    }
+}
+
+private struct VisitQuestion: Identifiable, Hashable {
+    let id: UUID
+    let text: String
+
+    init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
     }
 }
 

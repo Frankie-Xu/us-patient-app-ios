@@ -256,28 +256,30 @@ struct ReviewView: View {
     @ObservedObject var model: ImportFlowModel
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    FlowContent(model: model, allowsReview: true)
+            FlowContent(model: model, allowsReview: true)
+                .safeAreaInset(edge: .bottom, spacing: 8) {
                     if model.currentSnapshot != nil {
-                        NavigationLink {
-                            DoctorBriefView(model: model)
-                        } label: {
-                            Label("Prepare doctor visit", systemImage: "stethoscope")
-                                .frame(maxWidth: .infinity)
+                        VStack(spacing: 4) {
+                            NavigationLink {
+                                DoctorBriefView(model: model)
+                            } label: {
+                                Label("Prepare doctor visit", systemImage: "stethoscope")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!model.canPrepareVisit)
+                            .accessibilityIdentifier("review.prepareVisit")
+                            if !model.canPrepareVisit {
+                                Text("Confirm every traceable fact before preparing the visit.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!model.canPrepareVisit)
-                        .accessibilityIdentifier("review.prepareVisit")
-                        if !model.canPrepareVisit {
-                            Text("Confirm every traceable fact before preparing the visit.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .background(.bar)
                     }
                 }
-                .padding()
-            }
             .navigationTitle("Review")
         }
     }
