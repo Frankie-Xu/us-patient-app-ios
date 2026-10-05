@@ -198,33 +198,63 @@ def project_settings() -> dict[str, str]:
 
 def scheme(project_targets: dict[str, str], test_targets: list[str]) -> str:
     app_id = project_targets["PatientApp"]
-    test_xml = "\n".join(textwrap.dedent(f"""\
-        <TestableReference skipped = \"NO\">
-           <BuildableReference BuildableIdentifier = \"primary\" BlueprintIdentifier = \"{project_targets[name]}\" BuildableName = \"{name}.xctest\" BlueprintName = \"{name}\" ReferencedContainer = \"container:PatientApp.xcodeproj\"/>
-        </TestableReference>""") for name in test_targets)
-    return textwrap.dedent(f"""\
-        <?xml version=\"1.0\" encoding=\"UTF-8\"?>
-        <Scheme LastUpgradeVersion = \"2700\" version = \"1.7\">
-           <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">
-              <BuildActionEntries>
-                 <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">
-                    <BuildableReference BuildableIdentifier = \"primary\" BlueprintIdentifier = \"{app_id}\" BuildableName = \"PatientApp.app\" BlueprintName = \"PatientApp\" ReferencedContainer = \"container:PatientApp.xcodeproj\"/>
-                 </BuildActionEntry>
-              </BuildActionEntries>
-           </BuildAction>
-           <TestAction buildConfiguration = \"Debug\" codeCoverageEnabled = \"YES\" shouldUseLaunchSchemeArgsEnv = \"YES\">
-        {test_xml}
-           </TestAction>
-           <LaunchAction buildConfiguration = \"Debug\" selectedDebuggerIdentifier = \"Xcode.DebuggerFoundation.Debugger.LLDB\" selectedLauncherIdentifier = \"Xcode.DebuggerFoundation.Launcher.LLDB\" shouldUseLaunchSchemeArgsEnv = \"YES\">
-              <BuildableProductRunnable runnableDebuggingMode = \"0\">
-                 <BuildableReference BuildableIdentifier = \"primary\" BlueprintIdentifier = \"{app_id}\" BuildableName = \"PatientApp.app\" BlueprintName = \"PatientApp\" ReferencedContainer = \"container:PatientApp.xcodeproj\"/>
-              </BuildableProductRunnable>
-           </LaunchAction>
-           <ProfileAction buildConfiguration = \"Release\" shouldUseLaunchSchemeArgsEnv = \"YES\"/>
-           <AnalyzeAction buildConfiguration = \"Debug\"/>
-           <ArchiveAction buildConfiguration = \"Release\" revealArchiveInOrganizer = \"YES\"/>
-        </Scheme>
-    """).lstrip()
+    build_test_entries = "\n".join(
+        f'''      <BuildActionEntry buildForTesting = "YES" buildForRunning = "NO" buildForProfiling = "NO" buildForArchiving = "NO" buildForAnalyzing = "NO">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{project_targets[name]}" BuildableName = "{name}.xctest" BlueprintName = "{name}" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </BuildActionEntry>'''
+        for name in test_targets
+    )
+    testables = "\n".join(
+        f'''      <TestableReference skipped = "NO">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{project_targets[name]}" BuildableName = "{name}.xctest" BlueprintName = "{name}" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </TestableReference>'''
+        for name in test_targets
+    )
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion = "2700" version = "1.7">
+  <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </BuildActionEntry>
+{build_test_entries}
+    </BuildActionEntries>
+  </BuildAction>
+  <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES" codeCoverageEnabled = "YES" onlyGenerateCoverageForSpecifiedTargets = "NO">
+    <MacroExpansion>
+      <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
+      </BuildableReference>
+    </MacroExpansion>
+    <Testables>
+{testables}
+    </Testables>
+    <CommandLineArguments>
+    </CommandLineArguments>
+  </TestAction>
+  <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
+    <BuildableProductRunnable runnableDebuggingMode = "0">
+      <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
+      </BuildableReference>
+    </BuildableProductRunnable>
+    <MacroExpansion>
+      <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
+      </BuildableReference>
+    </MacroExpansion>
+  </LaunchAction>
+  <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
+    <BuildableProductRunnable runnableDebuggingMode = "0">
+      <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
+      </BuildableReference>
+    </BuildableProductRunnable>
+    <MacroExpansion>
+      <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
+      </BuildableReference>
+    </MacroExpansion>
+  </ProfileAction>
+  <AnalyzeAction buildConfiguration = "Debug"/>
+  <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"/>
+</Scheme>
+'''
 
 
 def main() -> None:
