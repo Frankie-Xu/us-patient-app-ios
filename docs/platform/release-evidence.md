@@ -4,7 +4,7 @@
 
 ## CI usage
 
-The `release-evidence` job runs after the five component jobs, creates an explicit synthetic production-gate Pause manifest, and consumes their GitHub Actions result values through environment variables. It writes `artifacts/release-evidence.json` and uploads it with a short retention period. The manifest is useful when a job is skipped: `skipped` is explicit and does not pretend that a component ran.
+The `Integration gate` job runs after the five component jobs, creates an explicit synthetic production-gate Pause manifest, and consumes their GitHub Actions result values through environment variables. It writes `artifacts/release-evidence.json` and uploads it with a short retention period. The manifest is useful when a job is skipped: `skipped` is explicit and does not pretend that a component ran.
 
 A failed or cancelled component is recorded as `failed`. The script still writes the manifest and exits with status 1, so the artifact is available for diagnosis while the workflow remains fail-closed. Missing or malformed component status values also become `failed`.
 
