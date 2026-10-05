@@ -41,6 +41,7 @@
 - `bash scripts/staging/test-smoke.sh`: passed for upload → OCR → fact review → doctor brief → PDF → share → revoke, including dependency retry, idempotency, version conflict, and post-revoke denial.
 - API tests: 54 passed; the staging fix preserves the storage version for immutable UploadSession records while retaining optimistic concurrency for versioned resources.
 - AI tests: 59 passed, including 7 deterministic staging-adapter tests covering OCR normalization, bilingual de-identified fixtures, source spans, low-confidence/conflict gates, explicit review, summary provider replacement, and model/latency/cost reporting.
+- `scripts/run-ai-staging-regression.sh`: passed for 3 de-identified cases; report records model version, latency, cost, conflict count, missing spans, and blocked delivery.
 - `scripts/check-contract-drift.sh`: passed with the current 19-route inventory, including the strict PyYAML-free fallback used on hosts without the optional parser dependency.
 - `scripts/test-contract-drift.sh`: passed, including mutation and malformed-fallback regressions.
 - `bash scripts/validate-repo.sh`: passed.

@@ -131,6 +131,10 @@ jobs:
         env:
           AI_GOLDEN_ARTIFACT_PATH: artifacts/ai-golden-regression.json
         run: bash scripts/run-ai-golden-regression.sh services/ai
+      - name: Run AI staging adapter regression report
+        env:
+          AI_STAGING_ARTIFACT_PATH: artifacts/ai-staging-regression.json
+        run: bash scripts/run-ai-staging-regression.sh
       - name: Run AI tests when present
         run: bash scripts/run-python-tests.sh services/ai
       - name: Upload AI golden regression result
@@ -138,7 +142,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ai-golden-regression-result
-          path: artifacts/ai-golden-regression.json
+          path: |
+            artifacts/ai-golden-regression.json
+            artifacts/ai-staging-regression.json
           if-no-files-found: error
           retention-days: 7
 
