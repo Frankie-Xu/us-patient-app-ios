@@ -65,6 +65,38 @@ def build_file(identifier: str, ref: str, label: str) -> str:
     return f"\t\t{identifier} /* {label} */ = {{isa = PBXBuildFile; fileRef = {ref} /* {label} */;}};\n"
 
 
+def embedded_build_file(identifier: str, ref: str, label: str) -> str:
+    return textwrap.dedent(f"""\
+        {identifier} /* {label} */ = {{
+            isa = PBXBuildFile;
+            fileRef = {ref} /* {label} */;
+            settings = {{
+                ATTRIBUTES = (
+                    CodeSignOnCopy,
+                    RemoveHeadersOnCopy,
+                );
+            }};
+        }};
+    """)
+
+
+def copy_phase(identifier: str, name: str, files: list[str]) -> str:
+    entries = "\n".join(f"\t\t\t{item}," for item in files)
+    return textwrap.dedent(f"""\
+        {identifier} /* {name} */ = {{
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = "";
+            dstSubfolderSpec = 10;
+            files = (
+        {entries}
+            );
+            name = {q(name)};
+            runOnlyForDeploymentPostprocessing = 0;
+        }};
+    """)
+
+
 def config(identifier: str, name: str, settings: dict[str, str]) -> str:
     lines = "\n".join(f"\t\t\t\t{key} = {value};" for key, value in sorted(settings.items()))
     return textwrap.dedent(f"""\
@@ -146,8 +178,10 @@ def target_settings(bundle_id: str, product_name: str, *, app: bool = False, tes
             "PRODUCT_MODULE_NAME": q("PatientApp"),
             "SUPPORTED_PLATFORMS": q("iphoneos iphonesimulator"),
         })
+    elif not test:
+        settings["LD_DYLIB_INSTALL_NAME"] = q("@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)")
     settings["SWIFT_ENABLE_EXPLICIT_MODULES"] = "NO"
-    if test:
+    if test or not app:
         settings["GENERATE_INFOPLIST_FILE"] = "YES"
     return settings
 
@@ -266,6 +300,15 @@ def main() -> None:
                 phase_objects[index] = phase(framework_phase, "PBXFrameworksBuildPhase", f"Frameworks for {owner}", ids)
                 break
 
+    embed_phase = uid("phase:embed:PatientApp")
+    embedded_ids = []
+    for dep_name in frameworks_for["PatientApp"]:
+        build_id = uid(f"embed:PatientApp:{dep_name}")
+        embedded_ids.append(build_id)
+        framework_builds.append(embedded_build_file(build_id, product_ids[dep_name], f"{dep_name}.framework (Embed)"))
+    phase_objects.append(copy_phase(embed_phase, "Embed Frameworks", embedded_ids))
+    phases["PatientApp"].append(embed_phase)
+
     project_id = uid("project")
     proxy_objects = []
     dependency_objects = []
@@ -316,8 +359,6 @@ def main() -> None:
     }
     for name in names:
         target_groups = [groups[name]]
-        if name == "PatientApp":
-            target_groups.append(groups["Resources"])
         target_objects.append(target(targets[name], name, product_ids[name], product_type_names[name], config_lists[name], phases[name], target_groups, dependency_map[name]))
 
     project_object = textwrap.dedent(f"""\

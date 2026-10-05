@@ -118,6 +118,28 @@ A024F06580C79B7582C3806A /* Resources */ = {
 		A2A6243EFE8BC9C5154D4F17 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
 
 		970A835A434FDA194390A839 /* PatientAppDomain.framework */ = {isa = PBXBuildFile; fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework */;};
+
+6542E6686EF58F223C622BE1 /* PatientAppUI.framework (Embed) */ = {
+    isa = PBXBuildFile;
+    fileRef = C1803A2087201FBB21891472 /* PatientAppUI.framework (Embed) */;
+    settings = {
+        ATTRIBUTES = (
+            CodeSignOnCopy,
+            RemoveHeadersOnCopy,
+        );
+    };
+};
+
+18C05368ACCC6A71A509B5B0 /* PatientAppDomain.framework (Embed) */ = {
+    isa = PBXBuildFile;
+    fileRef = 2A02814EB70D84C2CB4F12F1 /* PatientAppDomain.framework (Embed) */;
+    settings = {
+        ATTRIBUTES = (
+            CodeSignOnCopy,
+            RemoveHeadersOnCopy,
+        );
+    };
+};
 F320D25EA67AE75AD2D8BB46 /* Sources for PatientAppDomain */ = {
     isa = PBXSourcesBuildPhase;
     buildActionMask = 2147483647;
@@ -218,6 +240,19 @@ FC36CBC277C57F17030E2C82 /* Sources for PatientAppUITests */ = {
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
+
+        F3DFB65E4E024C7BFF18F32C /* Embed Frameworks */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = "";
+            dstSubfolderSpec = 10;
+            files = (
+			6542E6686EF58F223C622BE1,
+			18C05368ACCC6A71A509B5B0,
+            );
+            name = "Embed Frameworks";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
         1353BE81D9FA107AB9DB583E /* Debug */ = {
             isa = XCBuildConfiguration;
             buildSettings = {
@@ -262,7 +297,9 @@ D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */ = {
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domain";
@@ -287,7 +324,9 @@ D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */ = {
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.domain";
@@ -322,7 +361,9 @@ D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */ = {
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.ui";
@@ -347,7 +388,9 @@ D129D8D9E8808D8A8BB16EE7 /* Build configuration list for Project */ = {
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.patientapp.ui";
@@ -698,6 +741,7 @@ AB2ED7B34DF1BE8E6089056B /* PatientAppDomain */ = {
 				D76C000144480A74BE923699,
 				77A72AF346AEBDE4F29CD8C3,
 				9C8524539C1D618C7E2D40B1,
+				F3DFB65E4E024C7BFF18F32C,
             );
             buildRules = (
             );
@@ -707,7 +751,6 @@ AB2ED7B34DF1BE8E6089056B /* PatientAppDomain */ = {
             );
             fileSystemSynchronizedGroups = (
 				BD20A4938C4077EA98669576 /* PatientApp sources */,
-				A024F06580C79B7582C3806A /* PatientApp sources */,
             );
             name = "PatientApp";
             productName = "PatientApp";

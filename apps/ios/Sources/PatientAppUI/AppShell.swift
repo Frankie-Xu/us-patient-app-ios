@@ -138,7 +138,11 @@ public struct AppShellView: View {
             }
         }
         .task {
-            _ = await model.restoreSession()
+            if ProcessInfo.processInfo.arguments.contains("--patient-app-demo-signed-in") {
+                _ = await model.signIn(identifier: "demo-patient")
+            } else {
+                _ = await model.restoreSession()
+            }
         }
     }
 
