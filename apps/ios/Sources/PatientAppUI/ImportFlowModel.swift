@@ -29,6 +29,23 @@ public final class ImportFlowModel: ObservableObject {
         lastRequest?.title ?? lastDocument?.title ?? "record"
     }
 
+    /// The latest snapshot is intentionally exposed as a read-only projection so
+    /// downstream UI flows can consume the reviewed document without duplicating
+    /// state or bypassing the review gate.
+    public var currentSnapshot: ImportSnapshot? {
+        switch state {
+        case let .reviewRequired(snapshot), let .empty(snapshot), let .completed(snapshot):
+            snapshot
+        case .idle, .uploading, .processing, .failed:
+            nil
+        }
+    }
+
+    public var canPrepareVisit: Bool {
+        guard let snapshot = currentSnapshot, !snapshot.facts.isEmpty else { return false }
+        return snapshot.facts.allSatisfy { $0.state == .confirmed && $0.canAppearInDoctorView }
+    }
+
     public func start(_ request: ImportRequest) async {
         lastRequest = request
         lastDocument = nil

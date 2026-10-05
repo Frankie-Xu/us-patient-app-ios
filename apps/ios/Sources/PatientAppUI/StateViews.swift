@@ -256,7 +256,29 @@ struct ReviewView: View {
     @ObservedObject var model: ImportFlowModel
     var body: some View {
         NavigationStack {
-            FlowContent(model: model, allowsReview: true).navigationTitle("Review")
+            ScrollView {
+                VStack(spacing: 16) {
+                    FlowContent(model: model, allowsReview: true)
+                    if model.currentSnapshot != nil {
+                        NavigationLink {
+                            DoctorBriefView(model: model)
+                        } label: {
+                            Label("Prepare doctor visit", systemImage: "stethoscope")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!model.canPrepareVisit)
+                        .accessibilityIdentifier("review.prepareVisit")
+                        if !model.canPrepareVisit {
+                            Text("Confirm every traceable fact before preparing the visit.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Review")
         }
     }
 }

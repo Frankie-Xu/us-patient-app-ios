@@ -169,6 +169,7 @@ public struct AppShellView: View {
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)
             AccountView(model: model).tabItem { Label(AppSection.account.title, systemImage: AppSection.account.systemImage) }.tag(AppSection.account)
         }
+        .environmentObject(model)
         .task {
             await model.uploadQueue.restore()
         }

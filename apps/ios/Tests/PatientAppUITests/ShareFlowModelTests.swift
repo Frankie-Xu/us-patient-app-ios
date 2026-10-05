@@ -35,4 +35,23 @@ final class ShareFlowModelTests: XCTestCase {
         XCTAssertEqual(model.state, .idle)
         XCTAssertNil(model.shareCreation)
     }
+
+    func testDocumentShareUsesPinnedVersionAndExportsPDF() async throws {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let model = ShareFlowModel(client: DeterministicMockAPIClient(), now: { now })
+        let documentID = UUID()
+
+        await model.createDocumentShare(documentID: documentID, version: 3)
+
+        guard case let .created(creation) = model.state else {
+            return XCTFail("Expected a document share")
+        }
+        XCTAssertEqual(creation.share.resourceType, .document)
+        XCTAssertEqual(creation.share.resourceID, documentID)
+        XCTAssertEqual(creation.share.version, 3)
+
+        let artifact = try await model.exportPDF(documentID: documentID, version: 3)
+        XCTAssertEqual(artifact.documentVersion, 3)
+        XCTAssertEqual(artifact.contentType, "application/pdf")
+    }
 }

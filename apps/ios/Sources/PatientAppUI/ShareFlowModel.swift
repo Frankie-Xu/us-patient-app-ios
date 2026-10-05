@@ -24,6 +24,7 @@ public final class ShareFlowModel: ObservableObject {
     @Published public private(set) var state: ShareFlowState = .idle
 
     private let useCase: ShareUseCase
+    private let client: any PatientAPIClient
     private let now: @Sendable () -> Date
     private var pendingRequest: ShareCreateRequest?
     private var activeCreation: ShareCreation?
@@ -32,6 +33,7 @@ public final class ShareFlowModel: ObservableObject {
         client: any PatientAPIClient,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
+        self.client = client
         self.useCase = ShareUseCase(client: client)
         self.now = now
     }
@@ -53,11 +55,33 @@ public final class ShareFlowModel: ObservableObject {
     }
 
     public func createVisitShare(for visit: Visit, expiresAt: Date? = nil) async {
-        guard !isBusy else { return }
-        let request = pendingRequest ?? ShareCreateRequest(
+        await createShare(
             resourceType: .visit,
             resourceID: visit.id,
             resourceVersion: visit.version,
+            expiresAt: expiresAt
+        )
+    }
+
+    public func createDocumentShare(documentID: UUID, version: Int, expiresAt: Date? = nil) async {
+        await createShare(
+            resourceType: .document,
+            resourceID: documentID,
+            resourceVersion: version,
+            expiresAt: expiresAt
+        )
+    }
+
+    public func exportPDF(documentID: UUID, version: Int) async throws -> PDFExportArtifact {
+        try await PDFExportUseCase(client: client).export(documentID: documentID, documentVersion: version)
+    }
+
+    private func createShare(resourceType: SharedResourceType, resourceID: UUID, resourceVersion: Int, expiresAt: Date?) async {
+        guard !isBusy else { return }
+        let request = pendingRequest ?? ShareCreateRequest(
+            resourceType: resourceType,
+            resourceID: resourceID,
+            resourceVersion: resourceVersion,
             expiresAt: expiresAt ?? now().addingTimeInterval(24 * 60 * 60),
             idempotencyKey: UUID().uuidString
         )
