@@ -18,8 +18,8 @@
 - PatientAppUI framework and PatientApp Debug app target builds: passed with approved Xcode host access.
 - PatientApp Release app target build: passed with signing disabled.
 - `PatientApp-Debug` Debug and Release app scheme builds: passed with signing disabled.
-- `PatientAppTests` scheme XCTest run: passed, 51 UI/model tests, 0 failures, on the booted iPhone 18 Pro Simulator.
-- The shared `PatientAppDomain` scheme now has an explicit Test action; its Xcode XCTest run passed 63 domain tests with 0 failures on the same Simulator.
+- `PatientAppTests` scheme XCTest run: passed, 72 domain tests + 51 UI/model tests + 2 XCUIApplication UI tests (125 total), 0 failures, on the booted iPhone 18 Pro Simulator. The latest run includes signed-out login controls and deterministic Home → Import → Review navigation, with a screenshot attachment retained in `/tmp/patientapp-full-final3.xcresult`.
+- The shared `PatientAppDomain` scheme has an explicit Test action; the domain tests are included in the 72-test result above.
 - The app bundle installed and launched on the booted iPhone 18 Pro Simulator; see `patient-app-home.png`.
 - Demo-only `--patient-app-demo-signed-in` launch reaches Home; see `patient-app-demo-home.png`.
 - Demo-only `--patient-app-demo-signed-in --patient-app-demo-imported` launch reaches the imported-record state with one reviewable fact; see `patient-app-demo-imported.png`.
@@ -37,9 +37,10 @@
 - `scripts/test-ios-release-preflight.sh`: passed with deterministic default, bundle/version mismatch, strict-signing, and missing crash-monitoring configuration cases.
 - The release checklist and PHI-safe crash-monitoring placeholder are checked in under `artifacts/xcode/`; no DSN or signing material is committed.
 - SwiftPM PatientAppUI build: passed.
-- SwiftPM tests: 120 tests passed (69 Domain + 51 UI/model), with Xcode XCTest result bundles saved outside the repository.
+- SwiftPM `swift test --package-path apps/ios`: passed with 72 XCTest cases in the domain test target; the authoritative app/UI validation remains the Xcode result bundle above.
 - `bash scripts/staging/test-smoke.sh`: passed for upload → OCR → fact review → doctor brief → PDF → share → revoke, including dependency retry, idempotency, version conflict, and post-revoke denial.
-- API tests: 63 passed; the staging fix preserves the storage version for immutable UploadSession records while retaining optimistic concurrency for versioned resources.
+- API tests: 71 passed, including signed local JWT session/refresh/logout rotation and the queue worker pipeline.
+- Worker/provider checks: worker pipeline and retry tests 4 passed; Redis provider adapter tests 9 passed. The queue consumer has bounded retry, lease recovery, idempotent acknowledgement, and an explicit metadata-write race retry.
 - AI tests: 59 passed, including 7 deterministic staging-adapter tests covering OCR normalization, bilingual de-identified fixtures, source spans, low-confidence/conflict gates, explicit review, summary provider replacement, and model/latency/cost reporting.
 - `scripts/run-ai-staging-regression.sh`: passed for 3 de-identified cases; report records model version, latency, cost, conflict count, missing spans, and blocked delivery.
 - `scripts/check-contract-drift.sh`: passed with the current 19-route inventory, including the strict PyYAML-free fallback used on hosts without the optional parser dependency.
@@ -50,21 +51,23 @@
 
 ## Real staging composition
 
-- Provider adapter commit: `a243e85`; staging wiring commit: `314ea3a`; LocalStack and readiness commits: `957f535`, `25abd09`.
+- This report records the current worktree and live run; no historical commit IDs are used as evidence for this round.
 - Local Docker runtime: Colima 0.10.3 with Docker Engine 29.5.2, Docker Compose 5.5.1, and Buildx 0.37.2 on arm64.
 - Docker Hub access uses a VM-local loopback tunnel to the existing host proxy; the host proxy listener remains loopback-only.
 - `docker compose --env-file .env.staging.example -f infra/staging/compose.yaml config --quiet`: passed.
 - `scripts/staging/test-compose.sh`: passed.
-- Provider adapter unit tests: 9 passed; the pinned API environment reported 63 API tests passed.
+- Provider adapter unit tests: 9 passed; the current API test suite reported 71 tests passed.
 - The API image installs the PostgreSQL, S3-compatible, and Redis clients and starts through `scripts/staging/api_entrypoint.py`; startup applies the PostgreSQL migration and fails closed when a required provider is unavailable.
 - Live local staging now passes: PostgreSQL, LocalStack S3, Redis, API, and worker are healthy; `/readyz` reports all three API dependencies ready.
 - A synthetic 25-byte document was persisted through the API, uploaded to S3, queued in Redis, and replayed with the same idempotency key without creating a duplicate job.
 - Provider-backed HTTP checks passed for duplicate document/job submission, fact version conflict (`409`), fact confirmation, share access, revoke denial (`410`), and short-TTL expiry denial (`410`).
-- Redis failure injection passed: stopping Redis made API `/readyz` fail as expected, restarting Redis restored API/worker readiness, and the synthetic queue length remained stable at four metadata-only jobs.
-- The live worker remains `fixture-health-only`; the provider-backed job stays metadata-only and is not claimed as OCR completion. The deterministic staging smoke covers the full OCR → fact review → doctor brief → PDF → share → revoke lifecycle.
+- Redis failure injection passed: stopping Redis made API `/readyz` fail as expected, restarting Redis restored API/worker readiness, and the synthetic queue recovered without leaving an unacknowledged metadata-only job.
+- The live worker is `queue-consumer-fixture-ocr` with `consumer_enabled=true`; a synthetic text upload was consumed from Redis, persisted as a ready document, and produced an unreviewed source-located fact. This is fixture text ingest, not provider OCR or model inference. Missing local `pdftotext`/`tesseract` providers fail explicitly instead of being reported as OCR success.
+- Live HTTP acceptance passed upload, same-key idempotency, queue processing, source spans, manual fact review, stale version conflict, share access, expiry, revoke denial, and audit history. Doctor brief, visit questions, and PDF export remain deterministic fixture projections because the current HTTP contract has no routes for them. The report is saved at `artifacts/staging/integration-live.json`.
+- The explicit retention check preserved PostgreSQL metadata after restarting PostgreSQL, LocalStack, Redis, API, and Worker and reinitialized the bucket, but the uploaded object was not retained by the current LocalStack setup; this remains a staging blocker and is recorded in `artifacts/staging/integration-retention.json`.
 - A loopback-only HTTPS staging proxy is now available through `scripts/staging/start-local-https.sh` and `scripts/staging/local_https_proxy.py`. It generated a 30-day test CA under `/tmp`, the CA was installed into the booted iPhone 18 Pro Simulator with `simctl keychain`, and `curl --cacert` reached `/readyz` over `https://127.0.0.1:58443`. The proxy is test-only and forwards to the local API; it does not provide remote staging or production trust.
 - The staging-parameter Simulator launch completed with the HTTPS URL and saved `patientapp-staging-live-configuration.png`; no production URL, token, or credential was embedded.
-- Real OAuth/JWT, remote HTTPS staging, and TestFlight distribution signing are not configured on this host; iOS keeps deterministic mock fallback when a valid HTTPS staging endpoint is unavailable.
+- The local API now issues and verifies signed development JWTs with refresh rotation; external OAuth/JWT issuer integration, remote HTTPS staging, and TestFlight distribution signing are not configured on this host. XCTest and explicit deterministic launches use the fixture boundary; staging runtime configuration does not silently fall back when an HTTPS URL is invalid.
 - The checked-in `.env.staging.example` contains placeholder credentials only. A remote staging run still requires an approved HTTPS API endpoint, secret-manager references for provider credentials, and an identity issuer/audience; no production credential or PHI is stored here.
 
 ## Contract follow-up

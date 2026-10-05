@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 
 from services.api.app import create_app
+from services.api.local_auth import LocalAuthProvider, LocalAuthSettings
 from services.api.provider_adapters import PostgresMetadataStore, ProviderSettings, RedisJobQueue, S3ObjectStore
 from services.api.service import ApiService
 
@@ -47,7 +48,8 @@ def build_app():
         metadata.close()
         raise
     service = ApiService(store=metadata, object_store=objects, job_queue=queue)
-    return create_app(service)
+    auth = LocalAuthProvider(LocalAuthSettings.from_environment())
+    return create_app(service, auth_provider=auth)
 
 
 if os.getenv("APP_ENV", "staging").lower() != "local":

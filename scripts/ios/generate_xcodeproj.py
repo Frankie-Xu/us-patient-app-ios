@@ -150,7 +150,7 @@ def target(identifier: str, name: str, product_ref: str, product_type: str,
     """)
 
 
-def target_settings(bundle_id: str, product_name: str, *, app: bool = False, test: bool = False) -> dict[str, str]:
+def target_settings(bundle_id: str, product_name: str, *, app: bool = False, test: bool = False, ui_test: bool = False) -> dict[str, str]:
     settings = {
         "CLANG_ENABLE_MODULES": "YES",
         "CURRENT_PROJECT_VERSION": "1",
@@ -177,6 +177,10 @@ def target_settings(bundle_id: str, product_name: str, *, app: bool = False, tes
             "INFOPLIST_KEY_LSApplicationCategoryType": q("public.app-category.medical"),
             "PRODUCT_MODULE_NAME": q("PatientApp"),
             "SUPPORTED_PLATFORMS": q("iphoneos iphonesimulator"),
+        })
+    if ui_test:
+        settings.update({
+            "TEST_TARGET_NAME": q("PatientApp"),
         })
     elif not test:
         settings["LD_DYLIB_INSTALL_NAME"] = q("@rpath/$(PRODUCT_NAME).framework/$(PRODUCT_NAME)")
@@ -220,7 +224,7 @@ def scheme(project_targets: dict[str, str], test_targets: list[str]) -> str:
 {build_test_entries}
     </BuildActionEntries>
   </BuildAction>
-  <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES" codeCoverageEnabled = "YES" onlyGenerateCoverageForSpecifiedTargets = "NO">
+    <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES" codeCoverageEnabled = "YES" onlyGenerateCoverageForSpecifiedTargets = "NO">
     <MacroExpansion>
       <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{app_id}" BuildableName = "PatientApp.app" BlueprintName = "PatientApp" ReferencedContainer = "container:PatientApp.xcodeproj">
       </BuildableReference>
@@ -229,6 +233,7 @@ def scheme(project_targets: dict[str, str], test_targets: list[str]) -> str:
 {testables}
     </Testables>
     <CommandLineArguments>
+      <CommandLineArgument argument = "--patient-app-deterministic-client" isEnabled = "YES"/>
     </CommandLineArguments>
   </TestAction>
   <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
@@ -257,16 +262,44 @@ def scheme(project_targets: dict[str, str], test_targets: list[str]) -> str:
 '''
 
 
+def domain_scheme(project_targets: dict[str, str]) -> str:
+    domain_id = project_targets["PatientAppDomain"]
+    tests_id = project_targets["PatientAppDomainTests"]
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion = "2700" version = "1.7">
+  <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting = "YES" buildForRunning = "NO" buildForProfiling = "NO" buildForArchiving = "NO" buildForAnalyzing = "YES">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{domain_id}" BuildableName = "PatientAppDomain.framework" BlueprintName = "PatientAppDomain" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </BuildActionEntry>
+      <BuildActionEntry buildForTesting = "YES" buildForRunning = "NO" buildForProfiling = "NO" buildForArchiving = "NO" buildForAnalyzing = "NO">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{tests_id}" BuildableName = "PatientAppDomainTests.xctest" BlueprintName = "PatientAppDomainTests" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES" codeCoverageEnabled = "YES" onlyGenerateCoverageForSpecifiedTargets = "NO">
+    <Testables>
+      <TestableReference skipped = "NO">
+        <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "{tests_id}" BuildableName = "PatientAppDomainTests.xctest" BlueprintName = "PatientAppDomainTests" ReferencedContainer = "container:PatientApp.xcodeproj"/>
+      </TestableReference>
+    </Testables>
+  </TestAction>
+  <AnalyzeAction buildConfiguration = "Debug"/>
+  <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"/>
+</Scheme>
+'''
+
+
 def main() -> None:
     if PROJECT.exists():
         shutil.rmtree(PROJECT)
     SCHEMES.mkdir(parents=True, exist_ok=True)
 
-    names = ["PatientAppDomain", "PatientAppUI", "PatientApp", "PatientAppDomainTests", "PatientAppUITests"]
+    names = ["PatientAppDomain", "PatientAppUI", "PatientApp", "PatientAppDomainTests", "PatientAppUITests", "PatientAppLaunchUITests"]
     targets = {name: uid(f"target:{name}") for name in names}
     groups = {}
     group_objects = []
-    for label, path in [("PatientAppDomain", "Sources/PatientAppDomain"), ("PatientAppUI", "Sources/PatientAppUI"), ("PatientApp", "Sources/PatientApp"), ("PatientAppDomainTests", "Tests/PatientAppDomainTests"), ("PatientAppUITests", "Tests/PatientAppUITests"), ("Resources", "Resources")]:
+    for label, path in [("PatientAppDomain", "Sources/PatientAppDomain"), ("PatientAppUI", "Sources/PatientAppUI"), ("PatientApp", "Sources/PatientApp"), ("PatientAppDomainTests", "Tests/PatientAppDomainTests"), ("PatientAppUITests", "Tests/PatientAppUITests"), ("PatientAppLaunchUITests", "UITests"), ("Resources", "Resources")]:
         groups[label], obj = fs_group(label, path)
         group_objects.append(obj)
 
@@ -278,6 +311,7 @@ def main() -> None:
         "PatientApp": ("app", "wrapper.application"),
         "PatientAppDomainTests": ("xctest", "wrapper.cfbundle"),
         "PatientAppUITests": ("xctest", "wrapper.cfbundle"),
+        "PatientAppLaunchUITests": ("xctest", "wrapper.cfbundle"),
     }
     for name, (extension, file_type) in product_types.items():
         product_ids[name] = uid(f"product:{name}")
@@ -317,7 +351,7 @@ def main() -> None:
             phases[name].append(rs)
 
     framework_builds = []
-    frameworks_for = {"PatientAppUI": ["PatientAppDomain"], "PatientApp": ["PatientAppUI", "PatientAppDomain"], "PatientAppUITests": ["PatientAppUI", "PatientAppDomain"], "PatientAppDomainTests": ["PatientAppDomain"]}
+    frameworks_for = {"PatientAppUI": ["PatientAppDomain"], "PatientApp": ["PatientAppUI", "PatientAppDomain"], "PatientAppUITests": ["PatientAppUI", "PatientAppDomain"], "PatientAppDomainTests": ["PatientAppDomain"], "PatientAppLaunchUITests": []}
     for owner, deps in frameworks_for.items():
         framework_phase = phases[owner][1]
         for dep_name in deps:
@@ -343,7 +377,7 @@ def main() -> None:
     proxy_objects = []
     dependency_objects = []
     dependency_map = {name: [] for name in names}
-    for owner, dep_name in [("PatientAppUI", "PatientAppDomain"), ("PatientApp", "PatientAppUI"), ("PatientApp", "PatientAppDomain"), ("PatientAppDomainTests", "PatientAppDomain"), ("PatientAppUITests", "PatientAppUI"), ("PatientAppUITests", "PatientAppDomain")]:
+    for owner, dep_name in [("PatientAppUI", "PatientAppDomain"), ("PatientApp", "PatientAppUI"), ("PatientApp", "PatientAppDomain"), ("PatientAppDomainTests", "PatientAppDomain"), ("PatientAppUITests", "PatientAppUI"), ("PatientAppUITests", "PatientAppDomain"), ("PatientAppLaunchUITests", "PatientApp")]:
         proxy_id = uid(f"proxy:{owner}:{dep_name}")
         dep_id = uid(f"dependency:{owner}:{dep_name}")
         proxy_objects.append(textwrap.dedent(f"""\
@@ -371,7 +405,7 @@ def main() -> None:
         if label == "PROJECT":
             debug_settings = release_settings = project_settings()
         else:
-            debug_settings = target_settings({"PatientAppDomain": "com.example.patientapp.domain", "PatientAppUI": "com.example.patientapp.ui", "PatientApp": "com.example.patientapp", "PatientAppDomainTests": "com.example.patientapp.domainTests", "PatientAppUITests": "com.example.patientapp.uiTests"}[label], label, app=label == "PatientApp", test=label.endswith("Tests"))
+            debug_settings = target_settings({"PatientAppDomain": "com.example.patientapp.domain", "PatientAppUI": "com.example.patientapp.ui", "PatientApp": "com.example.patientapp", "PatientAppDomainTests": "com.example.patientapp.domainTests", "PatientAppUITests": "com.example.patientapp.uiTests", "PatientAppLaunchUITests": "com.example.patientapp.launchUITests"}[label], label, app=label == "PatientApp", test=label.endswith("Tests"), ui_test=label == "PatientAppLaunchUITests")
             release_settings = dict(debug_settings)
             debug_settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
             release_settings["DEBUG_INFORMATION_FORMAT"] = q("dwarf-with-dsym")
@@ -386,6 +420,7 @@ def main() -> None:
         "PatientApp": "com.apple.product-type.application",
         "PatientAppDomainTests": "com.apple.product-type.bundle.unit-test",
         "PatientAppUITests": "com.apple.product-type.bundle.unit-test",
+        "PatientAppLaunchUITests": "com.apple.product-type.bundle.ui-testing",
     }
     for name in names:
         target_groups = [groups[name]]
@@ -426,8 +461,9 @@ def main() -> None:
     PROJECT.mkdir(parents=True, exist_ok=True)
     (PROJECT / "project.pbxproj").write_text(contents)
     SCHEMES.mkdir(parents=True, exist_ok=True)
-    (SCHEMES / "PatientApp-Debug.xcscheme").write_text(scheme(targets, ["PatientAppDomainTests", "PatientAppUITests"]))
-    (SCHEMES / "PatientAppTests.xcscheme").write_text(scheme(targets, ["PatientAppDomainTests", "PatientAppUITests"]))
+    (SCHEMES / "PatientApp-Debug.xcscheme").write_text(scheme(targets, ["PatientAppDomainTests", "PatientAppUITests", "PatientAppLaunchUITests"]))
+    (SCHEMES / "PatientAppTests.xcscheme").write_text(scheme(targets, ["PatientAppDomainTests", "PatientAppUITests", "PatientAppLaunchUITests"]))
+    (SCHEMES / "PatientAppDomain.xcscheme").write_text(domain_scheme(targets))
     print(PROJECT)
 
 

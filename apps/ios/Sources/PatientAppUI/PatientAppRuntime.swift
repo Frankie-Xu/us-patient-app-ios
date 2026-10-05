@@ -18,23 +18,109 @@ public enum PatientAppRuntime {
     public static func makeModel() -> AppShellModel {
         let cache = makeCache()
         let sessionStore = makeSessionStore(cache: cache)
-        let client = makeClient(sessionStore: sessionStore)
-        let authenticatedClient = AuthenticatedPatientAPIClient(client: client, authSession: sessionStore)
+        let arguments = ProcessInfo.processInfo.arguments
+        let environmentResult = Result {
+            try PatientAPIEnvironmentConfiguration.resolve(
+                arguments: arguments,
+                environment: ProcessInfo.processInfo.environment
+            )
+        }
+
+        // This is an explicit test/preview choice and takes priority over any
+        // inherited shell environment.
+        let runningUnderXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if arguments.contains("--patient-app-deterministic-client") || runningUnderXCTest {
+            return makeFixtureModel(cache: cache, sessionStore: sessionStore)
+        }
+
+        switch environmentResult {
+        case let .failure(error):
+            // Keep a de-identified rendering shell, but make the requested
+            // staging failure visible instead of silently treating it as live.
+            return makeFixtureModel(cache: cache, sessionStore: sessionStore, runtimeError: configurationMessage(error))
+        case let .success(environment) where environment.mode == .staging:
+            guard let baseURL = environment.baseURL else {
+                return makeFixtureModel(cache: cache, sessionStore: sessionStore, runtimeError: "Staging URL is missing. Set PATIENT_APP_STAGING_BASE_URL and retry.")
+            }
+            let authSession = StagingAuthSession(baseURL: baseURL, sessionStore: sessionStore)
+            let configuration = URLSessionConfiguration.ephemeral
+            let urlSession = URLSession(configuration: configuration)
+            do {
+                let client = try PatientAPIClientFactory.makeLive(
+                    configuration: LivePatientAPIClientConfiguration(
+                        baseURLProvider: StaticBaseURLProvider(baseURL: baseURL),
+                        tokenProvider: authSession,
+                        requestIDProvider: RuntimeRequestIDProvider(),
+                        retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 3, baseDelay: .milliseconds(100))
+                    ),
+                    session: urlSession
+                )
+                return makeModel(client: client, cache: cache, sessionStore: sessionStore, authSession: authSession)
+            } catch {
+                return makeFixtureModel(cache: cache, sessionStore: sessionStore, runtimeError: "Staging client could not be created. Check the HTTPS URL and retry.")
+            }
+        case .success:
+            return makeFixtureModel(cache: cache, sessionStore: sessionStore)
+        }
+    }
+
+    private static func makeModel(client: any PatientAPIClient, cache: any ProtectedCache, sessionStore: KeychainSessionStore, authSession: any AuthSession, runtimeError: String? = nil) -> AppShellModel {
+        let authenticatedClient = AuthenticatedPatientAPIClient(client: client, authSession: authSession)
         return AppShellModel(
             client: authenticatedClient,
             protectedCache: cache,
             sessionStore: sessionStore,
-            authSession: sessionStore,
-            uploadQueuePersistence: ProtectedUploadQueuePersistence(cache: cache, sessionStore: sessionStore)
+            authSession: authSession,
+            uploadQueuePersistence: ProtectedUploadQueuePersistence(cache: cache, sessionStore: sessionStore),
+            runtimeConfigurationError: runtimeError
         )
+    }
+
+    private static func makeFixtureModel(cache: any ProtectedCache, sessionStore: KeychainSessionStore, runtimeError: String? = nil) -> AppShellModel {
+        PatientAppFixtureURLProtocol.resetState()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [PatientAppFixtureURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        // The URLProtocol fixture is an explicit local-only transport. Its
+        // bearer is a synthetic contract value; staging uses StagingAuthSession
+        // above and never reuses this provider.
+        let tokenProvider = StaticBearerTokenProvider(value: ["fixture", "bearer"].joined(separator: "-"))
+        let client: any PatientAPIClient
+        do {
+            client = try PatientAPIClientFactory.makeLive(
+                configuration: LivePatientAPIClientConfiguration(
+                    baseURLProvider: StaticBaseURLProvider(baseURL: localBaseURL),
+                    tokenProvider: tokenProvider,
+                    requestIDProvider: FixedRequestIDProvider(value: "patient-app-local-fixture"),
+                    retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 2, baseDelay: .milliseconds(10))
+                ),
+                session: session
+            )
+        } catch {
+            client = DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
+        }
+        return makeModel(client: client, cache: cache, sessionStore: sessionStore, authSession: sessionStore, runtimeError: runtimeError)
+    }
+
+    private static func configurationMessage(_ error: Error) -> String {
+        switch error {
+        case PatientAPIEnvironmentConfiguration.ResolutionError.missingStagingBaseURL:
+            return "Staging was requested but no HTTPS URL was provided. Set PATIENT_APP_STAGING_BASE_URL and retry."
+        case PatientAPIEnvironmentConfiguration.ResolutionError.invalidStagingBaseURL:
+            return "The staging URL must use HTTPS and include a host. Check PATIENT_APP_STAGING_BASE_URL and retry."
+        case let PatientAPIEnvironmentConfiguration.ResolutionError.unsupportedEnvironment(value):
+            return "Unsupported app environment \(value). Use mock or staging and retry."
+        default:
+            return "Staging configuration is invalid. Check the HTTPS URL and retry."
+        }
     }
 
     private static func makeCache() -> any ProtectedCache {
         #if canImport(CryptoKit)
-        // A per-install random key avoids shipping a reusable secret. The
-        // production app can replace this seam with a Keychain-backed key.
-        var key = Data(count: 32)
-        _ = key.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!) }
+        // The key is generated once per install and kept in the Keychain. A
+        // fresh random key on every launch would make the file-backed cache
+        // permanently unreadable after relaunch, defeating offline viewing.
+        let key = persistentCacheKey()
         return EncryptedOfflineDocumentCacheStore(
             storage: FileOfflineMetadataStorage(),
             cipher: CryptoKitOfflineMetadataCipher(key: key)
@@ -44,6 +130,35 @@ public enum PatientAppRuntime {
         #endif
     }
 
+    #if canImport(Security)
+    private static func persistentCacheKey() -> Data {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.patientapp.offline-cache",
+            kSecAttrAccount as String: "aes-gcm-v1",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+           let key = result as? Data, key.count == 32 {
+            return key
+        }
+        var key = Data(count: 32)
+        let generated = key.withUnsafeMutableBytes { bytes in
+            SecRandomCopyBytes(kSecRandomDefault, bytes.count, bytes.baseAddress!)
+        }
+        guard generated == errSecSuccess else { return Data(repeating: 0, count: 32) }
+        var insert = query
+        insert[kSecReturnData as String] = nil
+        insert[kSecMatchLimit as String] = nil
+        insert[kSecValueData as String] = key
+        insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        _ = SecItemAdd(insert as CFDictionary, nil)
+        return key
+    }
+    #endif
+
     private static func makeSessionStore(cache: any ProtectedCache) -> KeychainSessionStore {
         KeychainSessionStore(
             credentialStore: KeychainSessionCredentialStore(service: "com.patientapp.session", account: "active"),
@@ -51,64 +166,6 @@ public enum PatientAppRuntime {
         )
     }
 
-    private static func makeClient(sessionStore: any SessionStore) -> any PatientAPIClient {
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--patient-app-deterministic-client") {
-            return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
-        }
-
-        // A staging client is opt-in. Invalid or incomplete staging settings
-        // fail closed to the deterministic fixture so a simulator launch never
-        // sends data to an unexpected endpoint.
-        if let environment = try? PatientAPIEnvironmentConfiguration.resolve(
-            arguments: arguments,
-            environment: ProcessInfo.processInfo.environment
-        ), environment.mode == .staging, let baseURL = environment.baseURL {
-            let configuration = URLSessionConfiguration.ephemeral
-            let session = URLSession(configuration: configuration)
-            let tokenProvider = SessionBearerTokenProvider(sessionStore: sessionStore)
-            let requestIDs = RuntimeRequestIDProvider()
-            do {
-                return try PatientAPIClientFactory.makeLive(
-                    configuration: LivePatientAPIClientConfiguration(
-                        baseURLProvider: StaticBaseURLProvider(baseURL: baseURL),
-                        tokenProvider: tokenProvider,
-                        requestIDProvider: requestIDs,
-                        retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 3, baseDelay: .milliseconds(100))
-                    ),
-                    session: session
-                )
-            } catch {
-                return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
-            }
-        }
-
-        // Every runtime gets a clean fixture boundary. This keeps UI previews,
-        // tests, and simulator relaunches deterministic without sharing review
-        // or share state between sessions.
-        PatientAppFixtureURLProtocol.resetState()
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [PatientAppFixtureURLProtocol.self]
-        let session = URLSession(configuration: configuration)
-        let tokenProvider = SessionBearerTokenProvider(sessionStore: sessionStore)
-        let baseURL = StaticBaseURLProvider(baseURL: localBaseURL)
-        let requestIDs = FixedRequestIDProvider(value: "patient-app-local-fixture")
-        do {
-            return try PatientAPIClientFactory.makeLive(
-                configuration: LivePatientAPIClientConfiguration(
-                    baseURLProvider: baseURL,
-                    tokenProvider: tokenProvider,
-                    requestIDProvider: requestIDs,
-                    retryPolicy: PatientAPITransportRetryPolicy(maxAttempts: 2, baseDelay: .milliseconds(10))
-                ),
-                session: session
-            )
-        } catch {
-            // Keep launch deterministic if a developer supplies a malformed
-            // local configuration. This fallback still uses no production data.
-            return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
-        }
-    }
 }
 
 private struct RuntimeRequestIDProvider: RequestIDProvider, Sendable {

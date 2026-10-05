@@ -39,14 +39,20 @@ public final class AppShellModel: ObservableObject {
     @Published public var accountHistory: AccountHistoryModel
     @Published public var documentHistory: DocumentHistoryModel
     @Published public private(set) var authState: AuthState = .signedOut
+    @Published public private(set) var authError: String?
+    /// Non-nil when an explicitly requested staging configuration could not be
+    /// assembled. This is surfaced to the sign-in screen instead of silently
+    /// switching the user back to deterministic mock data.
+    public let runtimeConfigurationError: String?
     public let uploadQueue: OfflineUploadCoordinator
     public let client: any PatientAPIClient
     public let protectedCache: any ProtectedCache
     public let sessionStore: any SessionStore
     public let authSession: any AuthSession
 
-    public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil, authSession: (any AuthSession)? = nil, uploadQueuePersistence: (any UploadQueuePersistence)? = nil) {
+    public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil, authSession: (any AuthSession)? = nil, uploadQueuePersistence: (any UploadQueuePersistence)? = nil, runtimeConfigurationError: String? = nil) {
         self.client = client
+        self.runtimeConfigurationError = runtimeConfigurationError
         let auth: any AuthSession
         if let authSession {
             auth = authSession
@@ -75,7 +81,31 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         authState = await authSession.signIn(identifier: identifier)
+        authError = nil
         await uploadQueue.restore()
+        return authState
+    }
+
+    /// Signs in against a credential-aware provider. Fixture sessions keep the
+    /// existing identifier-only API; staging sessions use real local JWTs.
+    public func signIn(username: String, password: String) async -> AuthState {
+        visitPreparation.invalidateSession()
+        shareFlow.reset()
+        visitPack.reset()
+        accountHistory.invalidateSession()
+        documentHistory.invalidateSession()
+        guard let credentialSession = authSession as? any CredentialAuthSession else {
+            authError = "Credential sign-in is unavailable in local fixture mode."
+            return authState
+        }
+        do {
+            authState = try await credentialSession.signIn(username: username, password: password)
+            authError = nil
+            await uploadQueue.restore()
+        } catch {
+            authError = Self.authErrorMessage(error)
+            authState = await authSession.authState()
+        }
         return authState
     }
 
@@ -86,12 +116,32 @@ public final class AppShellModel: ObservableObject {
         accountHistory.invalidateSession()
         documentHistory.invalidateSession()
         authState = await authSession.switchAccount(identifier: identifier)
+        authError = nil
         await uploadQueue.restore()
         return authState
     }
 
     public func restoreSession() async -> AuthState {
-        authState = await authSession.restore()
+        if runtimeConfigurationError != nil {
+            // Drop any stale fixture session that may be in the Keychain. An
+            // explicit staging configuration error must never render as a
+            // signed-in mock session.
+            await authSession.logout()
+            authState = .signedOut
+            authError = runtimeConfigurationError
+            return authState
+        }
+        if let credentialSession = authSession as? any CredentialAuthSession {
+            do {
+                authState = try await credentialSession.restoreCredentials()
+                authError = nil
+            } catch {
+                authError = Self.authErrorMessage(error)
+                authState = await authSession.authState()
+            }
+        } else {
+            authState = await authSession.restore()
+        }
         return authState
     }
 
@@ -106,6 +156,7 @@ public final class AppShellModel: ObservableObject {
         await authSession.expire()
         await uploadQueue.restore()
         authState = await authSession.authState()
+        authError = nil
     }
 
     public func logout() async {
@@ -117,6 +168,26 @@ public final class AppShellModel: ObservableObject {
         await authSession.logout()
         await uploadQueue.restore()
         authState = await authSession.authState()
+        authError = nil
+    }
+
+    public var usesCredentialAuthentication: Bool {
+        authSession is any CredentialAuthSession || runtimeConfigurationError != nil
+    }
+
+    private static func authErrorMessage(_ error: Error) -> String {
+        switch error {
+        case AuthSessionError.invalidCredentials:
+            return "The username or password is incorrect."
+        case AuthSessionError.unavailable:
+            return "Staging is unavailable. Check the connection and try again."
+        case AuthSessionError.invalidResponse:
+            return "Staging returned an invalid sign-in response. Try again."
+        case AuthSessionError.configuration:
+            return "Staging configuration is invalid. Check the HTTPS URL and try again."
+        default:
+            return "Sign-in failed. Check the connection and try again."
+        }
     }
 }
 

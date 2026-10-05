@@ -3,7 +3,10 @@ import SwiftUI
 /// Stable accessibility identifiers shared by the SwiftUI shell and UI tests.
 public enum PatientAccessibilityIdentifier {
     public static let loginIdentifier = "patient.login.identifier"
+    public static let loginUsername = "patient.login.username"
+    public static let loginPassword = "patient.login.password"
     public static let loginSubmit = "patient.login.submit"
+    public static let loginRetry = "patient.login.retry"
     public static let homeImportFile = "patient.home.import-file"
     public static let homeImportSynthetic = "patient.home.import-synthetic"
     public static let homeImportPhotos = "patient.home.import-photos"

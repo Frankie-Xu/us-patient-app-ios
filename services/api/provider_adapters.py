@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -110,6 +111,14 @@ class PostgresMetadataStore:
         if available:
             try:
                 self._connection = self._connect()
+                # The metadata adapter issues many short reads from health
+                # checks and worker loops.  Keep the driver from leaving an
+                # idle transaction open between reads; explicit writes still
+                # use ``connection.transaction()`` below.
+                try:
+                    self._connection.autocommit = True
+                except (AttributeError, TypeError):
+                    pass
                 if apply_migrations:
                     with self._connection.cursor() as cursor:
                         cursor.execute(_load_migration())
@@ -364,7 +373,14 @@ class S3ObjectStore:
 
 
 class RedisJobQueue:
-    """Redis list queue with SETNX-based job idempotency."""
+    """Redis list queue with SETNX idempotency and lease-based delivery.
+
+    Enqueue remains metadata-only.  Consumers claim an item into a processing
+    list and record a short-lived lease.  A process crash leaves the item in
+    that list; the next consumer requeues leases older than the configured
+    timeout.  Acknowledgements remove the processing copy but intentionally
+    retain the idempotency marker so an API retry cannot enqueue a duplicate.
+    """
 
     def __init__(
         self,
@@ -401,6 +417,13 @@ class RedisJobQueue:
 
     def _marker(self, job_id: str) -> str:
         return f"{self.queue_name}:job:{job_id}"
+
+    @property
+    def processing_queue(self) -> str:
+        return f"{self.queue_name}:processing"
+
+    def _lease_key(self, job_id: str) -> str:
+        return f"{self.queue_name}:lease:{job_id}"
 
     def is_ready(self) -> bool:
         try:
@@ -447,5 +470,81 @@ class RedisJobQueue:
                 decoded = _decode_json(item)
                 entries.append((str(decoded["job_id"]), dict(decoded["payload"])))
             return entries
+        except Exception as exc:
+            raise DependencyUnavailableError("job queue is unavailable") from exc
+
+    def claim(self, *, block_seconds: int = 1, lease_seconds: int = 60) -> dict[str, Any] | None:
+        """Atomically move one queued message to the processing list.
+
+        The returned mapping contains ``job_id`` and ``payload`` plus the raw
+        message used by ``ack``/``requeue``.  Queue implementations are allowed
+        to return ``None`` when no message arrives before the bounded wait.
+        """
+        if block_seconds < 0 or lease_seconds < 1:
+            raise ValueError("queue claim timeouts are invalid")
+        client = self._require_client()
+        self.recover_stale(lease_seconds=lease_seconds)
+        try:
+            raw = client.brpoplpush(self.queue_name, self.processing_queue, timeout=block_seconds)
+            if raw is None:
+                return None
+            decoded = _decode_json(raw)
+            job_id = str(decoded["job_id"])
+            message = _json(decoded)
+            client.set(
+                self._lease_key(job_id),
+                _json({"message": message, "claimed_at": time.time()}),
+            )
+            return {"job_id": job_id, "payload": dict(decoded.get("payload") or {}), "message": message}
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DependencyUnavailableError("job queue returned an invalid message") from exc
+        except Exception as exc:
+            raise DependencyUnavailableError("job queue is unavailable") from exc
+
+    def ack(self, message: Mapping[str, Any]) -> None:
+        """Remove a claimed message and its lease after durable processing."""
+        client = self._require_client()
+        job_id = str(message["job_id"])
+        raw = str(message.get("message") or _json({"job_id": job_id, "payload": message.get("payload", {})}))
+        try:
+            client.lrem(self.processing_queue, 1, raw)
+            client.delete(self._lease_key(job_id))
+        except Exception as exc:
+            raise DependencyUnavailableError("job queue is unavailable") from exc
+
+    def requeue(self, message: Mapping[str, Any]) -> None:
+        """Return a claimed message to the ready list for a bounded retry."""
+        client = self._require_client()
+        job_id = str(message["job_id"])
+        raw = str(message.get("message") or _json({"job_id": job_id, "payload": message.get("payload", {})}))
+        try:
+            client.lrem(self.processing_queue, 1, raw)
+            client.rpush(self.queue_name, raw)
+            client.delete(self._lease_key(job_id))
+        except Exception as exc:
+            raise DependencyUnavailableError("job queue is unavailable") from exc
+
+    def recover_stale(self, *, lease_seconds: int = 60) -> int:
+        """Requeue messages whose consumer lease exceeded ``lease_seconds``."""
+        if lease_seconds < 1:
+            raise ValueError("lease_seconds must be positive")
+        client = self._require_client()
+        recovered = 0
+        try:
+            keys = client.scan_iter(match=f"{self.queue_name}:lease:*")
+            for lease_key in list(keys):
+                raw_lease = client.get(lease_key)
+                if raw_lease is None:
+                    continue
+                lease = _decode_json(raw_lease)
+                claimed_at = float(lease.get("claimed_at", 0))
+                if time.time() - claimed_at < lease_seconds:
+                    continue
+                message = str(lease["message"])
+                client.lrem(self.processing_queue, 1, message)
+                client.rpush(self.queue_name, message)
+                client.delete(lease_key)
+                recovered += 1
+            return recovered
         except Exception as exc:
             raise DependencyUnavailableError("job queue is unavailable") from exc

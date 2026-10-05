@@ -13,11 +13,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from typing import Any, Mapping
 from urllib.parse import parse_qs, urlsplit
 
 from .auth import AuthorizationError
 from .dependencies import DependencyUnavailableError
+from .local_auth import LocalAuthError, LocalAuthProvider
 from .models import (
     AuthContext,
     ContractError,
@@ -111,11 +113,24 @@ def _temporary_auth(headers: Mapping[str, str]) -> AuthContext:
     return AuthContext(subject, roles=roles, scopes=scopes, request_id=request_id)
 
 
+def _bearer_auth(headers: Mapping[str, str], provider: LocalAuthProvider | None) -> AuthContext:
+    raw = _header(headers, "Authorization")
+    if provider is not None and raw and raw.startswith("Bearer "):
+        return provider.context(raw[len("Bearer "):].strip(), request_id=_header(headers, "X-Request-Id") or "http-request")
+    # The compact bearer format remains available to dependency-light unit
+    # tests and the explicit APP_ENV=local adapter only. Staging always uses
+    # signed access tokens from LocalAuthProvider.
+    if os.getenv("APP_ENV", "local").lower() == "local":
+        return _temporary_auth(headers)
+    raise MissingBearerError("signed Bearer authorization is required")
+
+
 class ApiHttpAdapter:
     """Framework-neutral HTTP adapter used by FastAPI and local integration tests."""
 
-    def __init__(self, service: ApiService | None = None) -> None:
+    def __init__(self, service: ApiService | None = None, auth_provider: LocalAuthProvider | None = None) -> None:
         self.service = service or ApiService()
+        self.auth_provider = auth_provider
 
     def handle(
         self,
@@ -141,7 +156,37 @@ class ApiHttpAdapter:
                 share, resource = self.service.access_share(token)
                 return HttpResponse(200, {"share": to_jsonable(share), "resource": to_jsonable(resource)})
 
-            auth = _temporary_auth(headers)
+            if method == "POST" and route == "/v1/auth/sessions":
+                if self.auth_provider is None:
+                    return _error_response(503, "AUTH_UNAVAILABLE", "staging authentication is not configured")
+                data = self._body(body)
+                _required(data, "username", "password")
+                _reject_extra(data, "username", "password")
+                return HttpResponse(200, self.auth_provider.authenticate(
+                    self._string(data, "username"),
+                    self._password(data, "password"),
+                    request_id=_header(headers, "X-Request-Id") or "auth-request",
+                ))
+            if method == "POST" and route == "/v1/auth/refresh":
+                if self.auth_provider is None:
+                    return _error_response(503, "AUTH_UNAVAILABLE", "staging authentication is not configured")
+                data = self._body(body)
+                _required(data, "refresh_token")
+                _reject_extra(data, "refresh_token")
+                return HttpResponse(200, self.auth_provider.refresh(
+                    self._string(data, "refresh_token"),
+                    request_id=_header(headers, "X-Request-Id") or "auth-refresh",
+                ))
+            if method == "POST" and route == "/v1/auth/logout":
+                if self.auth_provider is None:
+                    return _error_response(503, "AUTH_UNAVAILABLE", "staging authentication is not configured")
+                data = self._body(body)
+                _required(data, "refresh_token")
+                _reject_extra(data, "refresh_token")
+                self.auth_provider.revoke(self._string(data, "refresh_token"))
+                return HttpResponse(204, None)
+
+            auth = _bearer_auth(headers, self.auth_provider)
             if method == "POST" and route == "/v1/documents":
                 data = self._body(body)
                 _required(data, "filename", "media_type", "size_bytes", "sha256")
@@ -281,6 +326,8 @@ class ApiHttpAdapter:
             return HttpResponse(404, {"detail": "route not found"})
         except MissingBearerError as exc:
             return _error_response(401, "AUTHENTICATION_REQUIRED", str(exc))
+        except LocalAuthError as exc:
+            return _error_response(401, "AUTHENTICATION_FAILED", str(exc))
         except AuthorizationError as exc:
             return _error_response(403, "FORBIDDEN", str(exc))
         except DependencyUnavailableError as exc:
@@ -320,6 +367,13 @@ class ApiHttpAdapter:
     def _string(data: Mapping[str, Any], field: str) -> str:
         value = data[field]
         if not isinstance(value, str) or not value.strip():
+            raise RequestValidationError(f"{field} must be a non-empty string")
+        return value
+
+    @staticmethod
+    def _password(data: Mapping[str, Any], field: str = "password") -> str:
+        value = data[field]
+        if not isinstance(value, str) or not value:
             raise RequestValidationError(f"{field} must be a non-empty string")
         return value
 
@@ -365,11 +419,11 @@ class ApiHttpAdapter:
         return value
 
 
-def create_app(service: ApiService | None = None):
+def create_app(service: ApiService | None = None, auth_provider: LocalAuthProvider | None = None):
     """Create the optional FastAPI adapter using the temporary bearer parser."""
     if FastAPI is None:
         raise RuntimeError("FastAPI is optional; install services/api dependencies to run HTTP routes")
-    adapter = ApiHttpAdapter(service)
+    adapter = ApiHttpAdapter(service, auth_provider=auth_provider)
     api = FastAPI(title="US Patient App API", version="0.3.0", docs_url="/docs")
 
     @api.api_route("/{path:path}", methods=["GET", "POST", "PUT"], include_in_schema=False)

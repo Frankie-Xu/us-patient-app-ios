@@ -4,6 +4,7 @@ import PatientAppDomain
 public struct AccountView: View {
     @ObservedObject var model: AppShellModel
     @State private var identifier = ""
+    @State private var password = ""
     @State private var isWorking = false
 
     public init(model: AppShellModel) {
@@ -28,12 +29,17 @@ public struct AccountView: View {
                             .foregroundStyle(.red)
                     }
 
-                    TextField("Account identifier", text: $identifier)
+                    TextField(model.usesCredentialAuthentication ? "Username" : "Account identifier", text: $identifier)
                         .autocorrectionDisabled()
+                        .textContentType(.username)
+                    if model.usesCredentialAuthentication {
+                        SecureField("Password", text: $password)
+                            .textContentType(.password)
+                    }
 
                     switch model.authState {
                     case .signedIn:
-                        Button("Switch account") { submit(.switchAccount) }
+                        Button(model.usesCredentialAuthentication ? "Sign in as another account" : "Switch account") { submit(.switchAccount) }
                     case .signedOut, .expired:
                         Button("Sign in") { submit(.signIn) }
                     }
@@ -48,6 +54,10 @@ public struct AccountView: View {
                         }
                     }
                     if isWorking { ProgressView() }
+                    if let error = model.authError {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 Section("Privacy preview") {
@@ -68,14 +78,23 @@ public struct AccountView: View {
 
     private func submit(_ action: Action) {
         let value = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return }
+        guard !value.isEmpty, !model.usesCredentialAuthentication || !password.isEmpty else { return }
+        let secret = password
         _Concurrency.Task {
             isWorking = true
             switch action {
             case .signIn:
-                _ = await model.signIn(identifier: value)
+                if model.usesCredentialAuthentication {
+                    _ = await model.signIn(username: value, password: secret)
+                } else {
+                    _ = await model.signIn(identifier: value)
+                }
             case .switchAccount:
-                _ = await model.switchAccount(identifier: value)
+                if model.usesCredentialAuthentication {
+                    _ = await model.signIn(username: value, password: secret)
+                } else {
+                    _ = await model.switchAccount(identifier: value)
+                }
             }
             isWorking = false
         }

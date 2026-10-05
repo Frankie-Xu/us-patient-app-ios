@@ -2,17 +2,19 @@
 
 This directory defines a reproducible, synthetic/de-identified staging
 composition. It starts PostgreSQL, LocalStack (S3-compatible), Redis, the API
-HTTP adapter wired to the checked-in provider adapters, and a metadata-only
-worker health boundary. The API applies the checked-in PostgreSQL migration on
+HTTP adapter wired to the checked-in provider adapters, and a Redis-backed
+worker consumer. The API applies the checked-in PostgreSQL migration on
 startup and fails readiness when PostgreSQL, LocalStack S3, or Redis is
 unavailable. LocalStack is used for reproducible local S3 behavior; a remote
 staging deployment can set `S3_ENDPOINT` to an approved S3-compatible service.
 
-The worker is intentionally health-only in this iteration (`WORKER_MODE` is
-`fixture-health-only`, `WORKER_CONSUMER_ENABLED=0`). It does not acknowledge or
-discard queue messages and therefore cannot imply that OCR has completed. A
-metadata-only Redis consumer can be enabled only after its idempotent ack and
-retry contract is reviewed; API readiness and worker readiness remain separate.
+The default worker mode is `queue-consumer-fixture-ocr` with bounded retries and
+lease recovery. Plain-text synthetic fixtures use the explicit local-text
+ingest path; PDF and image inputs require `pdftotext` or `tesseract` in the
+worker image and report `OCR_PROVIDER_UNAVAILABLE` when those providers are not
+installed. A ready worker therefore confirms queue consumption and dependency
+health, while the acceptance report still labels fixture processing separately
+from provider OCR/AI results.
 
 ## Start
 

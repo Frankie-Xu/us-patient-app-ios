@@ -38,3 +38,10 @@ It excludes document text, filenames, opaque IDs, share tokens, credentials,
 and source payloads. The PDF step is a synthetic export artifact; the existing
 replaceable iOS/API PDF adapter remains the integration seam for a provider
 implementation.
+
+For the running Docker composition, use
+[`scripts/staging/integration_smoke.py`](../../scripts/staging/integration_smoke.py)
+and see [HTTP staging acceptance](integration-acceptance.md). That check goes
+through the live API and worker health endpoint, reports whether a worker
+actually consumed the queued job, and keeps doctor brief, visit questions, and
+PDF route gaps explicitly separate from the deterministic fixture result.
