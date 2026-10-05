@@ -105,4 +105,12 @@ if [[ "$status" -ne 1 ]] || \
 fi
 echo "strict signing: blocked as expected"
 
+run_capture "${base_env[@]}" IOS_CRASH_MONITORING_CONFIG="$tmp_dir/missing-crash-config.json" "$preflight"
+if [[ "$status" -ne 1 ]] || ! grep -Fq "Crash monitoring config is missing" <<<"$output"; then
+  printf '%s\n' "$output" >&2
+  echo "missing crash monitoring config should fail clearly (status $status)" >&2
+  exit 1
+fi
+echo "missing crash monitoring config: blocked as expected"
+
 echo "iOS release preflight offline regression checks passed."

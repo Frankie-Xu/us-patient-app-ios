@@ -19,6 +19,9 @@ The current host passed with two expected warnings:
 - Release debug information is `dwarf-with-dsym` and Swift version is 6.0.
 - `Resources/Info.plist` resolves and contains camera, photo-library, background-processing, and bundle version keys.
 - `Resources/PrivacyInfo.xcprivacy` is present.
+- `artifacts/xcode/crash-monitoring.example.json` is present with a release
+  identifier, dSYM upload requirement, and `collects_phi: false`. Replace the
+  provider and inject its DSN only through CI secrets before distribution.
 - Warning: `com.example.patientapp` is the checked-in local example identifier. Set `IOS_EXPECTED_BUNDLE_ID` for a distribution identifier before uploading.
 - Warning: `DEVELOPMENT_TEAM` and `CODE_SIGN_STYLE` are host-configured and are intentionally not committed.
 
@@ -52,3 +55,4 @@ Optional environment variables allow CI to pin the intended release inputs witho
 | `IOS_EXPECTED_MARKETING_VERSION` | unset | Version assertion |
 | `IOS_EXPECTED_BUILD_NUMBER` | unset | Build number assertion |
 | `IOS_PREFLIGHT_REQUIRE_SIGNING` | `0` | Make host signing settings blocking |
+| `IOS_CRASH_MONITORING_CONFIG` | `artifacts/xcode/crash-monitoring.example.json` | Crash monitoring config to validate |

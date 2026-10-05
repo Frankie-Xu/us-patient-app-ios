@@ -32,6 +32,9 @@ real archive/upload only when all variables are set and IOS_TESTFLIGHT_UPLOAD=tr
 
 ## Release checklist
 
+Use [the release checklist](../../artifacts/xcode/testflight-release-checklist.md)
+for the signed archive, crash monitoring, and App Store Connect handoff.
+
 - `xcodebuild -project apps/ios/PatientApp.xcodeproj -scheme PatientApp-Debug -configuration Release archive`
   succeeds on a signing-enabled macOS runner.
 - `swift test --package-path apps/ios` passes on the release commit.
@@ -45,4 +48,8 @@ real archive/upload only when all variables are set and IOS_TESTFLIGHT_UPLOAD=tr
 - Loading, error, empty, offline, retry, and success states have a visible message and
   an accessible label.
 - The release evidence artifact is attached to the workflow run.
+- The provider-neutral crash monitoring placeholder in
+  `artifacts/xcode/crash-monitoring.example.json` has been replaced in CI with
+  an approved provider and an ephemeral `CRASH_MONITORING_DSN`; no DSN or PHI is
+  committed.
 - TestFlight processing is complete before external testers are invited.

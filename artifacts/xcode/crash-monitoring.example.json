@@ -1,0 +1,8 @@
+{
+  "provider": "unset",
+  "dsn_environment_variable": "CRASH_MONITORING_DSN",
+  "release_identifier": "$(CFBundleShortVersionString)-$(CFBundleVersion)",
+  "upload_dsyms": true,
+  "collects_phi": false,
+  "notes": "Replace provider and inject the DSN through CI secrets before TestFlight distribution; never commit a DSN or patient data."
+}

@@ -15,6 +15,7 @@ expected_bundle_id="${IOS_EXPECTED_BUNDLE_ID:-}"
 expected_marketing_version="${IOS_EXPECTED_MARKETING_VERSION:-}"
 expected_build_number="${IOS_EXPECTED_BUILD_NUMBER:-}"
 require_signing="${IOS_PREFLIGHT_REQUIRE_SIGNING:-0}"
+crash_monitoring_config="${IOS_CRASH_MONITORING_CONFIG:-$repo_root/artifacts/xcode/crash-monitoring.example.json}"
 
 failures=()
 warnings=()
@@ -236,6 +237,18 @@ if [[ -f "$privacy_manifest" ]]; then
   pass "Privacy manifest exists"
 else
   fail "Privacy manifest is missing: $privacy_manifest"
+fi
+
+if [[ -f "$crash_monitoring_config" ]]; then
+  if grep -Fq '"release_identifier"' "$crash_monitoring_config" && \
+     grep -Fq '"upload_dsyms": true' "$crash_monitoring_config" && \
+     grep -Fq '"collects_phi": false' "$crash_monitoring_config"; then
+    pass "Crash monitoring placeholder is present and PHI-safe"
+  else
+    fail "Crash monitoring config is missing release, dSYM, or PHI-safety fields: $crash_monitoring_config"
+  fi
+else
+  fail "Crash monitoring config is missing: $crash_monitoring_config"
 fi
 
 if ((${#failures[@]} > 0)); then
