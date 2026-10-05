@@ -140,6 +140,19 @@ public struct AppShellView: View {
         .task {
             if ProcessInfo.processInfo.arguments.contains("--patient-app-demo-signed-in") {
                 _ = await model.signIn(identifier: "demo-patient")
+                if ProcessInfo.processInfo.arguments.contains("--patient-app-demo-imported") {
+                    let content = Data("synthetic fixture content".utf8)
+                    await model.importFlow.start(
+                        ImportRequest(
+                            fileName: "synthetic-record.txt",
+                            title: "Synthetic record",
+                            byteCount: content.count,
+                            mediaType: "text/plain",
+                            sha256: String(repeating: "0", count: 64),
+                            content: content
+                        )
+                    )
+                }
             } else {
                 _ = await model.restoreSession()
             }

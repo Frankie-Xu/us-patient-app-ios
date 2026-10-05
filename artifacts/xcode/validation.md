@@ -19,6 +19,7 @@
 - PatientApp Release app target build: passed with signing disabled.
 - The app bundle installed and launched on the booted iPhone 18 Pro Simulator; see `patient-app-home.png`.
 - Demo-only `--patient-app-demo-signed-in` launch reaches Home; see `patient-app-demo-home.png`.
+- Demo-only `--patient-app-demo-signed-in --patient-app-demo-imported` launch reaches the imported-record state with one reviewable fact; see `patient-app-demo-imported.png`.
 - The domain XCTest target was attempted with `xcodebuild`; the managed host rejected its Clang module session path before compilation.
 - SwiftPM PatientAppUI build: passed.
 - SwiftPM tests: 101 tests passed (Domain + UI).
