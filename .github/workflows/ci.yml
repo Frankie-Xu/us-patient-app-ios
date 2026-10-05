@@ -30,6 +30,8 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
       - name: Install pinned validation tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Validate repository contents
@@ -72,6 +74,8 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
       - name: Install pinned validation tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Validate OpenAPI and JSON Schemas
@@ -92,6 +96,8 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
       - name: Install pinned test tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Discover HTTP route tests
@@ -125,6 +131,8 @@ jobs:
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
       - name: Install pinned test tools
         run: python -m pip install --disable-pip-version-check --no-input -r scripts/requirements-ci.txt
       - name: Run AI golden-set regression report
@@ -157,7 +165,7 @@ jobs:
         run: bash scripts/run-ios-tests.sh apps/ios
 
   release-evidence:
-    name: Release evidence
+    name: Integration gate
     if: ${{ always() }}
     needs: [repository-validation, contract-validation, api-tests, ai-tests, ios-tests]
     runs-on: ubuntu-latest
@@ -190,6 +198,13 @@ jobs:
       - name: Check generated evidence redaction
         if: ${{ always() }}
         run: python scripts/check_privacy_evidence.py --input artifacts/release-evidence.json --input artifacts/production-gate-synthetic.json --output artifacts/privacy-evidence.json
+      - name: Publish integration gate summary
+        if: ${{ always() }}
+        run: |
+          python scripts/render_evidence_summary.py \
+            --input artifacts/release-evidence.json \
+            --output artifacts/release-evidence-summary.md
+          cat artifacts/release-evidence-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload release evidence manifest
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -199,5 +214,6 @@ jobs:
             artifacts/release-evidence.json
             artifacts/production-gate-synthetic.json
             artifacts/privacy-evidence.json
+            artifacts/release-evidence-summary.md
           if-no-files-found: error
           retention-days: 7
