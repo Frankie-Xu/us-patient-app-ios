@@ -24,9 +24,13 @@ struct DoctorBriefView: View {
                                     Text("Confirmed fact").font(.headline)
                                     Text(fact.value)
                                     if let source = fact.sourceReference {
-                                        Label("Source \(source.locator)", systemImage: "location")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                        NavigationLink {
+                                            SourceLocatorView(reference: source)
+                                        } label: {
+                                            Label("Open source \(source.locator)", systemImage: "location.viewfinder")
+                                                .font(.caption)
+                                        }
+                                        .accessibilityIdentifier("patient.doctor-brief.source.\(fact.id.uuidString)")
                                     }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)

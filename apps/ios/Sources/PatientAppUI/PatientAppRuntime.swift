@@ -57,6 +57,10 @@ public enum PatientAppRuntime {
             return DeterministicMockAPIClient(scenario: MockImportScenario(documentID: FixtureIDs.document))
         }
 
+        // Every runtime gets a clean fixture boundary. This keeps UI previews,
+        // tests, and simulator relaunches deterministic without sharing review
+        // or share state between sessions.
+        PatientAppFixtureURLProtocol.resetState()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PatientAppFixtureURLProtocol.self]
         let session = URLSession(configuration: configuration)
@@ -116,6 +120,10 @@ private enum FixtureDate {
 private final class PatientAppFixtureURLProtocol: URLProtocol {
     private static let state = FixtureState()
 
+    static func resetState() {
+        state.reset()
+    }
+
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "127.0.0.1" || request.url?.host == "localhost"
     }
@@ -160,12 +168,23 @@ private final class FixtureState: @unchecked Sendable {
         self.encoder = encoder
     }
 
+    func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        documentExists = false
+        uploadSessionID = nil
+        processingJobID = nil
+        factConfirmed = false
+        shares.removeAll(keepingCapacity: true)
+    }
+
     func response(for request: URLRequest) -> FixtureResponse {
         lock.lock()
         defer { lock.unlock() }
         let path = request.url?.path ?? ""
         let method = request.httpMethod ?? "GET"
         let response: AnyEncodable
+        let responseStatusCode: Int
 
         if method == "POST", path.hasSuffix("/exports/pdf") {
             return FixtureResponse(
@@ -180,23 +199,31 @@ private final class FixtureState: @unchecked Sendable {
         } else if method == "POST", path == "/v1/documents" {
             documentExists = true
             response = AnyEncodable(documentPayload(status: .uploaded))
+            responseStatusCode = 201
         } else if method == "POST", path.hasSuffix("/upload-sessions") {
             uploadSessionID = UUID(uuidString: "00000000-0000-4000-8000-000000000044")
             response = AnyEncodable(uploadSessionPayload(status: .pending))
+            responseStatusCode = 201
         } else if method == "PUT", path.contains("/v1/upload-sessions/") {
             response = AnyEncodable(uploadSessionPayload(status: .verified, verifiedAt: FixtureDate.created))
+            responseStatusCode = 200
         } else if method == "POST", path.hasSuffix("/processing-jobs") {
             processingJobID = UUID(uuidString: "00000000-0000-4000-8000-000000000045")
             response = AnyEncodable(processingJobPayload)
+            responseStatusCode = 202
         } else if method == "GET", path == "/v1/documents" {
             response = AnyEncodable(documentExists ? [documentPayload(status: .ready)] : [])
+            responseStatusCode = 200
         } else if method == "GET", path.hasPrefix("/v1/documents/") {
             response = AnyEncodable(documentPayload(status: .ready))
+            responseStatusCode = 200
         } else if method == "POST", path.hasPrefix("/v1/facts/"), path.hasSuffix("/review") {
             factConfirmed = true
             response = AnyEncodable(factPayload)
+            responseStatusCode = 200
         } else if method == "GET", path == "/v1/facts" {
             response = AnyEncodable([factPayload])
+            responseStatusCode = 200
         } else if method == "POST", path == "/v1/shares" {
             guard let request = decodeShareRequest(from: request.httpBody) else {
                 return FixtureResponse(statusCode: 400, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
@@ -205,6 +232,7 @@ private final class FixtureState: @unchecked Sendable {
             shares[shareID] = FixtureShareRecord(id: shareID, resourceType: request.resourceType, resourceID: request.resourceID, version: request.resourceVersion, expiresAt: request.expiresAt, revokedAt: nil)
             let token = ["fixture", "share", shareID.uuidString].joined(separator: "-")
             response = AnyEncodable(ContractShareCreateResponse(share: sharePayload(shares[shareID]!), token: token))
+            responseStatusCode = 201
         } else if method == "POST", path.contains("/v1/shares/"), path.hasSuffix("/revoke") {
             guard let shareID = shareID(from: path), var share = shares[shareID] else {
                 return FixtureResponse(statusCode: 404, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
@@ -212,13 +240,16 @@ private final class FixtureState: @unchecked Sendable {
             share.revokedAt = FixtureDate.created
             shares[shareID] = share
             response = AnyEncodable(sharePayload(share))
+            responseStatusCode = 200
         } else if method == "GET", path.contains("/v1/shares/") {
             guard let shareID = shareID(from: path), let share = shares[shareID] else {
                 return FixtureResponse(statusCode: 404, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
             }
             response = AnyEncodable(sharePayload(share))
+            responseStatusCode = 200
         } else if method == "GET", path == "/v1/topics" || method == "GET", path == "/v1/visits" || method == "GET", path == "/v1/tasks" {
             response = AnyEncodable([String]())
+            responseStatusCode = 200
         } else {
             return FixtureResponse(statusCode: 404, headers: ["Content-Type": "application/json"], body: Data("{}".utf8))
         }
@@ -226,7 +257,7 @@ private final class FixtureState: @unchecked Sendable {
         guard let body = try? encoder.encode(response) else {
             return FixtureResponse(statusCode: 500, headers: ["Content-Type": "application/json"], body: Data())
         }
-        return FixtureResponse(statusCode: 200, headers: ["Content-Type": "application/json"], body: body)
+        return FixtureResponse(statusCode: responseStatusCode, headers: ["Content-Type": "application/json"], body: body)
     }
 
     private func documentPayload(status: ContractDocumentStatus) -> ContractDocumentPayload {

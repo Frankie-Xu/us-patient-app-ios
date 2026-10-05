@@ -11,6 +11,11 @@ public enum PatientAccessibilityIdentifier {
     public static let homeUploadQueue = "patient.home.upload-queue"
     public static let recordsList = "patient.records.list"
     public static let reviewFactsList = "patient.review.facts"
+    public static let reviewFact = "patient.review.fact"
+    public static let reviewFactIssue = "patient.review.fact-issue"
+    public static let reviewFactSource = "patient.review.fact-source"
+    public static let reviewFactConfirm = "patient.review.fact-confirm"
+    public static let reviewContinuePrompt = "patient.review.continue-prompt"
     public static let retry = "patient.retry"
     public static let offlineBanner = "patient.offline"
 }

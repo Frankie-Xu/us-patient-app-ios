@@ -270,9 +270,7 @@ struct ReviewView: View {
                             .disabled(!model.canPrepareVisit)
                             .accessibilityIdentifier("review.prepareVisit")
                             if !model.canPrepareVisit {
-                                Text("Confirm every traceable fact before preparing the visit.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                ReviewContinuePrompt(facts: model.currentSnapshot?.facts ?? [])
                             }
                         }
                         .padding(.horizontal)
@@ -282,6 +280,35 @@ struct ReviewView: View {
                 }
             .navigationTitle("Review")
         }
+    }
+}
+
+private struct ReviewContinuePrompt: View {
+    let facts: [Fact]
+
+    private var pendingFacts: [Fact] {
+        facts.filter { !$0.canAppearInDoctorView }
+    }
+
+    var body: some View {
+        let count = pendingFacts.count
+        VStack(spacing: 2) {
+            Label(
+                count == 1 ? "1 fact needs your review" : "\(count) facts need your review",
+                systemImage: "exclamationmark.circle"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.orange)
+            Text("Review each flagged fact, save edits, then confirm it before continuing.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier(PatientAccessibilityIdentifier.reviewContinuePrompt)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("Review required before preparing a visit"))
+        .accessibilityValue(Text(count == 1 ? "1 fact needs review" : "\(count) facts need review"))
     }
 }
 
@@ -311,6 +338,7 @@ private struct FlowContent: View {
                         } confirm: {
                             _Concurrency.Task { await model.confirmFact(fact) }
                         }
+                        .accessibilityIdentifier("\(PatientAccessibilityIdentifier.reviewFact).\(fact.id.uuidString)")
                     }
                 } else {
                     Text("\(snapshot.facts.count) facts available in Review.")
@@ -322,6 +350,65 @@ private struct FlowContent: View {
             }
             if model.isBusy { ProgressView() }
         }
+    }
+}
+
+enum FactReviewIssue: String, CaseIterable, Hashable, Identifiable {
+    case lowConfidence
+    case missingSource
+    case conflict
+    case untraceable
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .lowConfidence: "Low confidence"
+        case .missingSource: "Source missing"
+        case .conflict: "Conflict needs review"
+        case .untraceable: "Source cannot be verified"
+        }
+    }
+
+    var guidance: String {
+        switch self {
+        case .lowConfidence: "Check this value against the original record before confirming."
+        case .missingSource: "Add a patient-provided value or locate the supporting document."
+        case .conflict: "This value changed or was rejected. Resolve it before continuing."
+        case .untraceable: "The source belongs to another document, so it cannot be confirmed here."
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .lowConfidence: "gauge.with.dots.needle.33percent"
+        case .missingSource: "doc.questionmark"
+        case .conflict: "arrow.triangle.2.circlepath"
+        case .untraceable: "link.badge.plus"
+        }
+    }
+}
+
+extension Fact {
+    var reviewIssues: [FactReviewIssue] {
+        var issues: [FactReviewIssue] = []
+        if confidence.map({ $0 < 0.8 }) ?? true {
+            issues.append(.lowConfidence)
+        }
+        if sourceReference == nil && !isUserInput {
+            issues.append(.missingSource)
+        }
+        if reviewStatus == .rejected || reviewStatus == .superseded {
+            issues.append(.conflict)
+        }
+        if !isTraceable && !issues.contains(.missingSource) {
+            issues.append(.untraceable)
+        }
+        return issues
+    }
+
+    var needsReviewAttention: Bool {
+        !reviewIssues.isEmpty || !canAppearInDoctorView
     }
 }
 
@@ -358,24 +445,91 @@ private struct FactReviewRow: View {
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
+            if !fact.reviewIssues.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(fact.reviewIssues) { issue in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(issue.title, systemImage: issue.systemImage)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("\(PatientAccessibilityIdentifier.reviewFactIssue).\(fact.id.uuidString).\(issue.rawValue)")
+                            Text(issue.guidance)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityElement(children: .contain)
+            }
             TextField("Fact", text: $value)
             if let source = fact.sourceReference {
+                NavigationLink {
+                    SourceLocatorView(reference: source)
+                } label: {
+                    Label("Open source \(source.locator)", systemImage: "location.viewfinder")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityIdentifier("\(PatientAccessibilityIdentifier.reviewFactSource).\(fact.id.uuidString)")
                 Text("Source document: \(source.documentID.uuidString)")
-                Text("Location: \(source.locator)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             } else {
-                Text(fact.isUserInput ? "Patient-entered value" : "Source required before confirmation")
+                Label(
+                    fact.isUserInput ? "Patient-entered value" : "Source required before confirmation",
+                    systemImage: fact.isUserInput ? "person.text.rectangle" : "doc.questionmark"
+                )
+                .font(.caption)
+                .foregroundStyle(fact.isUserInput ? Color.secondary : Color.orange)
             }
             HStack {
                 Button("Save edit") { edit(value) }
                     .disabled(busy || value == fact.value || value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Button("Confirm reviewed fact", action: confirm)
                     .disabled(busy || value != fact.value || fact.state != .needsReview || !fact.isTraceable)
+                    .accessibilityIdentifier("\(PatientAccessibilityIdentifier.reviewFactConfirm).\(fact.id.uuidString)")
             }
             .buttonStyle(.bordered)
             if value != fact.value { Text("Save your edit before confirming.").font(.caption) }
         }
         .onChange(of: fact.value) { _, newValue in value = newValue }
         .padding(.vertical, 6)
+    }
+}
+
+struct SourceLocatorView: View {
+    let reference: SourceReference
+
+    var body: some View {
+        List {
+            Section("Source location") {
+                Label(reference.locator, systemImage: "location.viewfinder")
+                    .font(.body.weight(.medium))
+                    .textSelection(.enabled)
+                    .accessibilityLabel(Text("Source location"))
+                    .accessibilityValue(Text(reference.locator))
+                ShareLink(item: reference.locator) {
+                    Label("Share locator", systemImage: "square.and.arrow.up")
+                }
+                .accessibilityIdentifier("patient.source.share-locator")
+            }
+            Section("Source document") {
+                Text(reference.documentID.uuidString)
+                    .font(.footnote.monospaced())
+                    .textSelection(.enabled)
+                    .accessibilityLabel(Text("Source document identifier"))
+            }
+            Section {
+                Text("Use this location to compare the fact with the original record before confirming it.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .navigationTitle("Source")
     }
 }
 

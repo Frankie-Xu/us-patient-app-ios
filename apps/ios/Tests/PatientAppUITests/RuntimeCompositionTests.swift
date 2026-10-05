@@ -72,4 +72,34 @@ final class RuntimeCompositionTests: XCTestCase {
         XCTAssertEqual(snapshot.facts.first?.sourceReference?.locator, "page:1")
         XCTAssertLessThan(snapshot.facts.first?.confidence ?? 0, 1.0)
     }
+
+    func testNewRuntimeResetsFixtureReviewState() async throws {
+        let first = PatientAppRuntime.makeModel()
+        _ = await first.signIn(identifier: "fixture-state-one")
+        await first.importFlow.start(Self.syntheticImportRequest())
+        let firstFact = try XCTUnwrap(first.importFlow.currentSnapshot?.facts.first)
+        await first.importFlow.confirmFact(firstFact)
+        XCTAssertTrue(first.importFlow.canPrepareVisit)
+
+        let second = PatientAppRuntime.makeModel()
+        _ = await second.signIn(identifier: "fixture-state-two")
+        await second.importFlow.start(Self.syntheticImportRequest())
+        guard case let .reviewRequired(snapshot) = second.importFlow.state else {
+            return XCTFail("new runtime should start with a reviewable fixture")
+        }
+        XCTAssertEqual(snapshot.facts.first?.reviewStatus, .inReview)
+        XCTAssertFalse(second.importFlow.canPrepareVisit)
+    }
+
+    private static func syntheticImportRequest() -> ImportRequest {
+        let content = Data("synthetic fixture content".utf8)
+        return ImportRequest(
+            fileName: "synthetic-record.txt",
+            title: "Synthetic record",
+            byteCount: content.count,
+            mediaType: "text/plain",
+            sha256: String(repeating: "0", count: 64),
+            content: content
+        )
+    }
 }

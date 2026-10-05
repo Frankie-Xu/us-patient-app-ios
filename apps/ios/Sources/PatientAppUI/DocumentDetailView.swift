@@ -29,7 +29,7 @@ struct DocumentDetailView: View {
             Section("Record") {
                 LabeledContent("Title", value: document.title)
                 LabeledContent("Status", value: document.processingStatus.displayName)
-                LabeledContent("Version", value: "(document.version)")
+                LabeledContent("Version", value: "\(document.version)")
                 LabeledContent("Updated", value: document.updatedAt.formatted(date: .abbreviated, time: .shortened))
                 if let deletedAt = document.deletedAt {
                     LabeledContent("Deleted", value: deletedAt.formatted(date: .abbreviated, time: .shortened))

@@ -23,8 +23,16 @@ public struct DocumentVersionHistoryView: View {
             case let .loaded(versions):
                 List(versions) { version in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Version \(version.version)")
-                            .font(.headline)
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text("Version \(version.version)")
+                                .font(.headline)
+                            if version.version == versions.map(\.version).max() {
+                                Text("Current")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tint)
+                                    .accessibilityLabel("Current version")
+                            }
+                        }
                         Text(version.title)
                         Text(version.processingStatus.displayName)
                             .font(.caption)
@@ -33,15 +41,25 @@ public struct DocumentVersionHistoryView: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        "Version \(version.version), \(version.version == versions.map(\.version).max() ? "current, " : "")\(version.processingStatus.displayName), \(version.title)"
+                    )
+                    .accessibilityIdentifier("document.versionHistory.row.\(version.version)")
+                }
+                .refreshable {
+                    await model.load(documentID: documentID)
                 }
             case let .failed(error):
                 VStack(spacing: 12) {
                     Text("Version history could not be loaded.")
                         .foregroundStyle(.red)
+                        .accessibilityIdentifier("document.versionHistory.error")
                     Button("Try again") {
                         _Concurrency.Task { await model.retry() }
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier("document.versionHistory.retry")
                     Text(String(describing: error))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
