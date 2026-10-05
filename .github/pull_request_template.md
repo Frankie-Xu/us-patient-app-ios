@@ -10,6 +10,7 @@
 ## Validation
 
 - [ ] CI passed, or skipped components are documented below
+- Local gate: `bash scripts/verify.sh --quick` / `bash scripts/verify.sh --full` / reason not run:
 - [ ] Unit or integration tests
 - [ ] UI flow or manual verification
 - [ ] Golden-set evaluation (if AI or extraction changed)
