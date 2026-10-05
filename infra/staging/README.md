@@ -1,10 +1,12 @@
 # Real staging composition
 
 This directory defines a reproducible, synthetic/de-identified staging
-composition. It starts PostgreSQL, MinIO (S3-compatible), Redis, the API
+composition. It starts PostgreSQL, LocalStack (S3-compatible), Redis, the API
 HTTP adapter wired to the checked-in provider adapters, and a metadata-only
 worker health boundary. The API applies the checked-in PostgreSQL migration on
-startup and fails readiness when PostgreSQL, MinIO, or Redis is unavailable.
+startup and fails readiness when PostgreSQL, LocalStack S3, or Redis is
+unavailable. LocalStack is used for reproducible local S3 behavior; a remote
+staging deployment can set `S3_ENDPOINT` to an approved S3-compatible service.
 
 The worker is intentionally health-only in this iteration (`WORKER_MODE` is
 `fixture-health-only`, `WORKER_CONSUMER_ENABLED=0`). It does not acknowledge or

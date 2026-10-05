@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir \
 COPY services /app/services
 COPY scripts/staging/worker.py /app/scripts/staging/worker.py
 COPY scripts/staging/api_entrypoint.py /app/scripts/staging/api_entrypoint.py
+COPY scripts/staging/s3_init.py /app/scripts/staging/s3_init.py
 
 FROM runtime AS api
 EXPOSE 8000
@@ -26,3 +27,6 @@ CMD ["uvicorn", "scripts.staging.api_entrypoint:app", "--host", "0.0.0.0", "--po
 FROM runtime AS worker
 EXPOSE 8081
 CMD ["python", "scripts/staging/worker.py"]
+
+FROM runtime AS s3-init
+CMD ["python", "scripts/staging/s3_init.py"]

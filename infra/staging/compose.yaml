@@ -18,39 +18,39 @@ services:
       retries: 12
       start_period: 5s
 
-  minio:
-    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
-    command: server /data --console-address ":9001"
+  localstack:
+    image: localstack/localstack:3.8
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      SERVICES: s3
+      DEFAULT_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      LOCALSTACK_PERSISTENCE: "1"
     volumes:
-      - staging-minio-data:/data
+      - staging-s3-data:/var/lib/localstack
     ports:
-      - "${STAGING_S3_PORT:-59000}:9000"
-      - "${STAGING_S3_CONSOLE_PORT:-59001}:9001"
+      - "${STAGING_S3_PORT:-59000}:4566"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9000/minio/health/live"]
+      test: ["CMD", "bash", "-c", "curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null"]
       interval: 5s
       timeout: 3s
-      retries: 12
-      start_period: 5s
+      retries: 20
+      start_period: 10s
 
-  minio-init:
-    image: minio/mc:RELEASE.2024-06-13T22-53-53Z
+  s3-init:
+    build:
+      context: ../..
+      dockerfile: infra/staging/Dockerfile
+      target: s3-init
     depends_on:
-      minio:
+      localstack:
         condition: service_healthy
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      S3_ENDPOINT: http://localstack:4566
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
-    entrypoint: ["/bin/sh", "-ec"]
-    command:
-      - >-
-        mc alias set staging http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
-        mc mb --ignore-existing "staging/$${S3_BUCKET}";
-        mc anonymous set none "staging/$${S3_BUCKET}";
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
     restart: "no"
 
   redis:
@@ -76,25 +76,25 @@ services:
       APP_ENV: staging
       API_BASE_URL: ${API_BASE_URL:?API_BASE_URL is required}
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
-      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ENDPOINT: http://localstack:4566
       OBJECT_STORAGE_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
       OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
-      OBJECT_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      OBJECT_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      OBJECT_STORAGE_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      OBJECT_STORAGE_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
-      S3_ENDPOINT: http://minio:9000
-      AWS_ENDPOINT_URL: http://minio:9000
+      S3_ENDPOINT: http://localstack:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
       AWS_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       REDIS_QUEUE: ${REDIS_QUEUE:-patient-app-processing}
       AI_PROVIDER: ${AI_PROVIDER:-stub}
       STAGING_DATA_CLASSIFICATION: ${STAGING_DATA_CLASSIFICATION:-deidentified}
     depends_on:
       postgres:
         condition: service_healthy
-      minio-init:
+      s3-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -116,7 +116,7 @@ services:
       APP_ENV: staging
       WORKER_PORT: 8081
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
-      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ENDPOINT: http://localstack:4566
       OBJECT_STORAGE_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
       REDIS_QUEUE: ${REDIS_QUEUE:-patient-app-processing}
@@ -126,7 +126,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio-init:
+      s3-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -141,5 +141,5 @@ services:
 
 volumes:
   staging-postgres-data:
-  staging-minio-data:
+  staging-s3-data:
   staging-redis-data:
