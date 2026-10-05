@@ -6,9 +6,6 @@
   "blockers": [
     {
       "code": "fixture_worker_pipeline"
-    },
-    {
-      "code": "object_not_retained"
     }
   ],
   "check": "staging_integration_smoke",
@@ -60,7 +57,7 @@
     },
     "retention": {
       "metadata": "retained",
-      "object": "not_validated",
+      "object": "retained",
       "status": "passed",
       "verification": "live_http"
     },
@@ -72,7 +69,7 @@
       "verification": "live_http"
     },
     "upload": {
-      "duplicate_checksum": "accepted_as_new_document",
+      "duplicate_checksum": "deduplicated",
       "duplicate_idempotency": "passed",
       "status": "passed",
       "verification": "live_http"
@@ -105,14 +102,6 @@
     "verification": "mock"
   },
   "not_validated": [
-    {
-      "reason": "same_checksum_with_new_idempotency_key_is_not_deduplicated",
-      "stage": "duplicate_checksum"
-    },
-    {
-      "reason": "object_probe_failed",
-      "stage": "retention.object"
-    },
     {
       "reason": "no_HTTP_route_in_current_contract; deterministic fixture covers projection",
       "stage": "doctor_brief"
@@ -169,7 +158,7 @@
     },
     "retention": {
       "metadata": "retained",
-      "object": "not_validated",
+      "object": "retained",
       "status": "passed",
       "verification": "live_http"
     },
@@ -181,7 +170,7 @@
       "verification": "live_http"
     },
     "upload": {
-      "duplicate_checksum": "accepted_as_new_document",
+      "duplicate_checksum": "deduplicated",
       "duplicate_idempotency": "passed",
       "status": "passed",
       "verification": "live_http"

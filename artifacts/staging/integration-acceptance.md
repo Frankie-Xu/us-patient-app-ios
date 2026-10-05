@@ -15,10 +15,10 @@ python3 scripts/staging/integration_smoke.py --allow-blockers \
 
 The default exit code is `2` when a local blocker is found. Use
 `--allow-blockers` only when the report is being collected while the expected
-local limitations are present. A generated temporary bearer is used only for
-the current local API boundary; set `STAGING_AUTH_TOKEN` to exercise an
-approved staging token without printing it. The report keeps this distinction
-and never treats the temporary bearer as OAuth/JWT verification.
+local limitations are present. With `.env.staging`, the command logs in through
+the local signed staging session; credentials are read from the ignored file
+and never printed. A temporary bearer remains available only when no token or
+session credentials are supplied, and the report marks that mode as a blocker.
 
 The live path covers readiness, document and upload-session idempotency,
 binary upload replay, processing enqueue and worker completion detection, fact
@@ -35,7 +35,7 @@ python3 scripts/staging/integration_smoke.py --allow-blockers \
   --check-retention --artifact artifacts/staging/integration-acceptance-report.json
 ```
 
-The retention check restarts PostgreSQL, LocalStack, Redis, API, and Worker
-using the ignored `.env.staging`, then verifies readiness and metadata/object
-retention. The environment file and service output are never copied into the
-report.
+The retention check restarts PostgreSQL, the S3 service, Redis, API, and Worker
+using the ignored `.env.staging`, then verifies readiness, metadata retention,
+object checksum metadata, and object bytes. The environment file and service
+output are never copied into the report.

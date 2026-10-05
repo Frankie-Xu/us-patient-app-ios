@@ -19,15 +19,21 @@ services:
       start_period: 5s
 
   localstack:
-    image: localstack/localstack:3.8
+    # Official LocalStack Community 3.8 accepts the persistence flags but
+    # does not restore S3 state after a restart. This maintained compatible
+    # image adds on-disk S3 persistence while retaining the same S3 API.
+    image: gresau/localstack-persist@sha256:7750acf7089e75c9584e671d4594d54c8776b8a4bc57a0c18e4e92cff3d17267
     environment:
       SERVICES: s3
       DEFAULT_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
-      LOCALSTACK_PERSISTENCE: "1"
+      # Persist only S3 state to the named volume. The image keeps the
+      # LocalStack-compatible gateway and persists on each change.
+      PERSIST_DEFAULT: "0"
+      PERSIST_S3: "1"
     volumes:
-      - staging-s3-data:/var/lib/localstack
+      - staging-s3-data:/persisted-data
     ports:
       - "${STAGING_S3_PORT:-59000}:4566"
     healthcheck:

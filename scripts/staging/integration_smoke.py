@@ -225,6 +225,8 @@ def _restart_and_check_retention(
     api: HttpClient,
     document_id: str,
     object_key: str | None,
+    fixture_bytes: bytes,
+    fixture_sha256: str,
     compose_file: Path,
     env_file: Path,
 ) -> None:
@@ -296,10 +298,45 @@ def _restart_and_check_retention(
     retention: dict[str, Any] = {"verification": "live_http", "status": "blocked", "metadata": "retained"}
     if object_key:
         bucket = _safe_env_file(env_file).get("S3_BUCKET", "")
-        object_probe = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file), "exec", "-T", "localstack", "awslocal", "s3api", "head-object", "--bucket", bucket, "--key", object_key]
-        probe = subprocess.run(object_probe, cwd=compose_file.parent.parent.parent, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30, check=False)
-        retention["object"] = "retained" if probe.returncode == 0 else "not_validated"
-        if probe.returncode != 0:
+        compose_prefix = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file), "exec", "-T", "localstack", "awslocal"]
+        # S3ObjectStore has an `uploads` prefix and the service passes an
+        # `uploads/<session>` logical key, so the provider key is commonly
+        # `uploads/uploads/<session>`. Probe both forms to avoid mistaking a
+        # provider prefix for data loss.
+        candidates = [object_key, f"uploads/{object_key}"]
+        object_retained = False
+        for candidate in candidates:
+            head = subprocess.run(
+                compose_prefix + ["s3api", "head-object", "--bucket", bucket, "--key", candidate],
+                cwd=compose_file.parent.parent.parent,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if head.returncode != 0:
+                continue
+            try:
+                metadata = json.loads(head.stdout).get("Metadata", {})
+                digest = str(metadata.get("sha256", ""))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if digest.lower() != fixture_sha256:
+                continue
+            content = subprocess.run(
+                compose_prefix + ["s3", "cp", f"s3://{bucket}/{candidate}", "-"],
+                cwd=compose_file.parent.parent.parent,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30,
+                check=False,
+            )
+            if content.returncode == 0 and content.stdout == fixture_bytes:
+                object_retained = True
+                break
+        retention["object"] = "retained" if object_retained else "not_validated"
+        if not object_retained:
             report.setdefault("blockers", []).append({"code": "object_not_retained"})
             _record_gap(report, "retention.object", "object_probe_failed")
         else:
@@ -341,6 +378,8 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
         report.setdefault("blockers", []).append({"code": "fixture_worker_pipeline"})
 
     run_id = uuid.uuid4().hex[:12]
+    processing_bytes = FIXTURE_BYTES
+    processing_sha256 = FIXTURE_SHA256
     # The local worker deliberately uses plain-text fixture ingest here. The
     # PDF/image branches require pdftotext/tesseract in the worker image and
     # are reported separately rather than presenting synthetic bytes as OCR.
@@ -376,6 +415,26 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
         "duplicate_checksum": checksum_duplicate_result,
     }
 
+    # A rerun may correctly deduplicate to a document that is already ready.
+    # Keep the checksum assertion above, then use a fresh synthetic byte
+    # variant for the rest of this run so upload/session/worker checks remain
+    # independently repeatable without deleting staging history.
+    existing_state = api.request("GET", f"/v1/documents/{document_id}")
+    if existing_state.status == 200 and isinstance(existing_state.body, Mapping) and existing_state.body.get("status") != "uploaded":
+        processing_bytes = FIXTURE_BYTES + f"-run-{run_id}".encode("ascii")
+        processing_sha256 = hashlib.sha256(processing_bytes).hexdigest()
+        processing_body = {
+            "filename": "synthetic-integration-record-rerun.txt",
+            "media_type": "text/plain",
+            "size_bytes": len(processing_bytes),
+            "sha256": processing_sha256,
+        }
+        fresh = api.request("POST", "/v1/documents", body=processing_body, headers={"Idempotency-Key": _key("processing-document")})
+        _require(fresh, 201, "processing_document_create")
+        if not isinstance(fresh.body, Mapping) or not fresh.body.get("id"):
+            raise StageFailure("processing_document_create:missing_id")
+        document_id = str(fresh.body["id"])
+
     session_key = _key("session")
     session_response = api.request("POST", f"/v1/documents/{document_id}/upload-sessions", body={}, headers={"Idempotency-Key": session_key})
     _require(session_response, 201, "upload_session")
@@ -387,9 +446,9 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
     _require(session_replay, 201, "upload_session_replay")
     if not isinstance(session_replay.body, Mapping) or session_replay.body.get("id") != session_id:
         raise StageFailure("upload_session_replay:not_idempotent")
-    upload = api.request("PUT", f"/v1/upload-sessions/{session_id}/content", raw_body=FIXTURE_BYTES, headers={"Content-Type": "application/octet-stream"})
+    upload = api.request("PUT", f"/v1/upload-sessions/{session_id}/content", raw_body=processing_bytes, headers={"Content-Type": "application/octet-stream"})
     _require(upload, 200, "upload_content")
-    repeat_upload = api.request("PUT", f"/v1/upload-sessions/{session_id}/content", raw_body=FIXTURE_BYTES, headers={"Content-Type": "application/octet-stream"})
+    repeat_upload = api.request("PUT", f"/v1/upload-sessions/{session_id}/content", raw_body=processing_bytes, headers={"Content-Type": "application/octet-stream"})
     _require(repeat_upload, 200, "upload_repeat")
     # The API intentionally omits object_key from its public response.  The
     # current S3 adapter uses the documented internal key convention, so the
@@ -489,6 +548,8 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
             api=api,
             document_id=document_id,
             object_key=object_key,
+            fixture_bytes=processing_bytes,
+            fixture_sha256=processing_sha256,
             compose_file=Path(args.compose_file),
             env_file=Path(args.env_file),
         )

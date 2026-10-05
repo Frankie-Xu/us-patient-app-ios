@@ -63,7 +63,7 @@
       "verification": "live_http"
     },
     "upload": {
-      "duplicate_checksum": "accepted_as_new_document",
+      "duplicate_checksum": "deduplicated",
       "duplicate_idempotency": "passed",
       "status": "passed",
       "verification": "live_http"
@@ -96,10 +96,6 @@
     "verification": "mock"
   },
   "not_validated": [
-    {
-      "reason": "same_checksum_with_new_idempotency_key_is_not_deduplicated",
-      "stage": "duplicate_checksum"
-    },
     {
       "reason": "not_run_without_explicit_check_retention",
       "stage": "retention"
@@ -166,7 +162,7 @@
       "verification": "live_http"
     },
     "upload": {
-      "duplicate_checksum": "accepted_as_new_document",
+      "duplicate_checksum": "deduplicated",
       "duplicate_idempotency": "passed",
       "status": "passed",
       "verification": "live_http"

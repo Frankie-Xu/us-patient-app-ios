@@ -1,12 +1,13 @@
 # Real staging composition
 
 This directory defines a reproducible, synthetic/de-identified staging
-composition. It starts PostgreSQL, LocalStack (S3-compatible), Redis, the API
-HTTP adapter wired to the checked-in provider adapters, and a Redis-backed
-worker consumer. The API applies the checked-in PostgreSQL migration on
-startup and fails readiness when PostgreSQL, LocalStack S3, or Redis is
-unavailable. LocalStack is used for reproducible local S3 behavior; a remote
-staging deployment can set `S3_ENDPOINT` to an approved S3-compatible service.
+composition. It starts PostgreSQL, a pinned LocalStack-compatible S3 persistence
+image, Redis, the API HTTP adapter wired to the checked-in provider adapters,
+and a Redis-backed worker consumer. The object-store image keeps S3 state in
+the named volume and is pinned by digest for repeatable local runs. The API
+applies the checked-in PostgreSQL migration on startup and fails readiness when
+PostgreSQL, the S3 service, or Redis is unavailable. A remote staging
+deployment can set `S3_ENDPOINT` to an approved S3-compatible service.
 
 The default worker mode is `queue-consumer-fixture-ocr` with bounded retries and
 lease recovery. Plain-text synthetic fixtures use the explicit local-text
