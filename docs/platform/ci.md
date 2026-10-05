@@ -2,9 +2,12 @@
 
 The repository CI is intentionally credential-free. Every job uses read-only repository access, checkout credentials are removed, and no deployment or cloud resource is created.
 
-## Required pull request checks
+## Pull request checks
 
-Configure branch protection on `main` to require these exact check names:
+The component jobs run in parallel on every pull request. Configure branch
+protection on `main` to require only the aggregate **Integration gate** check;
+the component checks remain visible for diagnosis and the aggregate gate fails
+when any required component fails.
 
 - **Repository validation** — repository policy scan, dependency manifest/version checks, workflow action pin checks, scanner regression tests, and patch formatting.
 - **Contract validation** — OpenAPI 3.x and JSON Schema parsing plus internal reference checks. The job succeeds with an explicit skip message while `packages/contracts` has no contract files.
@@ -12,7 +15,7 @@ Configure branch protection on `main` to require these exact check names:
 - **AI tests** — emits an aggregate synthetic golden-set regression report, runs the doctor-view projection gate, uploads the PHI-safe aggregate JSON, then applies the same discovery rules to `services/ai`.
 - **iOS tests** — runs `apps/ios` Swift Package or Xcode tests when that component is present. The job is skipped when no iOS project or package exists yet.
 
-A skipped component is an intentional green result for the scaffold. The pull request must state which component was skipped and why. Once a component and its tests land, the same check discovers and runs them; a failing test remains a failing check.
+A skipped component is an intentional green result for the scaffold. The pull request must state which component was skipped and why. Once a component and its tests land, the same check discovers and runs them; a failing test remains a failing check. The Integration gate publishes a safe aggregate summary in the Actions run page and retains the detailed manifests as a short-lived artifact.
 
 ## Contract gate
 
@@ -35,21 +38,16 @@ bash scripts/verify.sh --full
 
 `--quick` is intended for fast iteration. `--full` runs the release evidence gate locally and writes the same redacted aggregate artifact used by CI. The artifact contains statuses and safe metadata only.
 
-Run these before opening a pull request:
+For normal development, use the two entrypoint commands:
 
 ```text
-bash scripts/validate-repo.sh
-bash scripts/test-validate-repo.sh
-bash scripts/check-dependencies.sh
-bash scripts/check-workflow-pins.sh
-bash scripts/check-openapi.sh
-bash scripts/discover-http-route-tests.sh services/api
-bash scripts/run-api-readiness.sh services/api
-bash scripts/run-ai-golden-regression.sh services/ai
-bash scripts/run-python-tests.sh services/api
-bash scripts/run-python-tests.sh services/ai
-bash scripts/run-ios-tests.sh apps/ios
+bash scripts/verify.sh --quick
+bash scripts/verify.sh --full
 ```
+
+Use the individual scripts only to isolate a failed group. The full command
+creates both the redacted JSON evidence and the safe Markdown summary used by
+the Integration gate.
 
 ## HTTP route smoke and test discovery
 

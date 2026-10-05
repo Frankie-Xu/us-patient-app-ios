@@ -198,6 +198,13 @@ jobs:
       - name: Check generated evidence redaction
         if: ${{ always() }}
         run: python scripts/check_privacy_evidence.py --input artifacts/release-evidence.json --input artifacts/production-gate-synthetic.json --output artifacts/privacy-evidence.json
+      - name: Publish integration gate summary
+        if: ${{ always() }}
+        run: |
+          python scripts/render_evidence_summary.py \
+            --input artifacts/release-evidence.json \
+            --output artifacts/release-evidence-summary.md
+          cat artifacts/release-evidence-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload release evidence manifest
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -207,5 +214,6 @@ jobs:
             artifacts/release-evidence.json
             artifacts/production-gate-synthetic.json
             artifacts/privacy-evidence.json
+            artifacts/release-evidence-summary.md
           if-no-files-found: error
           retention-days: 7

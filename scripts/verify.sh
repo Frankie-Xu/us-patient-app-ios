@@ -49,6 +49,7 @@ if [[ "$mode" == "quick" ]]; then
 fi
 
 artifact_path="${VERIFY_ARTIFACT_PATH:-artifacts/release-evidence.json}"
+summary_path="${VERIFY_SUMMARY_PATH:-${artifact_path%.json}-summary.md}"
 set +e
 "$python_bin" scripts/release_evidence.py --output "$artifact_path"
 status=$?
@@ -71,4 +72,9 @@ if overall["failed_groups"]:
     print("Failed groups: " + ", ".join(overall["failed_groups"]))
 print("Evidence: " + str(pathlib.Path(sys.argv[1])))
 PY
+if [[ -f "$artifact_path" ]]; then
+  "$python_bin" scripts/render_evidence_summary.py --input "$artifact_path" --output "$summary_path"
+  cat "$summary_path"
+  echo "Summary: $summary_path"
+fi
 exit "$status"

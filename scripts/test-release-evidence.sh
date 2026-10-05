@@ -31,6 +31,16 @@ serialized=json.dumps(value)
 for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in serialized
 PY
 
+"$python_bin" "$repo_root/scripts/render_evidence_summary.py" --input "$tmp_dir/pass.json" --output "$tmp_dir/pass.md"
+"$python_bin" - "$tmp_dir/pass.md" <<'PY'
+import pathlib, sys
+value=pathlib.Path(sys.argv[1]).read_text()
+assert "## Integration gate evidence" in value
+assert "| `repository` | `passed` |" in value
+assert "| `ios` | `skipped` |" in value
+for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in value
+PY
+
 set +e
 RELEASE_EVIDENCE_REPOSITORY_RESULT=failure \
 RELEASE_EVIDENCE_CONTRACT_RESULT=success \
