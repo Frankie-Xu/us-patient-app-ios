@@ -150,8 +150,14 @@ services:
       DASHSCOPE_TIMEOUT_SECONDS: ${DASHSCOPE_TIMEOUT_SECONDS:-60}
       DASHSCOPE_MAX_PDF_PAGES: ${DASHSCOPE_MAX_PDF_PAGES:-20}
       DASHSCOPE_PDF_RASTER_DPI: ${DASHSCOPE_PDF_RASTER_DPI:-150}
+      # External provider egress is opt-in through the ignored staging env.
+      HTTP_PROXY: ${STAGING_HTTP_PROXY:-}
+      HTTPS_PROXY: ${STAGING_HTTPS_PROXY:-}
+      ALL_PROXY: ${STAGING_ALL_PROXY:-}
+      NO_PROXY: ${STAGING_NO_PROXY:-localhost,127.0.0.1,postgres,localstack,redis,api,worker}
       WORKER_CONSUMER_ENABLED: ${WORKER_CONSUMER_ENABLED:-1}
       WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
+      WORKER_RETRY_BACKOFF_SECONDS: ${WORKER_RETRY_BACKOFF_SECONDS:-1}
       WORKER_LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
       WORKER_METADATA_WAIT_ATTEMPTS: ${WORKER_METADATA_WAIT_ATTEMPTS:-3}
     depends_on:
@@ -161,6 +167,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${STAGING_WORKER_PORT:-58001}:8081"
     healthcheck:

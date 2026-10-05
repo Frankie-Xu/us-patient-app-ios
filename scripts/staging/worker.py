@@ -19,6 +19,13 @@ def _enabled(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def retry_backoff_seconds(base_seconds: float, attempt: int, *, cap_seconds: float = 30.0) -> float:
+    """Return bounded exponential delay for a retry without exposing payloads."""
+    if base_seconds <= 0 or attempt <= 0:
+        return 0.0
+    return min(float(cap_seconds), base_seconds * (2 ** max(0, attempt - 1)))
+
+
 class WorkerRuntime:
     def __init__(self) -> None:
         settings = ProviderSettings.from_environment()
@@ -65,6 +72,10 @@ class WorkerRuntime:
         default_mode = f"queue-consumer-{ocr_provider_name}" if provider_label else ("queue-consumer-fixture-ocr" if self.consumer_enabled else "fixture-health-only")
         self.mode = os.getenv("WORKER_MODE", default_mode)
         self.max_attempts = max(1, int(os.getenv("WORKER_MAX_ATTEMPTS", "3")))
+        try:
+            self.retry_backoff_base_seconds = max(0.0, float(os.getenv("WORKER_RETRY_BACKOFF_SECONDS", "1")))
+        except ValueError:
+            self.retry_backoff_base_seconds = 1.0
         # The API writes the Redis message just before its metadata row.  A
         # fast consumer can therefore observe a job a few milliseconds before
         # PostgreSQL commits it.  Retry that narrow race, while bounding truly
@@ -89,8 +100,8 @@ class WorkerRuntime:
             self._thread.join(timeout=5)
         self.store.close()
 
-    def _mark_retry(self, job: UploadProcessingJob, code: str) -> bool:
-        if job.attempt < self.max_attempts:
+    def _mark_retry(self, job: UploadProcessingJob, code: str, *, retryable: bool = True) -> bool:
+        if retryable and job.attempt < self.max_attempts:
             self.store.save_resource("jobs", replace(job, status=JobStatus.QUEUED, error_code=code))
             return True
         failed = replace(job, status=JobStatus.FAILED, error_code=code)
@@ -123,8 +134,9 @@ class WorkerRuntime:
             except ProcessingError as exc:
                 try:
                     job = self.store.get_resource("jobs", job_id)
-                    retry = self._mark_retry(job, exc.code)
+                    retry = self._mark_retry(job, exc.code, retryable=exc.retryable)
                     if retry:
+                        self._stop.wait(retry_backoff_seconds(self.retry_backoff_base_seconds, job.attempt))
                         self.queue.requeue(message)
                     else:
                         self.queue.ack(message)
@@ -163,6 +175,7 @@ class WorkerRuntime:
                     job = self.store.get_resource("jobs", job_id)
                     retry = self._mark_retry(job, "PROCESSING_FAILED")
                     if retry:
+                        self._stop.wait(retry_backoff_seconds(self.retry_backoff_base_seconds, job.attempt))
                         self.queue.requeue(message)
                     else:
                         self.queue.ack(message)

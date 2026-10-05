@@ -35,6 +35,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_BYTES = b"synthetic-local-staging-document-v2"
 FIXTURE_SHA256 = hashlib.sha256(FIXTURE_BYTES).hexdigest()
+IMAGE_FIXTURE_PATH = ROOT / "tests/fixtures/synthetic_ocr.png"
 DEFAULT_API_URL = "http://127.0.0.1:58000"
 DEFAULT_WORKER_URL = "http://127.0.0.1:58001"
 AUTH_SCOPES = (
@@ -380,10 +381,20 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
     run_id = uuid.uuid4().hex[:12]
     processing_bytes = FIXTURE_BYTES
     processing_sha256 = FIXTURE_SHA256
-    # The local worker deliberately uses plain-text fixture ingest here. The
-    # PDF/image branches require pdftotext/tesseract in the worker image and
-    # are reported separately rather than presenting synthetic bytes as OCR.
-    document_body = {"filename": "synthetic-integration-record.txt", "media_type": "text/plain", "size_bytes": len(FIXTURE_BYTES), "sha256": FIXTURE_SHA256}
+    processing_filename = "synthetic-integration-record.txt"
+    processing_media_type = "text/plain"
+    # A provider-backed Worker needs image input. The checked-in PNG contains
+    # only synthetic text and lets the same live acceptance path verify actual
+    # container-side OCR without treating fixture text ingest as OCR success.
+    if worker_live and not worker_fixture:
+        try:
+            processing_bytes = IMAGE_FIXTURE_PATH.read_bytes()
+        except OSError as exc:
+            raise StageFailure("provider_fixture_missing") from exc
+        processing_sha256 = hashlib.sha256(processing_bytes).hexdigest()
+        processing_filename = "synthetic-integration-record.png"
+        processing_media_type = "image/png"
+    document_body = {"filename": processing_filename, "media_type": processing_media_type, "size_bytes": len(processing_bytes), "sha256": processing_sha256}
     document_headers = {"Idempotency-Key": _key("document")}
     created = api.request("POST", "/v1/documents", body=document_body, headers=document_headers)
     _require(created, 201, "document_create")
@@ -421,11 +432,11 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
     # independently repeatable without deleting staging history.
     existing_state = api.request("GET", f"/v1/documents/{document_id}")
     if existing_state.status == 200 and isinstance(existing_state.body, Mapping) and existing_state.body.get("status") != "uploaded":
-        processing_bytes = FIXTURE_BYTES + f"-run-{run_id}".encode("ascii")
+        processing_bytes = processing_bytes + f"\nsynthetic-run-{run_id}".encode("ascii")
         processing_sha256 = hashlib.sha256(processing_bytes).hexdigest()
         processing_body = {
-            "filename": "synthetic-integration-record-rerun.txt",
-            "media_type": "text/plain",
+            "filename": processing_filename,
+            "media_type": processing_media_type,
             "size_bytes": len(processing_bytes),
             "sha256": processing_sha256,
         }
@@ -475,12 +486,13 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
             break
         time.sleep(args.poll_interval)
     report.setdefault("stages", {})["processing"] = {
-        "verification": "live_http+fixture_worker" if worker_fixture else "live_http",
+        "verification": "live_http+fixture_worker" if worker_fixture else "live_http+provider_worker",
         "status": "passed",
         "queue": "enqueued",
         "document_state": processing_state,
         "worker_completed": processing_state == "ready",
         "ocr_provider": "fixture" if worker_fixture else "provider",
+        "input_media_type": processing_media_type,
     }
     if processing_state != "ready":
         _record_gap(report, "processing", "worker_did_not_complete_ocr")

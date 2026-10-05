@@ -17,7 +17,7 @@ installed. A ready worker therefore confirms queue consumption and dependency
 health, while the acceptance report still labels fixture processing separately
 from provider OCR/AI results.
 
-The worker can opt into the server-side Alibaba Cloud Model Studio Qwen3.5-OCR
+The worker can opt into the server-side Alibaba Cloud Model Studio Qwen OCR
 adapter with values supplied only through the ignored staging environment file or
 an external secret manager:
 
@@ -31,6 +31,11 @@ DASHSCOPE_PDF_RASTER_DPI=150
 DASHSCOPE_API_KEY=<secret-managed-value>
 WORKER_MODE=queue-consumer-qwen-vl-ocr
 STAGING_DATA_CLASSIFICATION=deidentified
+# Optional local-only proxy for Docker egress. Keep these values in ignored
+# .env.staging or a secret manager; never commit them.
+STAGING_HTTP_PROXY=http://host.docker.internal:<proxy-port>
+STAGING_HTTPS_PROXY=http://host.docker.internal:<proxy-port>
+STAGING_NO_PROXY=localhost,127.0.0.1,postgres,localstack,redis,api,worker
 ```
 
 The key is read by the Worker only and is never returned to iOS or included in
@@ -68,6 +73,16 @@ explicitly copying the full Key, use `--key-from-clipboard` to import it locally
 without displaying it. Invalid input or cancellation leaves the configuration
 unchanged. The helper rejects non-ignored paths inside the repository and writes
 the environment atomically with owner-only permissions.
+
+### Container provider egress
+
+The Worker receives `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` only through
+the local environment file. Compose maps `host.docker.internal` to the Docker
+host gateway so a development proxy listening on the host loopback can be
+reached from the Worker container without putting its address in tracked files.
+If the host proxy is unavailable, leave these variables unset: the selected
+external provider fails closed and local-only runs must choose the deterministic
+fixture explicitly.
 
 ## Start
 

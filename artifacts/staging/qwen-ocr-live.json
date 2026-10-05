@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "host_smoke_passed",
+  "status": "container_smoke_passed",
   "classification": "synthetic",
   "region": "us-east-1",
   "workspace_id": "ws-ex6zhqfa8j85yokx",
@@ -14,7 +14,9 @@
     "mode": "queue-consumer-qwen-vl-ocr",
     "consumer_enabled": true,
     "classification": "deidentified",
-    "external_egress": "blocked_loopback_only_proxy"
+    "external_egress": "host_gateway_proxy",
+    "text_length": 18,
+    "synthetic_marker_detected": true
   },
   "credentials": "not_recorded",
   "phi": "not_used"

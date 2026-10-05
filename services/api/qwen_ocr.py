@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -46,7 +47,17 @@ class QwenOCRSettings:
         base_url = str(values.get("DASHSCOPE_BASE_URL", "")).strip().rstrip("/")
         if not api_key or not base_url:
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
-        if not base_url.startswith("https://"):
+        if not api_key.startswith("sk-") or not 16 <= len(api_key) <= 512 or any(character.isspace() for character in api_key):
+            raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
+        parsed_url = urlsplit(base_url)
+        if (
+            parsed_url.scheme != "https"
+            or not parsed_url.hostname
+            or parsed_url.username
+            or parsed_url.password
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
         try:
             timeout = float(values.get("DASHSCOPE_TIMEOUT_SECONDS", "60"))
@@ -61,7 +72,9 @@ class QwenOCRSettings:
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False) from exc
         if not 1 <= max_pdf_pages <= 50 or not 72 <= raster_dpi <= 300:
             raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
-        model = str(values.get("DASHSCOPE_MODEL", "qwen3.5-ocr")).strip() or "qwen3.5-ocr"
+        model = str(values.get("DASHSCOPE_MODEL", "")).strip()
+        if not model or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", model):
+            raise QwenOCRError("OCR_CONFIGURATION_INVALID", retryable=False)
         task = str(values.get("DASHSCOPE_OCR_TASK", "text_recognition")).strip() or "text_recognition"
         return cls(
             api_key=api_key,
@@ -77,7 +90,7 @@ class QwenOCRSettings:
 class Qwen35OCRProvider:
     """Minimal OpenAI-compatible image OCR client for the Worker boundary."""
 
-    provider_name = "aliyun-bailian-qwen3.5-ocr"
+    provider_name = "aliyun-bailian-qwen-ocr"
     _MAX_IMAGE_BYTES = 20 * 1024 * 1024
     _IMAGE_TYPES = {
         "image/bmp",
@@ -97,6 +110,7 @@ class Qwen35OCRProvider:
         rasterizer: Callable[[bytes], list[bytes]] | None = None,
     ) -> None:
         self.settings = settings
+        self.provider_name = f"aliyun-bailian-{settings.model}"
         self._opener = opener
         self._rasterizer = rasterizer or self._rasterize_pdf
 
