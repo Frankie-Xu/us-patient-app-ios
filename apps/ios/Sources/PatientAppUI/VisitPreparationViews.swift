@@ -66,6 +66,7 @@ struct VisitsView: View {
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Visits")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabVisits)
             .sheet(item: $sharingVisit) { visit in
                 ShareVisitSheet(visit: visit, model: share, pack: pack)
             }
@@ -146,6 +147,7 @@ struct TasksView: View {
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Tasks")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabTasks)
             .task {
                 if case .idle = history.state { await history.load() }
             }

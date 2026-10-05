@@ -24,6 +24,13 @@ final class AccessibilityLocalizationTests: XCTestCase {
 
     func testAccessibilityIdentifiersRemainStable() {
         XCTAssertEqual(PatientAccessibilityIdentifier.homeImportFile, "patient.home.import-file")
+        XCTAssertEqual(PatientAccessibilityIdentifier.uploadProgress, "patient.upload.progress")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabHome, "patient.tab.home")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabRecords, "patient.tab.records")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabReview, "patient.tab.review")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabVisits, "patient.tab.visits")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabTasks, "patient.tab.tasks")
+        XCTAssertEqual(PatientAccessibilityIdentifier.tabAccount, "patient.tab.account")
         XCTAssertEqual(PatientAccessibilityIdentifier.retry, "patient.retry")
         XCTAssertEqual(PatientAccessibilityIdentifier.offlineBanner, "patient.offline")
     }

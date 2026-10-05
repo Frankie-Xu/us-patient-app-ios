@@ -19,8 +19,8 @@ public struct AccountView: View {
                         Text("Sign in to load account-owned records and preparation history.")
                             .foregroundStyle(.secondary)
                     case let .signedIn(session):
-                        Text("Signed in as (session.identifier)")
-                        Text("Session epoch (session.epoch)")
+                        Text("Signed in as \(session.identifier)")
+                        Text("Session epoch \(session.epoch)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     case .expired:
@@ -57,6 +57,7 @@ public struct AccountView: View {
                 }
             }
             .navigationTitle("Account")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabAccount)
         }
     }
 

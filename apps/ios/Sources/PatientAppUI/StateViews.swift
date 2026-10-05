@@ -89,6 +89,7 @@ struct HomeView: View {
             }
             .padding()
             .navigationTitle("Home")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabHome)
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
                 _Concurrency.Task { await importPhoto(item) }
@@ -111,7 +112,6 @@ struct HomeView: View {
 
     @MainActor
     private func importRequest(_ request: ImportRequest) async {
-        if let uploadQueue { _ = uploadQueue.enqueue(request) }
         await model.start(request)
     }
 
@@ -192,6 +192,7 @@ struct RecordsView: View {
                 .padding()
             }
             .navigationTitle("Records")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabRecords)
             .refreshable { await history.load() }
             .task {
                 if case .idle = history.state { await history.load() }
@@ -279,6 +280,7 @@ struct ReviewView: View {
                     }
                 }
             .navigationTitle("Review")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabReview)
         }
     }
 }
@@ -326,9 +328,11 @@ private struct FlowContent: View {
             case .idle:
                 ContentUnavailableView("No records", systemImage: "tray", description: Text("Start a synthetic import from Home."))
             case .uploading:
-                ProgressView("Uploading \\(model.currentImportTitle)…")
+                ProgressView("Uploading \(model.currentImportTitle)…")
+                    .accessibilityIdentifier(PatientAccessibilityIdentifier.uploadProgress)
             case .processing:
-                ProgressView("Processing \\(model.currentImportTitle)…")
+                ProgressView("Processing \(model.currentImportTitle)…")
+                    .accessibilityIdentifier(PatientAccessibilityIdentifier.uploadProgress)
             case let .reviewRequired(snapshot), let .completed(snapshot):
                 Text(snapshot.ticket.title).font(.headline)
                 if allowsReview {
@@ -340,6 +344,7 @@ private struct FlowContent: View {
                         }
                         .accessibilityIdentifier("\(PatientAccessibilityIdentifier.reviewFact).\(fact.id.uuidString)")
                     }
+                    .accessibilityIdentifier(PatientAccessibilityIdentifier.reviewFactsList)
                 } else {
                     Text("\(snapshot.facts.count) facts available in Review.")
                 }
