@@ -40,11 +40,13 @@ public final class AppShellModel: ObservableObject {
     @Published public var documentHistory: DocumentHistoryModel
     @Published public private(set) var authState: AuthState = .signedOut
     public let uploadQueue: OfflineUploadCoordinator
+    public let client: any PatientAPIClient
     public let protectedCache: any ProtectedCache
     public let sessionStore: any SessionStore
     public let authSession: any AuthSession
 
     public init(client: any PatientAPIClient = DeterministicMockAPIClient(), protectedCache: any ProtectedCache = InMemoryProtectedCache(), sessionStore: (any SessionStore)? = nil, authSession: (any AuthSession)? = nil, uploadQueuePersistence: (any UploadQueuePersistence)? = nil) {
+        self.client = client
         let auth: any AuthSession
         if let authSession {
             auth = authSession
@@ -163,7 +165,7 @@ public struct AppShellView: View {
     private var authenticatedContent: some View {
         TabView(selection: $model.selection) {
             HomeView(model: model.importFlow, uploadQueue: model.uploadQueue).tabItem { Label(AppSection.home.title, systemImage: AppSection.home.systemImage) }.tag(AppSection.home)
-            RecordsView(model: model.importFlow, history: model.documentHistory, onReview: { model.selection = .review }).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
+            RecordsView(model: model.importFlow, history: model.documentHistory, client: model.client, onReview: { model.selection = .review }).tabItem { Label(AppSection.records.title, systemImage: AppSection.records.systemImage) }.tag(AppSection.records)
             ReviewView(model: model.importFlow).tabItem { Label(AppSection.review.title, systemImage: AppSection.review.systemImage) }.tag(AppSection.review)
             VisitsView(model: model.visitPreparation, history: model.accountHistory, share: model.shareFlow, pack: model.visitPack).tabItem { Label(AppSection.visits.title, systemImage: AppSection.visits.systemImage) }.tag(AppSection.visits)
             TasksView(model: model.visitPreparation, history: model.accountHistory).tabItem { Label(AppSection.tasks.title, systemImage: AppSection.tasks.systemImage) }.tag(AppSection.tasks)

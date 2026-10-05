@@ -171,11 +171,13 @@ struct HomeView: View {
 struct RecordsView: View {
     @ObservedObject var model: ImportFlowModel
     @ObservedObject var history: DocumentHistoryModel
+    let client: any PatientAPIClient
     let onReview: () -> Void
 
-    init(model: ImportFlowModel, history: DocumentHistoryModel, onReview: @escaping () -> Void = {}) {
+    init(model: ImportFlowModel, history: DocumentHistoryModel, client: any PatientAPIClient, onReview: @escaping () -> Void = {}) {
         self.model = model
         self.history = history
+        self.client = client
         self.onReview = onReview
     }
 
@@ -185,7 +187,7 @@ struct RecordsView: View {
                 VStack(spacing: 16) {
                     FlowContent(model: model, allowsReview: false)
                     Divider()
-                    DocumentHistoryContent(history: history, importModel: model, onReview: onReview)
+                    DocumentHistoryContent(history: history, importModel: model, client: client, onReview: onReview)
                 }
                 .padding()
             }
@@ -209,6 +211,7 @@ struct RecordsView: View {
 private struct DocumentHistoryContent: View {
     @ObservedObject var history: DocumentHistoryModel
     @ObservedObject var importModel: ImportFlowModel
+    let client: any PatientAPIClient
     let onReview: () -> Void
 
     var body: some View {
@@ -221,27 +224,24 @@ private struct DocumentHistoryContent: View {
                 ContentUnavailableView("No imported records", systemImage: "doc.text", description: Text("Choose a record file on Home to get started."))
             case let .loaded(documents):
                 ForEach(documents) { document in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(document.title).font(.body)
-                        Text(document.processingStatus.displayName)
-                            .font(.caption)
-                            .foregroundStyle(document.processingStatus == .failed ? .red : .secondary)
-                        Text("Version \(document.version) · Updated \(document.updatedAt, format: .dateTime.month().day().hour().minute())")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Button("Review facts") {
-                            _Concurrency.Task {
-                                await importModel.loadExisting(document: document)
-                                if case .reviewRequired = importModel.state {
-                                    onReview()
-                                }
-                            }
+                    NavigationLink {
+                        DocumentDetailView(document: document, client: client, importModel: importModel, onReview: onReview)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(document.title).font(.body)
+                            Text(document.processingStatus.displayName)
+                                .font(.caption)
+                                .foregroundStyle(document.processingStatus == .failed ? .red : .secondary)
+                            Text("Version \(document.version) · Updated \(document.updatedAt, format: .dateTime.month().day().hour().minute())")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Label("Open record details", systemImage: "chevron.forward")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(importModel.isBusy)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
+                    .accessibilityIdentifier("records.documentDetail.\(document.id.uuidString)")
                 }
             case let .failed(error):
                 Text(error.displayMessage).foregroundStyle(.red)
