@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-06",
+  "classification": "synthetic-no-phi",
+  "toolchain": {
+    "xcode": "27.0",
+    "build": "27A266a",
+    "ios_sdk": "27.0",
+    "simulator_runtime": "27.0",
+    "device": "iPhone 18 Pro",
+    "device_udid": "39E5F9B7-5C5B-477B-B573-725920F120A3",
+    "deployment_target": "iOS 17.0",
+    "bundle_identifier": "com.example.patientapp"
+  },
+  "scheme": "PatientAppTests",
+  "destination": "platform=iOS Simulator,id=39E5F9B7-5C5B-477B-B573-725920F120A3",
+  "results": {
+    "xcodebuild_list": "passed",
+    "debug_build": "passed",
+    "release_build": "passed",
+    "xctest": {
+      "status": "passed",
+      "domain_tests": 72,
+      "ui_model_tests": 51,
+      "xcui_application_tests": 3,
+      "failures": 0,
+      "result_bundle": "/tmp/patient-app-step6-full-20261006/Logs/Test/Test-PatientAppTests-2026.10.06_05-09-17-+0800.xcresult"
+    },
+    "simulator_install_launch": "passed",
+    "screenshot": "artifacts/xcode/simulator-flow-20261006.png"
+  },
+  "user_path": [
+    "signed-out login controls",
+    "session recovery demo launch",
+    "Home",
+    "Import synthetic record",
+    "Upload progress and processing",
+    "Record detail",
+    "Fact review",
+    "Doctor brief",
+    "Visit questions",
+    "PDF export",
+    "Create share",
+    "Revoke share"
+  ],
+  "external_dependencies": {
+    "remote_https_staging": "not verified",
+    "external_oauth_jwt": "not configured",
+    "apple_team_signing": "not configured",
+    "testflight_publish": "not verified"
+  }
+}

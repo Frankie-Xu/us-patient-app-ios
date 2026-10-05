@@ -130,6 +130,18 @@ struct DocumentShareView: View {
     let documentID: UUID
     let version: Int
     @EnvironmentObject private var shell: AppShellModel
+
+    var body: some View {
+        DocumentShareContent(documentID: documentID, version: version, model: shell.shareFlow)
+    }
+}
+
+/// Observes the nested model directly so create/revoke changes update the
+/// controls as well as the independently observed access-status section.
+private struct DocumentShareContent: View {
+    let documentID: UUID
+    let version: Int
+    @ObservedObject var model: ShareFlowModel
     @State private var pdfState: PDFState = .idle
 
     var body: some View {
@@ -151,10 +163,10 @@ struct DocumentShareView: View {
                 }
             }
             Section("Controlled access") {
-                switch shell.shareFlow.state {
+                switch model.state {
                 case .idle:
                     Button("Create 24-hour share") {
-                        _Concurrency.Task { await shell.shareFlow.createDocumentShare(documentID: documentID, version: version) }
+                        _Concurrency.Task { await model.createDocumentShare(documentID: documentID, version: version) }
                     }
                 case .creating:
                     ProgressView("Creating share…")
@@ -163,26 +175,25 @@ struct DocumentShareView: View {
                     if let expiresAt = creation.share.expiresAt {
                         Text("Expires \(expiresAt, format: .dateTime.month().day().hour().minute())").font(.caption)
                     }
-                    Button("Revoke share", role: .destructive) { _Concurrency.Task { await shell.shareFlow.revoke() } }
-                        .disabled(shell.shareFlow.isBusy || shell.shareFlow.accessStatus?.isAccessible == false)
-                    if shell.shareFlow.isBusy { ProgressView() }
+                    Button("Revoke share", role: .destructive) { _Concurrency.Task { await model.revoke() } }
+                        .disabled(model.isBusy || model.accessStatus?.isAccessible == false)
+                    if model.isBusy { ProgressView() }
                 case .revoked:
                     Label("Share revoked", systemImage: "checkmark.shield")
                 case .failed:
                     Text("Share could not be created.").foregroundStyle(.red)
-                    Button("Try again") { _Concurrency.Task { await shell.shareFlow.retry() } }
+                    Button("Try again") { _Concurrency.Task { await model.retry() } }
                 }
             }
-            ShareAccessStatusSection(model: shell.shareFlow)
+            ShareAccessStatusSection(model: model)
         }
         .navigationTitle("Share record")
-        .onAppear { shell.shareFlow.reset() }
     }
 
     private func exportPDF() async {
         pdfState = .exporting
         do {
-            pdfState = .ready(try await shell.shareFlow.exportPDF(documentID: documentID, version: version))
+            pdfState = .ready(try await model.exportPDF(documentID: documentID, version: version))
         } catch {
             pdfState = .failed
         }

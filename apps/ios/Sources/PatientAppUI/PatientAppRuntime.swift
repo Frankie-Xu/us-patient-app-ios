@@ -19,6 +19,7 @@ public enum PatientAppRuntime {
         let cache = makeCache()
         let sessionStore = makeSessionStore(cache: cache)
         let arguments = ProcessInfo.processInfo.arguments
+        let runningUnderXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let environmentResult = Result {
             try PatientAPIEnvironmentConfiguration.resolve(
                 arguments: arguments,
@@ -26,10 +27,13 @@ public enum PatientAppRuntime {
             )
         }
 
-        // This is an explicit test/preview choice and takes priority over any
-        // inherited shell environment.
-        let runningUnderXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        if arguments.contains("--patient-app-deterministic-client") || runningUnderXCTest {
+        let explicitLocalLaunch = arguments.contains("--patient-app-deterministic-client")
+            || arguments.contains("--patient-app-demo-signed-in")
+            || arguments.contains("--patient-app-demo-imported")
+        if explicitLocalLaunch {
+            return makeFixtureModel(cache: cache, sessionStore: sessionStore, forceDeterministic: true)
+        }
+        if runningUnderXCTest {
             return makeFixtureModel(cache: cache, sessionStore: sessionStore)
         }
 
@@ -76,7 +80,21 @@ public enum PatientAppRuntime {
         )
     }
 
-    private static func makeFixtureModel(cache: any ProtectedCache, sessionStore: KeychainSessionStore, runtimeError: String? = nil) -> AppShellModel {
+    private static func makeFixtureModel(cache: any ProtectedCache, sessionStore: KeychainSessionStore, runtimeError: String? = nil, forceDeterministic: Bool = false) -> AppShellModel {
+        // Explicit demo launches use the actor-backed deterministic client so
+        // the Simulator walkthrough is independent of URLProtocol timing.
+        // Transport contract tests continue to exercise the URLProtocol path.
+        let arguments = ProcessInfo.processInfo.arguments
+        if forceDeterministic || arguments.contains("--patient-app-demo-signed-in") || arguments.contains("--patient-app-demo-imported") {
+            let demoSessionStore = InMemorySessionStore(cache: cache)
+            return AppShellModel(
+                client: DeterministicMockAPIClient(scenario: MockImportScenario(pollsBeforeReady: 0)),
+                protectedCache: cache,
+                sessionStore: demoSessionStore,
+                authSession: demoSessionStore,
+                runtimeConfigurationError: runtimeError
+            )
+        }
         PatientAppFixtureURLProtocol.resetState()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PatientAppFixtureURLProtocol.self]

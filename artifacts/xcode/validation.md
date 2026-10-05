@@ -88,3 +88,12 @@
 - The scheme-level test crash was traced to the generated scheme XML. The generator now emits the canonical Xcode 27 test action shape (explicit build targets, macro expansion, testables, launch/profile runnables), and the approved host runs the full test scheme successfully.
 - Unprivileged Xcode invocations can still lose access to CoreSimulator (`CoreSimulatorService connection became invalid`); approved host access is required for Simulator builds and XCTest execution in this managed environment.
 - The current managed Python host enforces PEP 668 and has no network access for installing service dependencies; the scoped staging agent ran API 54/54 and AI 59/59 in its pinned test environment. Local `run-python-tests.sh` reruns require the CI dependency environment.
+
+## 2026-10-06 Simulator follow-up (Step 6)
+
+- `xcodebuild -list` passed and exposed `PatientApp-Debug`, `PatientAppTests`, `PatientAppDomain`, and `PatientAppUI` schemes.
+- Fresh `PatientAppTests` Debug run passed 126 tests with 0 failures: 72 domain tests, 51 UI/model tests, and 3 XCUIApplication launch-flow tests.
+- The new XCUIApplication flow drove synthetic Home → Import → Upload/processing → Record detail → Fact review → Doctor brief → Visit questions → PDF export → Share → Revoke, with no PHI.
+- Fresh `PatientApp-Debug` Debug and Release Simulator builds passed with signing disabled.
+- The Debug app was installed and launched on the booted iPhone 18 Pro Simulator with the deterministic signed-in argument. Screenshot evidence is stored at `artifacts/xcode/simulator-flow-20261006.png`; the machine-readable record is `artifacts/xcode/simulator-flow-20261006.json`.
+- External remote staging, OAuth/JWT issuer configuration, Apple Team signing, and TestFlight publishing remain unverified and are intentionally not reported as complete.
