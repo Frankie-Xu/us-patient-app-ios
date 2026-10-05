@@ -32,10 +32,15 @@
 - Share status regression coverage now verifies active, expired, and revoked payload decoding plus 401, 403, and 404 error mapping.
 - The latest Debug build was installed and launched on the booted iPhone 18 Pro Simulator with the deterministic fixture; see `patient-app-phase45-final.png`.
 - The latest phase46 Debug build was reinstalled and launched on the booted iPhone 18 Pro Simulator; see `patient-app-phase46-final.png`.
+- Phase47 corrected upload/processing status presentation, removed duplicate background queue insertion for imports, and added stable accessibility identifiers for the primary tabs, upload progress, and fact list; the latest Debug build was installed and launched; see `patient-app-phase47-final.png`.
 - `scripts/ios-release-preflight.sh`: passed with two expected local warnings; strict signing mode correctly fails until a distribution bundle ID, development team, and signing style are configured.
-- `scripts/test-ios-release-preflight.sh`: passed with deterministic default, bundle/version mismatch, and strict-signing cases.
+- `scripts/test-ios-release-preflight.sh`: passed with deterministic default, bundle/version mismatch, strict-signing, and missing crash-monitoring configuration cases.
+- The release checklist and PHI-safe crash-monitoring placeholder are checked in under `artifacts/xcode/`; no DSN or signing material is committed.
 - SwiftPM PatientAppUI build: passed.
 - SwiftPM tests: 114 tests passed (63 Domain + 51 UI/model).
+- `bash scripts/staging/test-smoke.sh`: passed for upload → OCR → fact review → doctor brief → PDF → share → revoke, including dependency retry, idempotency, version conflict, and post-revoke denial.
+- API tests: 54 passed; the staging fix preserves the storage version for immutable UploadSession records while retaining optimistic concurrency for versioned resources.
+- AI tests: 59 passed, including 7 deterministic staging-adapter tests covering OCR normalization, bilingual de-identified fixtures, source spans, low-confidence/conflict gates, explicit review, summary provider replacement, and model/latency/cost reporting.
 - `scripts/check-contract-drift.sh`: passed with the current 19-route inventory, including the strict PyYAML-free fallback used on hosts without the optional parser dependency.
 - `scripts/test-contract-drift.sh`: passed, including mutation and malformed-fallback regressions.
 - `bash scripts/validate-repo.sh`: passed.
@@ -52,3 +57,4 @@
 - An unprivileged `xcodebuild` UI/app invocation can reject `sandbox-exec` with `sandbox_apply: Operation not permitted`; the approved host invocation compiles PatientAppUI and the PatientApp target successfully.
 - The scheme-level test crash was traced to the generated scheme XML. The generator now emits the canonical Xcode 27 test action shape (explicit build targets, macro expansion, testables, launch/profile runnables), and the approved host runs the full test scheme successfully.
 - Unprivileged Xcode invocations can still lose access to CoreSimulator (`CoreSimulatorService connection became invalid`); approved host access is required for Simulator builds and XCTest execution in this managed environment.
+- The current managed Python host enforces PEP 668 and has no network access for installing service dependencies; the scoped staging agent ran API 54/54 and AI 59/59 in its pinned test environment. Local `run-python-tests.sh` reruns require the CI dependency environment.
