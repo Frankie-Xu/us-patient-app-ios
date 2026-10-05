@@ -51,6 +51,17 @@ public enum PatientStatusState: Equatable, Sendable, CaseIterable {
         }
     }
 
+    public var localizationKey: String {
+        switch self {
+        case .loading: "status.loading.title"
+        case .failure: "status.failure.title"
+        case .empty: "status.empty.title"
+        case .offline: "status.offline.title"
+        case .retry: "status.retry.title"
+        case .success: "status.success.title"
+        }
+    }
+
     public var systemImage: String {
         switch self {
         case .loading: "hourglass"
@@ -59,6 +70,10 @@ public enum PatientStatusState: Equatable, Sendable, CaseIterable {
         case .offline: "wifi.slash"
         case .success: "checkmark.circle"
         }
+    }
+
+    public var accessibilityIdentifier: String {
+        "patient.status.\(String(describing: self))"
     }
 }
 
@@ -107,6 +122,7 @@ public struct PatientStatusView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(state.title))
         .accessibilityValue(Text(message))
+        .accessibilityIdentifier(state.accessibilityIdentifier)
         .accessibilityAddTraits(state == .success ? .isStaticText : [])
     }
 }
@@ -122,7 +138,11 @@ public enum PatientLocalization {
             "status.offline.title": "You’re offline",
             "status.retry.title": "Try again",
             "status.success.title": "Completed",
-            "status.retry.action": "Retry"
+            "status.retry.action": "Retry",
+            "status.loading.hint": "Please wait while your records are prepared.",
+            "status.failure.hint": "The operation failed. Try again when you are ready.",
+            "status.offline.hint": "Your cached records remain available. We will resume when you reconnect.",
+            "status.success.hint": "The operation completed successfully."
         ],
         "zh-Hans": [
             "status.loading.title": "正在加载",
@@ -131,7 +151,11 @@ public enum PatientLocalization {
             "status.offline.title": "当前离线",
             "status.retry.title": "请重试",
             "status.success.title": "已完成",
-            "status.retry.action": "重试"
+            "status.retry.action": "重试",
+            "status.loading.hint": "请稍候，正在准备你的记录。",
+            "status.failure.hint": "操作失败，可以在准备好后重试。",
+            "status.offline.hint": "仍可查看缓存记录，网络恢复后会继续处理。",
+            "status.success.hint": "操作已成功完成。"
         ]
     ]
 

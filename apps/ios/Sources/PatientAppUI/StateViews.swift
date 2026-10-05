@@ -25,13 +25,20 @@ struct HomeView: View {
     }
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("Record workspace").font(.title2)
+            ScrollView {
+                VStack(spacing: 16) {
+                Text("Record workspace")
+                    .font(.title2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text("Choose a local record or use fictional content for preview.")
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Choose record file") {
                     isFileImporterPresented = true
                 }
                 .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
                 .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportFile)
                 .disabled(model.isBusy)
 #if canImport(PhotosUI)
@@ -39,6 +46,7 @@ struct HomeView: View {
                     Label("Import from Photos", systemImage: "photo")
                 }
                 .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
                 .disabled(model.isBusy)
                 .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportPhotos)
 #endif
@@ -47,6 +55,7 @@ struct HomeView: View {
                     isCameraPresented = true
                 }
                 .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity)
                 .disabled(model.isBusy)
                 .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportCamera)
                 .sheet(isPresented: $isCameraPresented) {
@@ -64,6 +73,7 @@ struct HomeView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
                 .accessibilityIdentifier(PatientAccessibilityIdentifier.homeImportSynthetic)
                 .disabled(model.isBusy)
                 if uploadQueue != nil {
@@ -73,10 +83,12 @@ struct HomeView: View {
                         _ = observedQueue.enqueue(request)
                     }
                     .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
                     Button("Process queued uploads") {
                         _Concurrency.Task { await observedQueue.start() }
                     }
                     .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
                     Text("Queued items: \(observedQueue.items.count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -86,8 +98,13 @@ struct HomeView: View {
                     Text(fileError).foregroundStyle(.red)
                 }
                 FlowContent(model: model, allowsReview: false)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
             }
-            .padding()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: 96)
+            }
             .navigationTitle("Home")
             .accessibilityIdentifier(PatientAccessibilityIdentifier.tabHome)
             .onChange(of: photoItem) { _, item in
@@ -108,6 +125,7 @@ struct HomeView: View {
                 }
             }
         }
+        .padding(.bottom, 96)
     }
 
     @MainActor

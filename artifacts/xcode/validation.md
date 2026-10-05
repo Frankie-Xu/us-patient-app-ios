@@ -104,3 +104,11 @@
 - Coverage includes offline start, network recovery, background scheduling, notifications, duplicate fingerprint idempotency, bounded retry, metadata restoration without file bytes, and a persisted `processingCancelled` state that resumes through a single retry without creating a second queue item.
 - Existing domain cancellation tests continue to cover cancellation during processing and map it to `processingCancelled`; no real network or patient data was used.
 - Machine-readable evidence is stored at `artifacts/xcode/offline-upload-recovery-20261006.json`.
+
+## 2026-10-06 Accessibility and UI state follow-up (Step 8)
+
+- `AccessibilityLocalizationTests` passed 4/4. All loading, failure, empty, offline, retry, and success states now have stable identifiers plus deterministic English and Simplified Chinese title/hint coverage.
+- `PatientStatusView` exposes a state-specific accessibility identifier while retaining combined VoiceOver labels and values.
+- Home import controls now remain readable at accessibility-extra-extra-large Dynamic Type, scroll within the tab content, and reserve space above the tab bar. A dark-mode/XXXL Simulator screenshot is stored at `artifacts/xcode/accessibility-dark-xxxl-20261006.png`.
+- The simulator semantic identifiers and combined labels were verified through XCTest. VoiceOver audio itself was not enabled in the simulator; no production data was used.
+- Machine-readable evidence is stored at `artifacts/xcode/accessibility-ui-20261006.json`.

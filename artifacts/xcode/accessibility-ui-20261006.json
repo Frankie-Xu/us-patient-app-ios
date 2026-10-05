@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-06",
+  "classification": "synthetic-no-phi",
+  "scope": "iOS accessibility, localization, and UI states",
+  "scheme": "PatientAppTests",
+  "destination": "platform=iOS Simulator,id=39E5F9B7-5C5B-477B-B573-725920F120A3",
+  "tests": {
+    "target": "AccessibilityLocalizationTests",
+    "executed": 4,
+    "failures": 0,
+    "status": "passed",
+    "coverage": [
+      "loading, failure, empty, offline, retry, and success status presentation",
+      "English and Simplified Chinese localized VoiceOver titles and hints",
+      "stable identifiers for status surfaces and primary navigation/actions"
+    ]
+  },
+  "simulator_checks": {
+    "appearance": "dark",
+    "content_size": "accessibility-extra-extra-large",
+    "launch": "passed",
+    "scrollable_home_layout": "passed",
+    "screenshot": "artifacts/xcode/accessibility-dark-xxxl-20261006.png",
+    "voiceover": "semantic identifiers and combined labels verified by XCTest; VoiceOver audio was not enabled in the simulator"
+  },
+  "external_dependencies": {
+    "remote_staging": "not used",
+    "production_data": "not used"
+  }
+}
