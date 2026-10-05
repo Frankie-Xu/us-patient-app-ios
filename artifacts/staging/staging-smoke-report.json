@@ -1,0 +1,55 @@
+{
+  "check": "staging_smoke",
+  "data_classification": "synthetic",
+  "fixture": "synthetic-staging-v1",
+  "log_policy": "opaque statuses only; no PHI, source text, tokens, or credentials",
+  "schema_version": 1,
+  "stages": {
+    "audit": {
+      "status": "passed"
+    },
+    "conflict_gate": {
+      "conflicts": 1,
+      "delivery_blocked": true,
+      "status": "passed"
+    },
+    "doctor_brief": {
+      "status": "passed"
+    },
+    "fact_review": {
+      "status": "passed"
+    },
+    "idempotency": {
+      "status": "passed"
+    },
+    "ocr_and_extraction": {
+      "status": "passed"
+    },
+    "pdf_export": {
+      "bytes": 40,
+      "status": "passed"
+    },
+    "processing_retry": {
+      "status": "passed"
+    },
+    "readiness": {
+      "status": "passed"
+    },
+    "share_and_revoke": {
+      "active_access": "passed",
+      "revoked_access": "blocked",
+      "status": "passed"
+    },
+    "status": "passed",
+    "upload": {
+      "status": "passed"
+    },
+    "upload_retry": {
+      "status": "passed"
+    },
+    "version_conflict": {
+      "status": "passed"
+    }
+  },
+  "status": "passed"
+}
