@@ -112,3 +112,13 @@
 - Home import controls now remain readable at accessibility-extra-extra-large Dynamic Type, scroll within the tab content, and reserve space above the tab bar. A dark-mode/XXXL Simulator screenshot is stored at `artifacts/xcode/accessibility-dark-xxxl-20261006.png`.
 - The simulator semantic identifiers and combined labels were verified through XCTest. VoiceOver audio itself was not enabled in the simulator; no production data was used.
 - Machine-readable evidence is stored at `artifacts/xcode/accessibility-ui-20261006.json`.
+
+## 2026-10-06 Release validation follow-up (Step 9)
+
+- `scripts/ios-release-preflight.sh` passed with two expected warnings: the checked-in example bundle identifier and host-provided signing configuration.
+- `scripts/test-ios-release-preflight.sh` passed all deterministic regression cases, including expected failures for bundle/version mismatch, strict signing, and missing crash-monitoring configuration.
+- Fresh `PatientApp-Debug` Debug and Release Simulator builds passed with signing disabled.
+- Fresh `PatientAppTests` passed 128 tests with 0 failures: 72 domain tests, 53 UI/model tests, and 3 XCUIApplication tests.
+- Staging smoke and AI staging regression passed; OpenAPI contract drift and Python compile checks passed. API/AI pytest suites were not runnable on this managed host because dependency installation is blocked by PEP 668 and `pytest` is not installed; the existing CI/pinned environment remains the authoritative Python test runner.
+- Bundle identifier, version `0.1.0`, build `1`, minimum iOS `17.0`, privacy permissions, background processing, and `PrivacyInfo.xcprivacy` were verified.
+- The machine-readable release record is stored at `artifacts/xcode/release-validation-20261006.json`. Distribution signing, remote staging, external OAuth/JWT, and TestFlight publishing remain unverified.
