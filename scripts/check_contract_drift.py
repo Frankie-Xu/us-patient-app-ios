@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -61,13 +62,55 @@ def _snapshot(value: Any) -> list[dict[str, str]]:
     return routes
 
 
+def _routes_from_minimal_yaml(text: str) -> list[dict[str, str]]:
+    """Extract routes from the frozen contract when PyYAML is unavailable.
+
+    This intentionally accepts only the repository's simple, quoted path
+    layout. A changed or malformed YAML shape fails closed instead of being
+    silently misread by a permissive parser.
+    """
+    path_pattern = re.compile(r'^  "([^"\\]+)":\s*$')
+    method_pattern = re.compile(r'^    ([A-Za-z]+):\s*$')
+    routes: list[dict[str, str]] = []
+    in_paths = False
+    current_path: str | None = None
+    for line in text.splitlines():
+        if not in_paths:
+            if line == "paths:":
+                in_paths = True
+            continue
+        if line == "components:":
+            break
+        path_match = path_pattern.match(line)
+        if path_match:
+            current_path = path_match.group(1)
+            if not current_path.startswith("/"):
+                raise ValueError("fallback contract path")
+            continue
+        method_match = method_pattern.match(line)
+        if method_match and current_path:
+            method = method_match.group(1).upper()
+            if method in METHODS:
+                routes.append({"method": method, "path": current_path})
+    if not in_paths or not routes:
+        raise ValueError("fallback contract shape")
+    return sorted(routes, key=lambda route: (route["path"], route["method"]))
+
+
+def _expected_routes(root: Path) -> list[dict[str, str]]:
+    contract_path = root / "packages/contracts/openapi.yaml"
+    try:
+        import yaml
+    except ModuleNotFoundError:
+        return _routes_from_minimal_yaml(contract_path.read_text(encoding="utf-8"))
+    contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+    return _routes(contract)
+
+
 def main() -> int:
     root = _root()
     try:
-        import yaml
-
-        contract = yaml.safe_load((root / "packages/contracts/openapi.yaml").read_text(encoding="utf-8"))
-        expected = _routes(contract)
+        expected = _expected_routes(root)
         snapshot = _snapshot(json.loads((root / "packages/contracts/contract.routes.json").read_text(encoding="utf-8")))
     except Exception:
         print("OpenAPI contract drift check failed; inspect the contract inventory locally.", file=sys.stderr)

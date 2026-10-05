@@ -117,6 +117,68 @@ final class ShareExportTests: XCTestCase {
         XCTAssertEqual(requests.last?.headers["Content-Type"], "application/json")
     }
 
+    func testURLSessionClientDecodesEveryShareAccessStatus() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let expectedStates: [(ContractShareStatus, ShareAccessState)] = [
+            (.active, .active),
+            (.expired, .expired),
+            (.revoked, .revoked)
+        ]
+
+        for (contractState, expectedState) in expectedStates {
+            let shareID = UUID()
+            let payload = ContractShareVersionPayload(
+                id: shareID,
+                ownerID: "patient-1",
+                resourceType: .document,
+                resourceID: UUID(),
+                resourceVersion: 2,
+                expiresAt: now.addingTimeInterval(3_600),
+                status: contractState,
+                revokedAt: contractState == .revoked ? now : nil,
+                createdAt: now
+            )
+            let transport = ShareExportScriptedTransport { request in
+                guard request.path == "/v1/shares/\(shareID.uuidString)" else {
+                    return PatientAPITransportResponse(statusCode: 404)
+                }
+                return try encodedShareResponse(payload)
+            }
+
+            let status = try await URLSessionPatientAPIClient(transport: transport).shareStatus(id: shareID)
+            XCTAssertEqual(status.state, expectedState)
+            XCTAssertEqual(status.share.id, shareID)
+            XCTAssertEqual(status.share.version, 2)
+        }
+    }
+
+    func testURLSessionClientMapsShareStatusAuthorizationAndNotFoundErrors() async {
+        let expectedErrors: [(Int, PatientAPIClientError)] = [
+            (404, .notFound),
+            (401, .unauthorized),
+            (403, .forbidden)
+        ]
+
+        for (httpStatus, expectedError) in expectedErrors {
+            let shareID = UUID()
+            let transport = ShareExportScriptedTransport { request in
+                return PatientAPITransportResponse(statusCode: httpStatus)
+            }
+            let client = URLSessionPatientAPIClient(transport: transport)
+
+            do {
+                _ = try await client.shareStatus(id: shareID)
+                XCTFail("Expected share status HTTP \(httpStatus) to fail")
+            } catch let error as PatientAPIClientError {
+                XCTAssertEqual(error, expectedError)
+            } catch {
+                XCTFail("Unexpected error for HTTP \(httpStatus): \(error)")
+            }
+            let requests = await transport.requests()
+            XCTAssertEqual(requests.map(\.path), ["/v1/shares/\(shareID.uuidString)"])
+        }
+    }
+
     func testURLSessionClientMapsRevokedAndVersionConflictErrors() async throws {
         let shareID = UUID()
         let documentID = UUID()

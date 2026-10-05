@@ -32,6 +32,14 @@ scripts/ios-release-preflight.sh
 
 The strict signing mode was also exercised on the current host and correctly returned status 1 because no development team or signing style is checked in. That is an expected local limitation, not a source or project validation failure.
 
+The parameter and failure paths are covered without a real Xcode installation by:
+
+```sh
+scripts/test-ios-release-preflight.sh
+```
+
+The offline regression uses a deterministic `xcodebuild` shim and verifies that the default configuration passes, bundle/version assertions fail with both messages, and `IOS_PREFLIGHT_REQUIRE_SIGNING=1` blocks an unsigned host. The regression completed successfully on the same date.
+
 Optional environment variables allow CI to pin the intended release inputs without changing the script:
 
 | Variable | Default | Purpose |
@@ -44,4 +52,3 @@ Optional environment variables allow CI to pin the intended release inputs witho
 | `IOS_EXPECTED_MARKETING_VERSION` | unset | Version assertion |
 | `IOS_EXPECTED_BUILD_NUMBER` | unset | Build number assertion |
 | `IOS_PREFLIGHT_REQUIRE_SIGNING` | `0` | Make host signing settings blocking |
-
