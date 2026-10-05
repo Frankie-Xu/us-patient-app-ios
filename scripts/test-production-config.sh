@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python3 - <<'PY'
+python_bin="${PYTHON_BIN:-python3}"
+"$python_bin" - <<'PY'
 from scripts.production_config import ConfigParseError, load_env_file, validate_config
 
 local = validate_config({
