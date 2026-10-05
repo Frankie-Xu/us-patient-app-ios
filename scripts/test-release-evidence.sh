@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
+python_bin="${PYTHON_BIN:-python3}"
 
 export GITHUB_SHA="0123456789abcdef0123456789abcdef01234567"
 export GITHUB_WORKFLOW="CI"
@@ -17,9 +18,9 @@ RELEASE_EVIDENCE_API_RESULT=success \
 RELEASE_EVIDENCE_AI_RESULT=success \
 RELEASE_EVIDENCE_IOS_RESULT=skipped \
 RELEASE_EVIDENCE_SYNTHETIC_GATE_RESULT=success \
-python3 "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/pass.json"
+"$python_bin" "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/pass.json"
 
-python3 - "$tmp_dir/pass.json" <<'PY'
+"$python_bin" - "$tmp_dir/pass.json" <<'PY'
 import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert value["manifest_schema"] == "patient-app-platform/release-evidence"
@@ -30,6 +31,16 @@ serialized=json.dumps(value)
 for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in serialized
 PY
 
+"$python_bin" "$repo_root/scripts/render_evidence_summary.py" --input "$tmp_dir/pass.json" --output "$tmp_dir/pass.md"
+"$python_bin" - "$tmp_dir/pass.md" <<'PY'
+import pathlib, sys
+value=pathlib.Path(sys.argv[1]).read_text()
+assert "## Integration gate evidence" in value
+assert "| `repository` | `passed` |" in value
+assert "| `ios` | `skipped` |" in value
+for forbidden in ("services/", "scripts/", "PHI", "token", "patient name", "diagnosis"): assert forbidden not in value
+PY
+
 set +e
 RELEASE_EVIDENCE_REPOSITORY_RESULT=failure \
 RELEASE_EVIDENCE_CONTRACT_RESULT=success \
@@ -37,11 +48,11 @@ RELEASE_EVIDENCE_API_RESULT=success \
 RELEASE_EVIDENCE_AI_RESULT=success \
 RELEASE_EVIDENCE_IOS_RESULT=skipped \
 RELEASE_EVIDENCE_SYNTHETIC_GATE_RESULT=success \
-python3 "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/fail.json"
+"$python_bin" "$repo_root/scripts/release_evidence.py" --from-ci --output "$tmp_dir/fail.json"
 status=$?
 set -e
 test "$status" -eq 1
-python3 - "$tmp_dir/fail.json" <<'PY'
+"$python_bin" - "$tmp_dir/fail.json" <<'PY'
 import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())
 assert value["overall"]["status"] == "failed"

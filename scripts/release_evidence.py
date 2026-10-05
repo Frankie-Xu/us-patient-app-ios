@@ -105,9 +105,16 @@ def _local(repo_root: Path) -> dict[str, dict[str, Any]]:
             ("repository.dependencies", ["bash", "scripts/check-dependencies.sh"]),
             ("repository.workflow_pins", ["bash", "scripts/check-workflow-pins.sh"]),
             ("repository.scanner_regression", ["bash", "scripts/test-validate-repo.sh"]),
+            ("repository.production_config", ["bash", "scripts/test-production-config.sh"]),
+            ("repository.release_evidence_regression", ["bash", "scripts/test-release-evidence.sh"]),
+            ("repository.contract_drift_regression", ["bash", "scripts/test-contract-drift.sh"]),
+            ("repository.privacy_evidence_regression", ["bash", "scripts/test-privacy-evidence.sh"]),
             ("repository.patch_format", ["git", "diff", "--check"]),
         ]),
-        "contract": _run(repo_root, "contract", [("contract.openapi", ["bash", "scripts/check-openapi.sh"])]),
+        "contract": _run(repo_root, "contract", [
+            ("contract.openapi", ["bash", "scripts/check-openapi.sh"]),
+            ("contract.route_drift", ["bash", "scripts/check-contract-drift.sh"]),
+        ]),
         "api": _run(repo_root, "api", [
             ("api.readiness", ["bash", "scripts/run-api-readiness.sh", "services/api"]),
             ("api.tests", ["bash", "scripts/run-python-tests.sh", "services/api"]),
