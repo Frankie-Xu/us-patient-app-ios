@@ -13,6 +13,7 @@ Every pull request should state the user-visible behavior, linked requirement or
 Required before merge:
 
 - CI is green. A skipped component is acceptable only when its source and tests are not present; record the skip in the pull request.
+- Run `bash scripts/verify.sh --quick` while iterating and `bash scripts/verify.sh --full` before opening a pull request. The full command produces the same redacted release evidence shape as CI.
 - Tests cover the changed boundary, or the pull request explains why no automated test is available.
 - API and data-contract changes are reviewed by the owning area.
 - iOS flows include empty, loading, failure, retry, permission, and success states.
@@ -32,6 +33,10 @@ Required before merge:
 Logs, traces, crash reports, test output, screenshots, analytics events, and pull request text must not contain names, dates of birth, medical record numbers, diagnoses, medications, free-text notes, OCR text, document contents, signed URLs, authorization headers, or access tokens.
 
 Log request IDs, operation names, status codes, elapsed time, counts, and stable non-reversible identifiers instead. Redact query strings, headers, filenames, and exception payloads at the logging boundary. Test fixtures and test names use synthetic labels. A failure should identify the component and rule that failed without printing the protected value.
+
+## License boundary
+
+Contributions are accepted under the [PolyForm Noncommercial License 1.0.0](LICENSE). Submit only work that you have the right to license on those terms. The repository is source-available for non-commercial use; commercial use requires a separate written license from the copyright holder.
 
 ## Review language
 
