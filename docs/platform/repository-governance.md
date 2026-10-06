@@ -34,6 +34,10 @@ relevant sensitive areas before increasing the required approval count.
   Swift package surface weekly.
 - GitHub Actions use full commit SHAs, least-privilege permissions, and
   `persist-credentials: false` on checkout.
+- Pull requests always run repository validation and the integration gate.
+  API, AI, contract, and iOS suites run when their boundary changes; shared
+  script or CI changes fan out to the full suite so the fast path stays fast
+  without weakening coverage where it matters.
 - `bash scripts/verify.sh --quick` is the local iteration gate. The full gate
   is required before review and produces the same redacted evidence shape as CI.
 - Runtime dependency changes must preserve reproducibility. Keep application
