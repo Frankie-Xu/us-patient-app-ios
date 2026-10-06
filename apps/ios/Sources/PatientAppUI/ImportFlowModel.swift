@@ -84,6 +84,7 @@ public final class ImportFlowModel: ObservableObject {
     public func confirmFact(_ fact: Fact) async {
         guard case let .reviewRequired(snapshot) = state else { return }
         do {
+            try FactReviewPolicy.validateExplicitConfirmation(fact)
             let confirmed = try await useCase.confirmFact(FactReviewCommand(documentID: snapshot.ticket.documentID, factID: fact.id))
             let updated = snapshot.replacing(fact: confirmed)
             state = updated.facts.contains(where: { $0.state == .needsReview }) ? .reviewRequired(updated) : .completed(updated)
