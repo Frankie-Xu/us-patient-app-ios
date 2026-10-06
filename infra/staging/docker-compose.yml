@@ -1,0 +1,40 @@
+name: us-patient-app-staging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:?set STAGING_POSTGRES_DB in infra/staging/.env}
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:?set STAGING_POSTGRES_USER in infra/staging/.env}
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?set STAGING_POSTGRES_PASSWORD in infra/staging/.env}
+    ports:
+      - "${STAGING_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../services/api/migrations/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STAGING_S3_ACCESS_KEY:?set STAGING_S3_ACCESS_KEY in infra/staging/.env}
+      MINIO_ROOT_PASSWORD: ${STAGING_S3_SECRET_KEY:?set STAGING_S3_SECRET_KEY in infra/staging/.env}
+    ports:
+      - "${STAGING_S3_PORT:-9000}:9000"
+      - "${STAGING_S3_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres-data:
+  minio-data:
