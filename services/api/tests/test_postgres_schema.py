@@ -32,11 +32,12 @@ class FakeConnection:
 def test_postgres_migrations_are_sorted_and_apply_once():
     migrations = load_migrations()
     assert migrations
-    assert [migration.version for migration in migrations] == sorted(migration.version for migration in migrations)
+    expected_versions = tuple(migration.version for migration in migrations)
+    assert list(expected_versions) == sorted(expected_versions)
     assert Path("services/api/migrations/postgres/0001_initial.sql").exists()
 
     connection = FakeConnection()
     runner = PostgresMigrationRunner(connection, migrations=migrations)
-    assert runner.apply() == (1,)
+    assert runner.apply() == expected_versions
     assert runner.apply() == ()
     assert connection.committed is True
