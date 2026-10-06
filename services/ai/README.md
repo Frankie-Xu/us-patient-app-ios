@@ -86,3 +86,20 @@ python3 -m unittest discover -s services/ai/tests -v
 ### Provider-neutral runtime seam
 
 provider_pipeline.py composes the existing OCR, extraction, conflict and citation interfaces without binding the repository to an OCR/model SDK. It normalizes OCR evidence while preserving source references, validates every claim source span, and generates a bounded bilingual doctor summary plus claim-grounded questions. ModelTelemetry records provider/model version, unit counts, cost and latency only; document text is never retained. The default deterministic adapter uses the synthetic golden set and remains compatible with the existing regression CLI.
+
+### Deterministic staging worker
+
+staging_worker.py accepts a normalized OCR document envelope marked
+`synthetic` or `deidentified`. It creates a label-free
+pipeline envelope, so expected golden labels cannot enter the runtime path.
+`StagingAIWorker` caches completed work by an explicit idempotency key
+(or a content fingerprint), returns the existing extraction and doctor-summary
+artifacts, and rejects key reuse for a different document. The adapter is
+provider-neutral; the built-in provider is deterministic and network-free.
+
+`StagingQualityMetrics` reports low-confidence, missing-source,
+conflict, manual-review and confirmation-block rates. Missing source includes
+an absent or unresolved source span; a low-confidence claim or unresolved
+conflict blocks automatic confirmation. Metrics are derived from counters and
+aggregate by claim and case denominators. Telemetry contains only counts and
+gate outcomes; OCR and claim text are not serialized.

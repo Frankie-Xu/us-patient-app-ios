@@ -64,6 +64,15 @@ from .provider_pipeline import (
     normalize_ocr_layout,
 )
 
+from .staging_worker import (
+    StagingAIWorker,
+    StagingDocument,
+    StagingQualityMetrics,
+    StagingWorkerRequest,
+    StagingWorkerResult,
+    aggregate_quality_metrics,
+)
+
 from .route_compatibility import (
     RouteCompatibilityError,
     RouteCompatibilityReport,
@@ -136,6 +145,12 @@ __all__ = [
     "TelemetrySummary",
     "REPORT_SCHEMA",
     "REPORT_SCHEMA_VERSION",
+    "StagingAIWorker",
+    "StagingDocument",
+    "StagingQualityMetrics",
+    "StagingWorkerRequest",
+    "StagingWorkerResult",
+    "aggregate_quality_metrics",
     "RouteCompatibilityError",
     "RouteCompatibilityReport",
     "ReviewStatus",
