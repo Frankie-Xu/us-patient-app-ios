@@ -19,6 +19,14 @@
       "path": "/v1/documents/{documentId}"
     },
     {
+      "method": "GET",
+      "path": "/v1/documents/{documentId}/exports/pdf"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/documents/{documentId}/exports/pdf"
+    },
+    {
       "method": "POST",
       "path": "/v1/documents/{documentId}/processing-jobs"
     },
@@ -43,8 +51,16 @@
       "path": "/v1/shared/{token}"
     },
     {
+      "method": "GET",
+      "path": "/v1/shared/{token}/pdf"
+    },
+    {
       "method": "POST",
       "path": "/v1/shares"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/shares/{shareId}"
     },
     {
       "method": "POST",

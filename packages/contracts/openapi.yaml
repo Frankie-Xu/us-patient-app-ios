@@ -21,6 +21,7 @@ tags:
 - name: visits
 - name: tasks
 - name: shares
+- name: exports
 - name: processing
 - name: audit
 security:
@@ -507,6 +508,76 @@ paths:
           "$ref": "#/components/responses/IdempotencyConflict"
       x-required-scopes:
       - tasks:write
+  "/v1/documents/{documentId}/exports/pdf":
+    parameters:
+    - "$ref": "#/components/parameters/DocumentId"
+    post:
+      operationId: exportDocumentPdf
+      tags:
+      - exports
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/DocumentPdfExport"
+      responses:
+        '200':
+          description: Deterministic PDF for the requested immutable, reviewed version.
+          headers:
+            X-Document-Version:
+              schema:
+                type: integer
+            X-Content-SHA256:
+              schema:
+                type: string
+                pattern: "^[a-f0-9]{64}$"
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '409':
+          description: Requested version is stale or no longer available.
+        '422':
+          description: Export is blocked for unreviewed, conflicted, or invalid content.
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+      x-required-scopes:
+      - documents:read
+    get:
+      operationId: exportDocumentPdfByVersion
+      tags:
+      - exports
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Deterministic PDF for the requested immutable, reviewed version.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '409':
+          description: Requested version is stale or no longer available.
+        '422':
+          description: Export is blocked for unreviewed or conflicted content.
+      x-required-scopes:
+      - documents:read
   "/v1/shares":
     post:
       operationId: createShareVersion
@@ -538,6 +609,35 @@ paths:
           "$ref": "#/components/responses/Forbidden"
         '409':
           "$ref": "#/components/responses/IdempotencyConflict"
+      x-required-scopes:
+      - shares:create
+  "/v1/shares/{shareId}":
+    get:
+      operationId: getShareStatus
+      tags:
+      - shares
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: shareId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Owner-scoped active, expired, or revoked share status.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ShareVersion"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
       x-required-scopes:
       - shares:create
   "/v1/shares/{shareId}/revoke":
@@ -597,6 +697,31 @@ paths:
           description: Share expired or revoked; downloaded copies cannot be recalled.
         '404':
           description: Invalid share token.
+  "/v1/shared/{token}/pdf":
+    get:
+      operationId: accessSharedPdf
+      tags:
+      - exports
+      security: []
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 20
+      responses:
+        '200':
+          description: Shared immutable document PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '410':
+          description: Share expired, revoked, stale, or otherwise unavailable.
+        '404':
+          "$ref": "#/components/responses/NotFound"
   "/v1/audit-events":
     get:
       operationId: listAuditEvents
@@ -1099,6 +1224,26 @@ components:
         updated_at:
           type: string
           format: date-time
+    DocumentPdfExport:
+      type: object
+      additionalProperties: false
+      required:
+      - document_version
+      properties:
+        document_version:
+          type: integer
+          minimum: 1
+          description: Immutable document version to export; stale versions fail closed.
+        fact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Optional reviewed facts linked to this document.
+        doctor_brief:
+          type: object
+          additionalProperties: true
+          description: Optional provider-neutral doctor brief projection. Unreviewed or conflicting claims are rejected.
     ShareCreate:
       type: object
       required:
