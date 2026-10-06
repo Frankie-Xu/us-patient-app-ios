@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "PatientApp",
+    defaultLocalization: "en",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "PatientAppDomain", targets: ["PatientAppDomain"]),
@@ -11,7 +12,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "PatientAppDomain"),
-        .target(name: "PatientAppUI", dependencies: ["PatientAppDomain"]),
+        .target(
+            name: "PatientAppUI",
+            dependencies: ["PatientAppDomain"],
+            resources: [.process("Resources")]
+        ),
         .executableTarget(name: "PatientApp", dependencies: ["PatientAppUI"]),
         .testTarget(name: "PatientAppDomainTests", dependencies: ["PatientAppDomain"]),
         .testTarget(name: "PatientAppUITests", dependencies: ["PatientAppUI", "PatientAppDomain"])
