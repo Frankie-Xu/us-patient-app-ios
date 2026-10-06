@@ -35,6 +35,140 @@ services:
       timeout: 5s
       retries: 12
 
+  migration:
+    image: postgres:16-alpine
+    environment:
+      STAGING_POSTGRES_DB: ${STAGING_POSTGRES_DB:?set STAGING_POSTGRES_DB in infra/staging/.env}
+      STAGING_POSTGRES_USER: ${STAGING_POSTGRES_USER:?set STAGING_POSTGRES_USER in infra/staging/.env}
+      STAGING_POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?set STAGING_POSTGRES_PASSWORD in infra/staging/.env}
+      STAGING_MIGRATION_VERSION: ${STAGING_MIGRATION_VERSION:-1}
+      STAGING_MIGRATION_NAME: ${STAGING_MIGRATION_NAME:-0001_initial}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/bin/sh", "/scripts/migrate.sh"]
+    volumes:
+      - ../../services/api/migrations/postgres:/migrations:ro
+      - ../../scripts/staging/migrate.sh:/scripts/migrate.sh:ro
+      - migration-state:/state
+    restart: "no"
+
+  queue-init:
+    image: postgres:16-alpine
+    environment:
+      STAGING_POSTGRES_DB: ${STAGING_POSTGRES_DB:?set STAGING_POSTGRES_DB in infra/staging/.env}
+      STAGING_POSTGRES_USER: ${STAGING_POSTGRES_USER:?set STAGING_POSTGRES_USER in infra/staging/.env}
+      STAGING_POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?set STAGING_POSTGRES_PASSWORD in infra/staging/.env}
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    command: ["/bin/sh", "/scripts/queue-init.sh"]
+    volumes:
+      - ../../scripts/staging/queue-init.sh:/scripts/queue-init.sh:ro
+      - migration-state:/state:ro
+    restart: "no"
+
+  object-storage-init:
+    image: minio/mc:RELEASE.2024-12-18T13-15-44Z
+    environment:
+      STAGING_S3_ENDPOINT: ${STAGING_S3_ENDPOINT:-http://minio:9000}
+      STAGING_S3_ACCESS_KEY: ${STAGING_S3_ACCESS_KEY:?set STAGING_S3_ACCESS_KEY in infra/staging/.env}
+      STAGING_S3_SECRET_KEY: ${STAGING_S3_SECRET_KEY:?set STAGING_S3_SECRET_KEY in infra/staging/.env}
+      STAGING_S3_BUCKET: ${STAGING_S3_BUCKET:-patient-app-staging}
+    depends_on:
+      minio:
+        condition: service_healthy
+    command: ["/bin/sh", "/scripts/object-storage-init.sh"]
+    volumes:
+      - ../../scripts/staging/object-storage-init.sh:/scripts/object-storage-init.sh:ro
+    restart: "no"
+
+  api:
+    image: ${STAGING_RUNTIME_IMAGE:-python:3.12-slim}
+    working_dir: /workspace
+    environment:
+      STAGING_SERVICE_ROLE: api
+      STAGING_ADAPTER_MODE: ${STAGING_ADAPTER_MODE:-synthetic}
+      STAGING_OCR_PROVIDER: ${STAGING_OCR_PROVIDER:-deterministic}
+      STAGING_EXTRACTION_PROVIDER: ${STAGING_EXTRACTION_PROVIDER:-deterministic}
+      STAGING_TASK_MODE: ${STAGING_TASK_MODE:-synthetic}
+      STAGING_STARTUP_CONTRACT: compose
+      STAGING_WORKER_URL: http://ai-worker:${STAGING_AI_WORKER_PORT:-8090}
+      STAGING_TASK_WORKER_URL: http://task-worker:${STAGING_TASK_WORKER_PORT:-8091}
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      queue-init:
+        condition: service_completed_successfully
+      object-storage-init:
+        condition: service_completed_successfully
+    command: ["python", "/workspace/service.py", "--role", "api", "--port", "8080"]
+    ports:
+      - "${STAGING_API_PORT:-8080}:8080"
+    volumes:
+      - ../../scripts/staging/service.py:/workspace/service.py:ro
+    healthcheck:
+      test: ["CMD", "python", "/workspace/service.py", "--healthcheck", "--port", "8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  ai-worker:
+    image: ${STAGING_RUNTIME_IMAGE:-python:3.12-slim}
+    working_dir: /workspace
+    environment:
+      STAGING_SERVICE_ROLE: ai-worker
+      STAGING_ADAPTER_MODE: ${STAGING_ADAPTER_MODE:-synthetic}
+      STAGING_OCR_PROVIDER: ${STAGING_OCR_PROVIDER:-deterministic}
+      STAGING_EXTRACTION_PROVIDER: ${STAGING_EXTRACTION_PROVIDER:-deterministic}
+      STAGING_STARTUP_CONTRACT: compose
+      STAGING_API_URL: http://api:8080
+      STAGING_QUEUE_MODE: database
+      STAGING_OBJECT_STORE_MODE: s3_compatible
+      STAGING_S3_ENDPOINT: ${STAGING_S3_ENDPOINT:-http://minio:9000}
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      queue-init:
+        condition: service_completed_successfully
+      object-storage-init:
+        condition: service_completed_successfully
+    command: ["python", "/workspace/service.py", "--role", "ai-worker", "--port", "${STAGING_AI_WORKER_PORT:-8090}"]
+    volumes:
+      - ../../scripts/staging/service.py:/workspace/service.py:ro
+    healthcheck:
+      test: ["CMD", "python", "/workspace/service.py", "--healthcheck", "--port", "${STAGING_AI_WORKER_PORT:-8090}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  task-worker:
+    image: ${STAGING_RUNTIME_IMAGE:-python:3.12-slim}
+    working_dir: /workspace
+    environment:
+      STAGING_SERVICE_ROLE: task-worker
+      STAGING_ADAPTER_MODE: ${STAGING_ADAPTER_MODE:-synthetic}
+      STAGING_TASK_MODE: ${STAGING_TASK_MODE:-synthetic}
+      STAGING_STARTUP_CONTRACT: compose
+      STAGING_API_URL: http://api:8080
+      STAGING_QUEUE_MODE: database
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      queue-init:
+        condition: service_completed_successfully
+      object-storage-init:
+        condition: service_completed_successfully
+    command: ["python", "/workspace/service.py", "--role", "task-worker", "--port", "${STAGING_TASK_WORKER_PORT:-8091}"]
+    volumes:
+      - ../../scripts/staging/service.py:/workspace/service.py:ro
+    healthcheck:
+      test: ["CMD", "python", "/workspace/service.py", "--healthcheck", "--port", "${STAGING_TASK_WORKER_PORT:-8091}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
 volumes:
-  postgres-data:
+  migration-state:
   minio-data:
+  postgres-data:

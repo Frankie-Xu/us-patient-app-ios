@@ -1,20 +1,40 @@
-# Staging infrastructure seam
+# Staging runtime composition
 
-This composition starts only the stateful dependencies required for a staging
-rehearsal: PostgreSQL 16 and an S3-compatible MinIO endpoint. It contains no
-API image, credentials, PHI, or production DNS. The API process should inject a
-DB-API connection, S3ObjectStore, and a processing worker queue through its
-deployment configuration.
+This composition provides a provider-neutral staging graph with PostgreSQL,
+MinIO, a migration gate, a database-queue startup gate, deterministic API/AI
+worker placeholders, and a background task worker. It contains no real
+provider credentials, production DNS, or patient data.
+
+## Startup contract
+
+1. postgres and minio become healthy.
+2. migration replays the idempotent SQL baseline and records
+   schema_migrations(version=1).
+3. queue-init verifies that processing_jobs exists and the migration marker
+   is present.
+4. object-storage-init creates the configured private S3-compatible bucket.
+5. api, ai-worker, and task-worker start only after both gates complete.
+
+The long-lived placeholders expose /healthz and /readyz. The API placeholder
+also exposes a bounded /handoff endpoint that acknowledges a synthetic upload
+without logging or persisting its body. These processes are intentionally
+provider-neutral and are not production API or worker implementations.
 
 ## Local rehearsal
 
-1. Copy .env.example to .env and replace every placeholder locally.
-2. Start the dependencies with docker compose --env-file .env up -d.
-3. Confirm PostgreSQL and MinIO health before starting the API.
-4. Apply reviewed migrations through PostgresMigrationRunner or the deployment migration job.
-5. Configure the API with the MinIO endpoint and a short-lived staging bucket.
-6. Use synthetic documents only. Destroy named volumes after the rehearsal.
+1. Copy .env.example to .env; keep all values local.
+2. Render and validate the service graph:
 
-The migration directory is mounted read-only and can be reviewed independently.
-The queue table is metadata-only; workers fetch bytes by internal object key and
-must not place raw content in queue payloads or logs.
+       bash scripts/staging/run-smoke.sh
+
+3. For a live local rehearsal, run the graph with
+   docker compose --env-file .env -f infra/staging/docker-compose.yml up -d.
+4. Confirm all three long-lived services report healthy:
+
+       curl -fsS http://127.0.0.1:${STAGING_API_PORT:-8080}/healthz
+
+5. Use only synthetic documents and remove named volumes after the rehearsal.
+
+run-smoke.sh also invokes the existing scripts/staging_e2e.py when that file
+is present in the checkout. It deliberately does not duplicate or replace the
+end-to-end workflow.
