@@ -27,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -40,6 +40,8 @@ jobs:
         run: bash scripts/check-dependencies.sh
       - name: Check workflow action pins
         run: bash scripts/check-workflow-pins.sh
+      - name: Check repository governance
+        run: bash scripts/check-governance.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
       - name: Run production configuration contract regression
@@ -71,7 +73,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -93,7 +95,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -128,7 +130,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -176,7 +178,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Generate synthetic production gate evidence

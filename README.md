@@ -19,6 +19,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture-and-data-flow">Architecture</a> ·
   <a href="#privacy-and-safety-boundaries">Privacy</a> ·
+  <a href="docs/platform/repository-governance.md">Governance</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
@@ -182,6 +183,9 @@ swift test --package-path apps/ios
 ```
 
 The merge contract, workflow pins, and release artifact shape are documented in [`docs/platform/ci.md`](docs/platform/ci.md), [`docs/platform/contract-gates.md`](docs/platform/contract-gates.md), and [`docs/platform/release-evidence.md`](docs/platform/release-evidence.md).
+
+The repository's branch, review, dependency, issue, and maintenance rules are
+documented in [`docs/platform/repository-governance.md`](docs/platform/repository-governance.md).
 
 ## Delivery roadmap
 
