@@ -190,6 +190,33 @@ def _record_gap(report: dict[str, Any], stage: str, reason: str) -> None:
     report.setdefault("not_validated", []).append({"stage": stage, "reason": reason})
 
 
+def _record_processing_stage(
+    report: dict[str, Any],
+    *,
+    verification: str,
+    processing_state: str,
+    queue: str,
+    ocr_provider: str,
+    input_media_type: str,
+) -> None:
+    """Record processing truthfully and block a run that never completed OCR."""
+    completed = processing_state == "ready"
+    report.setdefault("stages", {})["processing"] = {
+        "verification": verification,
+        "status": "passed" if completed else "failed",
+        "queue": queue,
+        "document_state": processing_state,
+        "worker_completed": completed,
+        "ocr_provider": ocr_provider,
+        "input_media_type": input_media_type,
+    }
+    if completed:
+        return
+    code = "ocr_processing_failed" if processing_state == "failed" else "worker_did_not_complete_ocr"
+    report.setdefault("blockers", []).append({"code": code})
+    _record_gap(report, "processing", code)
+
+
 def _run_deterministic_fixture(root: Path) -> dict[str, Any]:
     """Run the provider-neutral fixture smoke without leaking its artifact."""
     artifact = root / "tmp" / f"integration-fixture-{uuid.uuid4().hex}.json"
@@ -485,17 +512,14 @@ def _run_live(args: argparse.Namespace, report: dict[str, Any]) -> None:
         if processing_state in {"ready", "failed"}:
             break
         time.sleep(args.poll_interval)
-    report.setdefault("stages", {})["processing"] = {
-        "verification": "live_http+fixture_worker" if worker_fixture else "live_http+provider_worker",
-        "status": "passed",
-        "queue": "enqueued",
-        "document_state": processing_state,
-        "worker_completed": processing_state == "ready",
-        "ocr_provider": "fixture" if worker_fixture else "provider",
-        "input_media_type": processing_media_type,
-    }
-    if processing_state != "ready":
-        _record_gap(report, "processing", "worker_did_not_complete_ocr")
+    _record_processing_stage(
+        report,
+        verification="live_http+fixture_worker" if worker_fixture else "live_http+provider_worker",
+        processing_state=processing_state,
+        queue="enqueued",
+        ocr_provider="fixture" if worker_fixture else "provider",
+        input_media_type=processing_media_type,
+    )
 
     # Facts are intentionally synthetic AI output when the worker has not
     # completed.  Their source spans and confidence remain explicit, and the

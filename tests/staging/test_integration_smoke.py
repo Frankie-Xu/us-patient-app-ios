@@ -25,6 +25,22 @@ def _load_module():
 
 
 class IntegrationSmokeScriptTests(unittest.TestCase):
+    def test_processing_failure_is_a_blocker(self) -> None:
+        module = _load_module()
+        report = module._base_report()
+        module._record_processing_stage(
+            report,
+            verification="live_http+provider_worker",
+            processing_state="failed",
+            queue="enqueued",
+            ocr_provider="provider",
+            input_media_type="image/png",
+        )
+        self.assertEqual(report["stages"]["processing"]["status"], "failed")
+        self.assertFalse(report["stages"]["processing"]["worker_completed"])
+        self.assertEqual(report["blockers"], [{"code": "ocr_processing_failed"}])
+        self.assertEqual(report["not_validated"], [{"stage": "processing", "reason": "ocr_processing_failed"}])
+
     def test_dry_run_has_route_gaps_and_no_credentials(self) -> None:
         module = _load_module()
         with tempfile.TemporaryDirectory() as temporary:
