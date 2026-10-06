@@ -50,6 +50,20 @@ from .pipeline import (
     PipelineError,
     PipelineOutput,
 )
+
+from .provider_pipeline import (
+    DoctorQuestion,
+    DoctorSummary,
+    ModelTelemetry,
+    ProviderNeutralPipeline,
+    ProviderPipelineResult,
+    SourceSpanCheck,
+    TelemetrySummary,
+    summarize_telemetry,
+    align_source_spans,
+    normalize_ocr_layout,
+)
+
 from .route_compatibility import (
     RouteCompatibilityError,
     RouteCompatibilityReport,
@@ -113,6 +127,13 @@ __all__ = [
     "PipelineOutput",
     "RegressionReport",
     "GoldenSetRegressionReport",
+    "DoctorQuestion",
+    "DoctorSummary",
+    "ModelTelemetry",
+    "ProviderNeutralPipeline",
+    "ProviderPipelineResult",
+    "SourceSpanCheck",
+    "TelemetrySummary",
     "REPORT_SCHEMA",
     "REPORT_SCHEMA_VERSION",
     "RouteCompatibilityError",
@@ -136,4 +157,7 @@ __all__ = [
     "evaluate_doctor_view",
     "project_doctor_brief",
     "synthetic_golden_set",
+    "align_source_spans",
+    "normalize_ocr_layout",
+    "summarize_telemetry",
 ]
