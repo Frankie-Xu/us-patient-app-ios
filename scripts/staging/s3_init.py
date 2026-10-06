@@ -9,10 +9,11 @@ from botocore.exceptions import ClientError
 
 def main() -> None:
     bucket = os.environ["S3_BUCKET"]
+    region = os.getenv("OBJECT_STORAGE_REGION", "us-east-1")
     client = boto3.client(
         "s3",
         endpoint_url=os.environ["S3_ENDPOINT"],
-        region_name=os.getenv("OBJECT_STORAGE_REGION", "us-east-1"),
+        region_name=region,
         aws_access_key_id=os.environ["S3_ACCESS_KEY"],
         aws_secret_access_key=os.environ["S3_SECRET_KEY"],
     )
@@ -22,7 +23,14 @@ def main() -> None:
         code = str((exc.response.get("Error") or {}).get("Code", ""))
         if code not in {"403", "404", "NoSuchBucket"}:
             raise
-        client.create_bucket(Bucket=bucket)
+        create_kwargs = {"Bucket": bucket}
+        # S3 requires an explicit location constraint for every region except
+        # us-east-1.  LocalStack-compatible endpoints enforce the same rule.
+        if region != "us-east-1":
+            create_kwargs["CreateBucketConfiguration"] = {
+                "LocationConstraint": region,
+            }
+        client.create_bucket(**create_kwargs)
     print("staging S3 bucket ready")
 
 
