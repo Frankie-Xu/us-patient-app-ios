@@ -4837,6 +4837,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   ]]></style>
         <title id="archify-diagram-title">US Patient App · Source-traceable visit pack</title>
         <desc id="archify-diagram-description">SwiftUI client · typed API boundary · provider-neutral services · explicit review gate</desc>
+        <rect width="100%" height="100%" fill="#f4f5f7" aria-hidden="true" />
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
