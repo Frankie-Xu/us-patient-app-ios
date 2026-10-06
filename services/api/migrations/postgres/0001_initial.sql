@@ -168,6 +168,24 @@ CREATE TABLE IF NOT EXISTS share_versions (
 CREATE INDEX IF NOT EXISTS share_versions_lookup_idx
     ON share_versions (resource_type, resource_id, status, expires_at);
 
+-- Deterministic content deduplication and intake metadata. These indexes do
+-- not retain bytes and remain compatible with the provider-neutral API.
+CREATE UNIQUE INDEX IF NOT EXISTS documents_owner_content_active_idx
+    ON documents (owner_id, sha256, media_type, size_bytes)
+    WHERE status <> 'deleted';
+
+CREATE TABLE IF NOT EXISTS document_intake_metadata (
+    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    document_version INTEGER NOT NULL CHECK (document_version > 0),
+    detected_media_type TEXT NOT NULL,
+    container_type TEXT NOT NULL,
+    page_count INTEGER CHECK (page_count IS NULL OR page_count > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (document_id, document_version)
+);
+CREATE INDEX IF NOT EXISTS document_intake_metadata_type_idx
+    ON document_intake_metadata (detected_media_type, container_type);
+
 CREATE TABLE IF NOT EXISTS audit_events (
     id UUID PRIMARY KEY,
     actor_id TEXT NOT NULL,

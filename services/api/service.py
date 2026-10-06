@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 
 from .auth import require_owner, require_role, require_scope
 from .dependencies import DependencyUnavailableError, InMemoryJobQueue, InMemoryObjectStore, JobQueue, ObjectStore
+from .file_intake import MAX_UPLOAD_BYTES, FileIntakeError, FileMetadata, UploadTooLargeError, inspect_bytes, validate_declared_metadata
 from .models import (
     AuditEvent,
     AuthContext,
@@ -54,7 +55,6 @@ class UploadSessionError(ServiceError):
         self.code = code
 
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 UPLOAD_SESSION_TTL = timedelta(minutes=15)
 _DEPENDENCY_UNSET = object()
 
@@ -78,6 +78,9 @@ class ApiService:
         # Raw share tokens live only in this process memory for idempotent replay.
         # The store receives only a digest, so a durable adapter never persists a token.
         self._ephemeral_share_tokens: dict[str, str] = {}
+        # Receipt metadata is process-local until a durable document-version
+        # adapter persists it. Queue payloads continue to carry metadata only.
+        self._upload_metadata: dict[str, FileMetadata] = {}
 
     def _id(self) -> str:
         return str(uuid.uuid4())
@@ -142,11 +145,54 @@ class ApiService:
         idempotency_key: str,
     ) -> Document:
         require_scope(auth, Scope.DOCUMENTS_WRITE)
-        payload = {"filename": filename, "media_type": media_type, "size_bytes": size_bytes, "sha256": sha256}
+        try:
+            normalized_media_type = validate_declared_metadata(
+                filename=filename,
+                media_type=media_type,
+                size_bytes=size_bytes,
+                sha256=sha256,
+                # Preserve the existing contract: metadata creation records
+                # oversized declarations; the upload-session boundary rejects
+                # them with the stable 413 code.
+                max_bytes=max(MAX_UPLOAD_BYTES, size_bytes) if isinstance(size_bytes, int) and size_bytes > MAX_UPLOAD_BYTES else MAX_UPLOAD_BYTES,
+            )
+        except UploadTooLargeError as exc:
+            raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit") from exc
+        except FileIntakeError as exc:
+            raise ServiceError("document metadata is invalid") from exc
+        payload = {
+            "filename": filename,
+            "media_type": normalized_media_type,
+            "size_bytes": size_bytes,
+            "sha256": sha256.lower(),
+        }
         replay = self._idempotent(auth, idempotency_key, payload)
         if replay is not None:
             return self.store.get_resource("documents", replay["value"]["id"])
-        document = Document(self._id(), auth.subject_id, filename, media_type, size_bytes, sha256, created_at=self.clock(), updated_at=self.clock())
+        # The content tuple is a deterministic duplicate key. Returning the
+        # existing immutable document avoids duplicate OCR work while preserving
+        # the existing create response contract and idempotency receipt.
+        for existing in self.store.list_resources("documents"):
+            if (
+                existing.owner_id == auth.subject_id
+                and existing.status != DocumentStatus.DELETED
+                and existing.media_type.lower() == normalized_media_type
+                and existing.size_bytes == size_bytes
+                and existing.sha256.lower() == sha256.lower()
+            ):
+                self._audit(auth, "document.duplicate_detected", "document", existing.id)
+                self._remember(auth, idempotency_key, payload, {"id": existing.id})
+                return existing
+        document = Document(
+            self._id(),
+            auth.subject_id,
+            filename,
+            normalized_media_type,
+            size_bytes,
+            sha256.lower(),
+            created_at=self.clock(),
+            updated_at=self.clock(),
+        )
         self.store.save_resource("documents", document)
         self._audit(auth, "document.created", "document", document.id)
         self._remember(auth, idempotency_key, payload, {"id": document.id})
@@ -181,13 +227,28 @@ class ApiService:
         require_owner(auth, session.owner_id)
         if not isinstance(content, bytes):
             raise UploadSessionError(422, "VALIDATION_ERROR", "binary request body is required")
+        # Verify size/checksum before format inspection, storage, or audit. This
+        # preserves the existing integrity error code and avoids retaining bytes
+        # outside the bounded request body.
         if len(content) > MAX_UPLOAD_BYTES:
             raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit")
-        # Verify bytes before any object-store write; never include digests or bytes in errors/audit.
         if len(content) != session.size_bytes or hashlib.sha256(content).hexdigest() != session.sha256:
             raise UploadSessionError(422, "UPLOAD_INTEGRITY_MISMATCH", "upload size or checksum does not match")
+        try:
+            metadata = inspect_bytes(
+                content,
+                media_type=session.media_type,
+                expected_size=session.size_bytes,
+                expected_sha256=session.sha256,
+                max_bytes=MAX_UPLOAD_BYTES,
+            )
+        except UploadTooLargeError as exc:
+            raise UploadSessionError(413, "UPLOAD_TOO_LARGE", "upload exceeds the supported size limit") from exc
+        except FileIntakeError as exc:
+            raise UploadSessionError(422, "UPLOAD_FORMAT_INVALID", "upload format does not match declared metadata") from exc
         # A completed same-byte PUT remains safe to retry even after session expiry.
         if session.status == UploadStatus.VERIFIED:
+            self._upload_metadata.setdefault(session.id, metadata)
             return session
         if self.clock() >= session.expires_at:
             raise UploadSessionError(410, "UPLOAD_EXPIRED", "upload session has expired")
@@ -202,6 +263,7 @@ class ApiService:
         except DependencyUnavailableError as exc:
             raise UploadSessionError(503, "DEPENDENCY_UNAVAILABLE", "object store is unavailable") from exc
         verified = replace(session, status=UploadStatus.VERIFIED, verified_at=self.clock(), object_key=object_key)
+        self._upload_metadata[session.id] = metadata
         self.store.save_resource("upload_sessions", verified)
         self._audit(auth, "upload_session.verified", "upload_session", session.id)
         return verified
