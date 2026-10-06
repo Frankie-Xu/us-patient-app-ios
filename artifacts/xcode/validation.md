@@ -122,3 +122,11 @@
 - Staging smoke and AI staging regression passed; OpenAPI contract drift and Python compile checks passed. API/AI pytest suites were not runnable on this managed host because dependency installation is blocked by PEP 668 and `pytest` is not installed; the existing CI/pinned environment remains the authoritative Python test runner.
 - Bundle identifier, version `0.1.0`, build `1`, minimum iOS `17.0`, privacy permissions, background processing, and `PrivacyInfo.xcprivacy` were verified.
 - The machine-readable release record is stored at `artifacts/xcode/release-validation-20261006.json`. Distribution signing, remote staging, external OAuth/JWT, and TestFlight publishing remain unverified.
+
+## 2026-10-06 Dependency-enabled Python regression follow-up
+
+- Created an isolated temporary uv environment outside the repository to avoid the host PEP 668 restriction.
+- API pytest: 89 passed, 0 failed.
+- AI pytest: 59 passed, 0 failed.
+- Tests used only synthetic/de-identified fixtures; no credentials, PHI, or production endpoints were loaded.
+- Machine-readable evidence is stored at `artifacts/xcode/python-regression-20261006.json`.
