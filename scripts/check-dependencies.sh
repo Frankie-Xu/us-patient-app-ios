@@ -48,4 +48,9 @@ if project and not project.get("name"):
 PY
 done < <(find . -type f -name pyproject.toml -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print0)
 
+if [[ -f services/api/pyproject.toml && ! -f services/api/requirements-ci.txt ]]; then
+  echo "services/api/requirements-ci.txt is required for reproducible API test installs." >&2
+  exit 1
+fi
+
 echo "Dependency manifest checks passed."

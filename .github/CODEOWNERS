@@ -1,2 +1,13 @@
+# Default owner while the repository is maintained by a single maintainer.
+# Add a second maintainer to each sensitive area before requiring approvals.
 * @Frankie-Xu
 
+# Keep ownership explicit by boundary so future maintainers can be added
+# without changing the review contract or relying on a global wildcard.
+/apps/ios/ @Frankie-Xu
+/services/api/ @Frankie-Xu
+/services/ai/ @Frankie-Xu
+/packages/contracts/ @Frankie-Xu
+/scripts/ @Frankie-Xu
+/.github/ @Frankie-Xu
+/docs/ @Frankie-Xu

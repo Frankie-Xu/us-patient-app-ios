@@ -8,11 +8,17 @@ import yaml
 def check(document, text):
     if document.get("permissions") not in ({}, {"contents": "read"}):
         raise ValueError("top-level permissions must be empty or contents: read")
+    allowed_job_permissions = {
+        frozenset(),
+        frozenset({("contents", "read")}),
+        frozenset({("actions", "read"), ("contents", "read"), ("security-events", "write")}),
+    }
     for line in text.splitlines():
         if re.search(r"^\s+uses:", line) and not re.search(r"#\s+v[0-9]", line):
             raise ValueError("action references require a human-readable version comment")
     for job in document.get("jobs", {}).values():
-        if "permissions" in job and job["permissions"] not in ({}, {"contents": "read"}):
+        job_permissions = job.get("permissions")
+        if job_permissions is not None and frozenset(job_permissions.items()) not in allowed_job_permissions:
             raise ValueError("jobs cannot elevate permissions")
         for step in [job, *job.get("steps", [])]:
             ref = step.get("uses")

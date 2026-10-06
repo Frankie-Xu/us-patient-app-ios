@@ -20,14 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ios-present: ${{ steps.detect-ios.outputs.present }}
+      contract-changed: ${{ steps.detect-changes.outputs.contract-changed }}
+      api-changed: ${{ steps.detect-changes.outputs.api-changed }}
+      ai-changed: ${{ steps.detect-changes.outputs.ai-changed }}
+      ios-changed: ${{ steps.detect-changes.outputs.ios-changed }}
     timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -40,6 +45,16 @@ jobs:
         run: bash scripts/check-dependencies.sh
       - name: Check workflow action pins
         run: bash scripts/check-workflow-pins.sh
+      - name: Check repository governance
+        run: bash scripts/check-governance.sh
+      - name: Check branch policy
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bash scripts/check-branch-policy.sh
+      - name: Run branch policy regression tests
+        run: bash scripts/test-branch-policy.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
       - name: Run production configuration contract regression
@@ -55,14 +70,65 @@ jobs:
       - name: Detect iOS component
         id: detect-ios
         run: |
+          set_output() { printf '%s=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"; }
           if find apps/ios -type f \( -name Package.swift -o -name project.pbxproj -o -name contents.xcworkspacedata \) -not -path './.git/*' -not -path '*/.build/*' -not -path '*/Packages/*' -not -path '*/.swiftpm/*' -print -quit | grep -q .; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
+            set_output present true
           else
-            echo "present=false" >> "$GITHUB_OUTPUT"
+            set_output present false
+          fi
+      - name: Detect changed areas
+        id: detect-changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            git ls-files > "$RUNNER_TEMP/changed-files"
+          else
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/changed-files"
+          fi
+          echo "Changed files: $(wc -l < "$RUNNER_TEMP/changed-files" | tr -d ' ')"
+
+          has_match() {
+            grep -Eq "$1" "$RUNNER_TEMP/changed-files"
+          }
+          set_output() { printf '%s=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"; }
+
+          shared='^(scripts/|\.github/workflows/ci\.yml$)'
+          if has_match "$shared"; then
+            set_output contract-changed true
+            set_output api-changed true
+            set_output ai-changed true
+            set_output ios-changed true
+          else
+            if has_match '^(packages/contracts/|services/api/)'; then
+              set_output contract-changed true
+            else
+              set_output contract-changed false
+            fi
+            if has_match '^(packages/contracts/|services/api/)'; then
+              set_output api-changed true
+            else
+              set_output api-changed false
+            fi
+            if has_match '^(packages/contracts/|services/ai/)'; then
+              set_output ai-changed true
+            else
+              set_output ai-changed false
+            fi
+            if has_match '^apps/ios/'; then
+              set_output ios-changed true
+            else
+              set_output ios-changed false
+            fi
           fi
 
   contract-validation:
     name: Contract validation
+    needs: repository-validation
+    if: ${{ needs.repository-validation.outputs.contract-changed == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -71,7 +137,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -85,6 +151,8 @@ jobs:
 
   api-tests:
     name: API tests
+    needs: repository-validation
+    if: ${{ needs.repository-validation.outputs.api-changed == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -93,7 +161,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -120,6 +188,8 @@ jobs:
 
   ai-tests:
     name: AI tests
+    needs: repository-validation
+    if: ${{ needs.repository-validation.outputs.ai-changed == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -128,7 +198,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
@@ -153,7 +223,7 @@ jobs:
   ios-tests:
     name: iOS tests
     needs: repository-validation
-    if: ${{ needs.repository-validation.outputs.ios-present == 'true' }}
+    if: ${{ needs.repository-validation.outputs.ios-present == 'true' && needs.repository-validation.outputs.ios-changed == 'true' }}
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -176,7 +246,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up validation Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Generate synthetic production gate evidence

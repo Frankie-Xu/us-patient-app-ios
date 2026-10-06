@@ -5,3 +5,27 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /services/api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-runtime:
+        patterns:
+          - "*"
+
+  - package-ecosystem: swift
+    directory: /apps/ios
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      swift-package:
+        patterns:
+          - "*"

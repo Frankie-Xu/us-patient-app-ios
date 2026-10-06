@@ -1,0 +1,611 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "US Patient App · Source-traceable visit pack",
+    "subtitle": "SwiftUI client · typed API boundary · provider-neutral services · explicit review gate",
+    "locale": "en",
+    "output": ".archify/architecture-us-patient-app-20261006/us-patient-app-architecture.html",
+    "visual_preset": "editorial",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "repository": {
+      "url": "https://github.com/Frankie-Xu/us-patient-app-ios.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "f61dc28f450c433b4d24ede802715aaaaf8795d9"
+    },
+    "legend": {
+      "mode": "auto"
+    },
+    "views": [
+      {
+        "id": "patient-path",
+        "label": "Patient path",
+        "focus": [
+          "patient",
+          "ios_shell",
+          "import_flow",
+          "transport",
+          "contract",
+          "api",
+          "service",
+          "review_gate"
+        ],
+        "note": "Upload, process, review, and prepare a version-aware visit pack."
+      },
+      {
+        "id": "safety-boundary",
+        "label": "Safety boundary",
+        "focus": [
+          "service",
+          "runtime",
+          "stores",
+          "ai",
+          "review_gate",
+          "audit"
+        ],
+        "note": "Source references, conflicts, review state, audit metadata, and revocation stay explicit."
+      },
+      {
+        "id": "delivery-gate",
+        "label": "Delivery gate",
+        "focus": [
+          "contract",
+          "api",
+          "service",
+          "ci"
+        ],
+        "note": "Contract, API, integration, and CodeQL checks keep the repository easy to change safely."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "patient",
+      "type": "external",
+      "label": "Patient / reviewer",
+      "sublabel": "selects · reviews · shares",
+      "pos": [
+        20,
+        350
+      ],
+      "size": [
+        170,
+        76
+      ],
+      "icon": "person",
+      "sources": [
+        {
+          "path": "apps/ios/Sources/PatientAppUI/AppShell.swift",
+          "line": 122,
+          "end_line": 130,
+          "label": "SwiftUI entry"
+        }
+      ]
+    },
+    {
+      "id": "ios_shell",
+      "type": "frontend",
+      "label": "iOS client shell",
+      "sublabel": "SwiftUI · feature models",
+      "tag": "iOS 17+",
+      "pos": [
+        260,
+        240
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "icon": "frontend",
+      "sources": [
+        {
+          "path": "apps/ios/Sources/PatientAppUI/AppShell.swift",
+          "line": 32,
+          "end_line": 65,
+          "label": "AppShellModel"
+        },
+        {
+          "path": "apps/ios/Sources/PatientAppUI/AppShell.swift",
+          "line": 122,
+          "end_line": 130,
+          "label": "App tabs"
+        }
+      ]
+    },
+    {
+      "id": "import_flow",
+      "type": "frontend",
+      "label": "Import + review flow",
+      "sublabel": "bounded upload · retry · facts",
+      "pos": [
+        260,
+        470
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "icon": "active",
+      "sources": [
+        {
+          "path": "apps/ios/Sources/PatientAppDomain/APIClient.swift",
+          "line": 162,
+          "end_line": 198,
+          "label": "ImportUseCase"
+        },
+        {
+          "path": "apps/ios/Sources/PatientAppDomain/APIClient.swift",
+          "line": 212,
+          "end_line": 247,
+          "label": "Bounded polling"
+        }
+      ]
+    },
+    {
+      "id": "transport",
+      "type": "frontend",
+      "label": "Typed API transport",
+      "sublabel": "URLSession · injected auth",
+      "pos": [
+        550,
+        355
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "icon": "backend",
+      "sources": [
+        {
+          "path": "apps/ios/Sources/PatientAppDomain/APIClient.swift",
+          "line": 3,
+          "end_line": 18,
+          "label": "Client protocol"
+        },
+        {
+          "path": "apps/ios/Sources/PatientAppDomain/URLSessionPatientAPIClient.swift",
+          "line": 57,
+          "end_line": 106,
+          "label": "Transport setup"
+        }
+      ]
+    },
+    {
+      "id": "contract",
+      "type": "cloud",
+      "label": "OpenAPI contract",
+      "sublabel": "frozen typed boundary",
+      "tag": "v0.3.0",
+      "pos": [
+        790,
+        355
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "icon": "cloud",
+      "sources": [
+        {
+          "path": "packages/contracts/openapi.yaml",
+          "line": 1,
+          "end_line": 14,
+          "label": "Contract scope"
+        },
+        {
+          "path": "packages/contracts/openapi.yaml",
+          "line": 111,
+          "end_line": 120,
+          "label": "Upload boundary"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "HTTP API adapter",
+      "sublabel": "auth · routes · readiness",
+      "pos": [
+        1020,
+        240
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "icon": "backend",
+      "sources": [
+        {
+          "path": "services/api/app.py",
+          "line": 120,
+          "end_line": 144,
+          "label": "HTTP adapter"
+        },
+        {
+          "path": "services/api/app.py",
+          "line": 145,
+          "end_line": 182,
+          "label": "Document routes"
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "API service",
+      "sublabel": "ownership · idempotency · audit",
+      "tag": "provider-neutral",
+      "pos": [
+        1260,
+        240
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "backend",
+      "sources": [
+        {
+          "path": "services/api/service.py",
+          "line": 62,
+          "end_line": 91,
+          "label": "Service boundary"
+        },
+        {
+          "path": "services/api/service.py",
+          "line": 102,
+          "end_line": 117,
+          "label": "Audit metadata"
+        },
+        {
+          "path": "services/api/service.py",
+          "line": 119,
+          "end_line": 180,
+          "label": "Idempotent storage"
+        }
+      ]
+    },
+    {
+      "id": "runtime",
+      "type": "backend",
+      "label": "Runtime dependencies",
+      "sublabel": "readiness · injected adapters",
+      "pos": [
+        1450,
+        455
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "backend",
+      "sources": [
+        {
+          "path": "services/api/runtime.py",
+          "line": 32,
+          "end_line": 56,
+          "label": "Dependency graph"
+        },
+        {
+          "path": "services/api/runtime.py",
+          "line": 78,
+          "end_line": 89,
+          "label": "Local runtime"
+        }
+      ]
+    },
+    {
+      "id": "stores",
+      "type": "database",
+      "label": "Storage adapters",
+      "sublabel": "metadata · bytes · jobs",
+      "tag": "SQLite / local",
+      "pos": [
+        1450,
+        565
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "database",
+      "sources": [
+        {
+          "path": "services/api/runtime.py",
+          "line": 78,
+          "end_line": 89,
+          "label": "Synthetic adapters"
+        },
+        {
+          "path": "services/api/service.py",
+          "line": 62,
+          "end_line": 77,
+          "label": "Provider seams"
+        }
+      ]
+    },
+    {
+      "id": "ai",
+      "type": "backend",
+      "label": "AI pipeline",
+      "sublabel": "OCR → facts → conflicts → citations",
+      "tag": "offline / synthetic",
+      "pos": [
+        980,
+        565
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "waiting",
+      "sources": [
+        {
+          "path": "services/ai/pipeline.py",
+          "line": 1,
+          "end_line": 10,
+          "label": "Provider seam"
+        },
+        {
+          "path": "services/ai/pipeline.py",
+          "line": 34,
+          "end_line": 75,
+          "label": "Pipeline output"
+        }
+      ]
+    },
+    {
+      "id": "review_gate",
+      "type": "security",
+      "label": "Doctor-view gate",
+      "sublabel": "source · review · conflict checks",
+      "tag": "delivery blocked",
+      "pos": [
+        1200,
+        670
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "security",
+      "sources": [
+        {
+          "path": "services/ai/doctor_view.py",
+          "line": 1,
+          "end_line": 23,
+          "label": "Eligibility rules"
+        },
+        {
+          "path": "services/ai/doctor_view.py",
+          "line": 75,
+          "end_line": 128,
+          "label": "Gate result"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "Audit + version boundary",
+      "sublabel": "scalar events · revocable shares",
+      "pos": [
+        1520,
+        240
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "database",
+      "sources": [
+        {
+          "path": "services/api/service.py",
+          "line": 102,
+          "end_line": 117,
+          "label": "Scalar audit"
+        },
+        {
+          "path": "docs/architecture/README.md",
+          "line": 1,
+          "end_line": 20,
+          "label": "Architecture rules"
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "type": "cloud",
+      "label": "CI + CodeQL",
+      "sublabel": "PR · main · weekly scans",
+      "tag": "integration gate",
+      "pos": [
+        790,
+        60
+      ],
+      "size": [
+        200,
+        82
+      ],
+      "icon": "success",
+      "sources": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "line": 1,
+          "end_line": 69,
+          "label": "CI triggers"
+        },
+        {
+          "path": ".github/workflows/codeql.yml",
+          "line": 18,
+          "end_line": 54,
+          "label": "CodeQL matrix"
+        },
+        {
+          "path": "scripts/release_evidence.py",
+          "line": 101,
+          "end_line": 133,
+          "label": "Evidence manifest"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "iOS client boundary",
+      "wraps": [
+        "ios_shell",
+        "import_flow",
+        "transport"
+      ],
+      "pad": 28
+    },
+    {
+      "kind": "region",
+      "label": "Provider-neutral service boundary",
+      "wraps": [
+        "contract",
+        "api",
+        "service",
+        "runtime",
+        "stores",
+        "audit"
+      ],
+      "pad": 28
+    },
+    {
+      "kind": "security-group",
+      "label": "Review + provenance boundary",
+      "wraps": [
+        "ai",
+        "review_gate"
+      ],
+      "pad": 28
+    },
+    {
+      "kind": "region",
+      "label": "Repository delivery boundary",
+      "wraps": [
+        "ci"
+      ],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "patient-to-shell",
+      "from": "patient",
+      "to": "ios_shell",
+      "label": "choose",
+      "variant": "emphasis"
+    },
+    {
+      "id": "shell-to-import",
+      "from": "ios_shell",
+      "to": "import_flow",
+      "label": "state"
+    },
+    {
+      "id": "import-to-transport",
+      "from": "import_flow",
+      "to": "transport",
+      "label": "commands",
+      "variant": "emphasis"
+    },
+    {
+      "id": "transport-to-contract",
+      "from": "transport",
+      "to": "contract",
+      "label": "HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "contract-to-api",
+      "from": "contract",
+      "to": "api",
+      "label": "API"
+    },
+    {
+      "id": "api-to-service",
+      "from": "api",
+      "to": "service",
+      "label": "auth",
+      "variant": "emphasis"
+    },
+    {
+      "id": "service-to-runtime",
+      "from": "service",
+      "to": "runtime",
+      "label": "runtime"
+    },
+    {
+      "id": "runtime-to-stores",
+      "from": "runtime",
+      "to": "stores"
+    },
+    {
+      "id": "service-to-audit",
+      "from": "service",
+      "to": "audit"
+    },
+    {
+      "id": "service-to-ai",
+      "from": "service",
+      "to": "ai",
+      "variant": "dashed"
+    },
+    {
+      "id": "ai-to-review",
+      "from": "ai",
+      "to": "review_gate",
+      "label": "eligibility",
+      "variant": "security"
+    },
+    {
+      "id": "review-to-service",
+      "from": "review_gate",
+      "to": "service",
+      "label": "review",
+      "variant": "security"
+    },
+    {
+      "id": "ci-to-contract",
+      "from": "ci",
+      "to": "contract",
+      "label": "checks",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Patient path",
+      "items": [
+        "SwiftUI keeps review states visible",
+        "Upload and processing are bounded and cancellable",
+        "Shares remain pinned to a resource version"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Safety boundary",
+      "items": [
+        "Facts carry source references and review state",
+        "Conflicts block doctor-view delivery",
+        "Audit metadata stays scalar and PHI-safe"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Delivery gate",
+      "items": [
+        "OpenAPI changes start at the contract",
+        "CI publishes redacted release evidence",
+        "CodeQL scans Actions, Python, and Swift"
+      ]
+    }
+  ]
+}

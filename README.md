@@ -19,6 +19,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#architecture-and-data-flow">Architecture</a> ·
   <a href="#privacy-and-safety-boundaries">Privacy</a> ·
+  <a href="docs/platform/repository-governance.md">Governance</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="SECURITY.md">Security</a>
 </p>
@@ -32,7 +33,9 @@
 - [What it includes](#what-it-includes)
 - [Quick start](#quick-start)
 - [Repository map](#repository-map)
+- [Implementation map](#implementation-map)
 - [Architecture and data flow](#architecture-and-data-flow)
+- [Current implementation status](#current-implementation-status)
 - [Privacy and safety boundaries](#privacy-and-safety-boundaries)
 - [Quality gates](#quality-gates)
 - [Delivery roadmap](#delivery-roadmap)
@@ -140,9 +143,32 @@ The scripts bootstrap the pinned Python tools when needed, validate privacy and 
 └── LICENSE                            PolyForm Noncommercial License 1.0.0
 ```
 
+## Implementation map
+
+The repository is split by responsibility so a change can stay small, reviewable, and easy to verify:
+
+| Surface | Owns | Start here when you are changing |
+| --- | --- | --- |
+| `apps/ios` | SwiftUI shell, feature models, typed client protocols, protected session/cache seams | Navigation, import/review states, account switching, or iOS presentation |
+| `packages/contracts` | Versioned OpenAPI contract and route fixtures | A request/response shape, upload limit, auth placeholder, or API capability |
+| `services/api` | HTTP adaptation, ownership, idempotency, versions, sharing, audit metadata, readiness | A server-side rule or resource lifecycle |
+| `services/ai` | Offline extraction contracts, provenance, conflicts, golden-set evaluation, doctor-view eligibility | OCR/model adapters, fact review, citations, or delivery blocking |
+| `scripts` and `.github/workflows` | Local evidence, privacy checks, integration gates, and CodeQL | CI behavior, release evidence, dependency pins, or repository policy |
+| `docs` | Architecture decisions, production gates, threat model, and platform contracts | A boundary decision or an explanation that should outlive one pull request |
+
+The dependency direction is deliberate: the client depends on typed seams, the API owns resource rules, and AI output remains a projection that must pass explicit review before it can be delivered.
+
 ## Architecture and data flow
 
 The client renders server-owned projections and never infers clinical meaning. Services own identity mapping, immutable versions, storage, jobs, source references, audit events, and revocation enforcement. The dependency direction stays explicit:
+
+<p align="center">
+  <a href=".archify/architecture-us-patient-app-20261006/us-patient-app-architecture.html">
+    <img src="docs/assets/us-patient-app-architecture.svg" alt="Archify architecture map showing the SwiftUI client, typed API boundary, provider-neutral services, AI review gate, audit boundary, and CI delivery gate" width="100%">
+  </a>
+</p>
+
+<p align="center"><sub>Source-traceable architecture generated with <a href="https://github.com/tt-a1i/archify">Archify</a>. <a href=".archify/architecture-us-patient-app-20261006/us-patient-app-architecture.html">Open the interactive view</a> or use the text fallback below.</sub></p>
 
 ```mermaid
 flowchart LR
@@ -158,6 +184,16 @@ flowchart LR
 ```
 
 The detailed rules are in [`docs/architecture/README.md`](docs/architecture/README.md). The proposed pilot baseline and open production decisions are tracked in [`docs/wayfinder-map.md`](docs/wayfinder-map.md); a passing build does not replace the required compliance and security sign-off.
+
+## Current implementation status
+
+The checked-in path is intentionally useful before production providers are selected:
+
+- **Working locally:** SwiftUI navigation and feature models, bounded import polling, typed API seams, synthetic API/runtime adapters, offline AI contracts, and de-identified regression fixtures.
+- **Gated by evidence:** authentication provider, durable production storage, object retention/deletion, model/OCR provider, telemetry, deployment region, and production PHI handling.
+- **Reviewed before delivery:** source references, conflict visibility, explicit fact review, version-aware shares, revocation checks, redacted release evidence, and CodeQL coverage.
+
+This split lets contributors build and test the product loop without accidentally implying that a synthetic implementation is ready for real patient data. The decision record and acceptance evidence live beside the code, so a provider change can be reviewed as a boundary change rather than a hidden implementation detail.
 
 ## Privacy and safety boundaries
 
@@ -182,6 +218,9 @@ swift test --package-path apps/ios
 ```
 
 The merge contract, workflow pins, and release artifact shape are documented in [`docs/platform/ci.md`](docs/platform/ci.md), [`docs/platform/contract-gates.md`](docs/platform/contract-gates.md), and [`docs/platform/release-evidence.md`](docs/platform/release-evidence.md).
+
+The repository's branch, review, dependency, issue, and maintenance rules are
+documented in [`docs/platform/repository-governance.md`](docs/platform/repository-governance.md).
 
 ## Delivery roadmap
 

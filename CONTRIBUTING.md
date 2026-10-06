@@ -1,8 +1,12 @@
 # Contributing
 
+Read the [repository governance contract](docs/platform/repository-governance.md)
+before opening a pull request. It defines the branch, review, dependency, and
+maintenance rules that are checked in alongside the code.
+
 ## Branches and commits
 
-- Branch from `main` using `feat/<area>-<short-name>`, `fix/<area>-<short-name>`, or `docs/<short-name>`.
+- Branch from `main` using `feat/`, `fix/`, `docs/`, `chore/`, `test/`, `refactor/`, `ci/`, or `perf/` followed by a lowercase descriptive name. Dependabot branches are managed automatically.
 - Keep commits focused and use Conventional Commits: `feat(ios): ...`, `fix(api): ...`, `test(ai): ...`, `docs: ...`.
 - Do not commit credentials, real patient data, access tokens, exported PDFs, screenshots containing health information, or vendor payloads.
 
@@ -19,6 +23,8 @@ Required before merge:
 - iOS flows include empty, loading, failure, retry, permission, and success states.
 - AI changes include a de-identified golden-set evaluation and a high-severity error review.
 - The pull request contains no PHI, credentials, vendor payloads, or copied clinical text.
+- Use the checked-in pull request template. Prefer a `main` base; stacked work
+  must link its parent pull request and include a `stacked` label.
 
 ## Release expectations
 
