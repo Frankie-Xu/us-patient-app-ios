@@ -65,6 +65,8 @@ jobs:
         run: bash scripts/test-contract-drift.sh
       - name: Run privacy evidence regression
         run: bash scripts/test-privacy-evidence.sh
+      - name: Run staging synthetic end-to-end flow
+        run: python scripts/staging_e2e.py
       - name: Check patch formatting
         run: git diff --check
       - name: Detect iOS component
