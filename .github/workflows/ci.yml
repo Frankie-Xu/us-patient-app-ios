@@ -51,7 +51,10 @@ jobs:
         env:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: bash scripts/check-branch-policy.sh
+      - name: Run branch policy regression tests
+        run: bash scripts/test-branch-policy.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
       - name: Run production configuration contract regression

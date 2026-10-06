@@ -14,6 +14,7 @@ when any required component fails.
 - **API tests** — discovers `services/api` Python tests, reports route-test coverage for topics, visits, and tasks, performs an in-process `/healthz` readiness smoke for those route families without binding a port, and uploads a PHI-safe aggregate result JSON. It skips when the component or its tests are absent; the readiness result is also explicitly marked skipped until an app adapter exists.
 - **AI tests** — emits an aggregate synthetic golden-set regression report, runs the doctor-view projection gate, uploads the PHI-safe aggregate JSON, then applies the same discovery rules to `services/ai`.
 - **iOS tests** — runs `apps/ios` Swift Package or Xcode tests when that component is present. The job is skipped when no iOS project or package exists yet.
+- **CodeQL** — analyzes GitHub Actions, Python, and Swift on pull requests, pushes to `main`, and the weekly scheduled scan. Its result remains visible alongside the aggregate integration gate so the existing single-maintainer flow stays lightweight.
 
 A skipped component is an intentional green result for the scaffold. The pull request must state which component was skipped and why. Once a component and its tests land, the same check discovers and runs them; a failing test remains a failing check. The Integration gate publishes a safe aggregate summary in the Actions run page and retains the detailed manifests as a short-lived artifact.
 

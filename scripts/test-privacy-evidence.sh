@@ -27,7 +27,10 @@ status=$?
 set -e
 test "$status" -eq 1
 grep -Fx "Privacy evidence check failed; inspect generated evidence locally." "$tmp_dir/output"
-! grep -q "Users\|patient name\|private.json" "$tmp_dir/output"
+if grep -q "Users\|patient name\|private.json" "$tmp_dir/output"; then
+  echo "privacy evidence check leaked sensitive fixture content" >&2
+  exit 1
+fi
 "$python_bin" - "$tmp_dir/fail.json" <<'PY'
 import json, pathlib, sys
 value=json.loads(pathlib.Path(sys.argv[1]).read_text())

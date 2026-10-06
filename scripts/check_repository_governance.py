@@ -14,6 +14,7 @@ from pathlib import Path
 REQUIRED_FILES = (
     ".github/CODEOWNERS",
     ".github/dependabot.yml",
+    ".github/workflows/codeql.yml",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
@@ -23,6 +24,7 @@ REQUIRED_FILES = (
     "docs/platform/repository-governance.md",
     "scripts/check-branch-policy.sh",
     "scripts/check_branch_policy.py",
+    "scripts/test-branch-policy.sh",
 )
 
 

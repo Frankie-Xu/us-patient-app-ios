@@ -36,6 +36,8 @@ relevant sensitive areas before increasing the required approval count.
 
 - Dependabot checks GitHub Actions, the API's pip dependencies, and the iOS
   Swift package surface weekly.
+- CodeQL analyzes Actions, Python, and Swift on pull requests, pushes to
+  `main`, and a weekly schedule.
 - GitHub Actions use full commit SHAs, least-privilege permissions, and
   `persist-credentials: false` on checkout.
 - Pull requests always run repository validation and the integration gate.
