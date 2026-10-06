@@ -10,6 +10,10 @@ behavior those settings must enforce.
 - `main` is the only integration and release branch. Feature work branches from
   `main` and uses `feat/<area>-<short-name>`, `fix/<area>-<short-name>`, or
   `docs/<short-name>`.
+- Every pull-request head and stacked base branch follows the checked branch
+  policy: `feat/`, `fix/`, `docs/`, `chore/`, `test/`, `refactor/`, `ci/`,
+  `perf/`, or an approved `dependabot/` branch. Legacy branches remain visible
+  until their active work is closed or migrated.
 - Prefer one concern per pull request. A stacked pull request is allowed only
   when it has a clear parent PR link, a `stacked` label, and an update plan.
 - Every PR uses the checked-in template and identifies user-visible behavior,
@@ -52,6 +56,8 @@ relevant sensitive areas before increasing the required approval count.
   requirement or ADR, and close duplicates or superseded work.
 - Review open branches and stacked PRs monthly. Delete branches after merge or
   closure unless they are explicitly retained for release or audit evidence.
+- Keep branches unprotected by default so short-lived development stays fast;
+  enforce the policy through pull-request CI and protect integration branches.
 - Review CODEOWNERS, Actions permissions, Dependabot coverage, and repository
   access quarterly.
 

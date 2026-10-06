@@ -21,6 +21,8 @@ REQUIRED_FILES = (
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/platform/repository-governance.md",
+    "scripts/check-branch-policy.sh",
+    "scripts/check_branch_policy.py",
 )
 
 

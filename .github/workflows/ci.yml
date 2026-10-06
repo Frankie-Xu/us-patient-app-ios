@@ -47,6 +47,11 @@ jobs:
         run: bash scripts/check-workflow-pins.sh
       - name: Check repository governance
         run: bash scripts/check-governance.sh
+      - name: Check branch policy
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/check-branch-policy.sh
       - name: Run scanner regression tests
         run: bash scripts/test-validate-repo.sh
       - name: Run production configuration contract regression

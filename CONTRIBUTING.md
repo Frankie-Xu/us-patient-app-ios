@@ -6,7 +6,7 @@ maintenance rules that are checked in alongside the code.
 
 ## Branches and commits
 
-- Branch from `main` using `feat/<area>-<short-name>`, `fix/<area>-<short-name>`, or `docs/<short-name>`.
+- Branch from `main` using `feat/`, `fix/`, `docs/`, `chore/`, `test/`, `refactor/`, `ci/`, or `perf/` followed by a lowercase descriptive name. Dependabot branches are managed automatically.
 - Keep commits focused and use Conventional Commits: `feat(ios): ...`, `fix(api): ...`, `test(ai): ...`, `docs: ...`.
 - Do not commit credentials, real patient data, access tokens, exported PDFs, screenshots containing health information, or vendor payloads.
 

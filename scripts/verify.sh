@@ -44,6 +44,7 @@ if [[ "$mode" == "quick" ]]; then
   bash scripts/check-dependencies.sh
   bash scripts/check-workflow-pins.sh
   bash scripts/check-governance.sh
+  bash scripts/check-branch-policy.sh
   git diff --check
   echo "Quick verification passed. Run 'bash scripts/verify.sh --full' before opening a pull request."
   exit 0
