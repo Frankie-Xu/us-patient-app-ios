@@ -1,0 +1,341 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1788 840" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="editorial" data-quality-profile="showcase" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" data-reader-primary-text="14">
+        <title id="archify-diagram-title">US Patient App · Source-traceable visit pack</title>
+        <desc id="archify-diagram-description">SwiftUI client · typed API boundary · provider-neutral services · explicit review gate</desc>
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Boundaries (behind everything) -->
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="iOS client boundary" x="232" y="212" width="536" height="360" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="1" data-composition-frame-label="Provider-neutral service boundary" x="762" y="212" width="986" height="455" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="2" data-composition-frame-label="Review + provenance boundary" x="952" y="537" width="476" height="235" rx="8" class="c-security-group" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="3" data-composition-frame-label="Repository delivery boundary" x="766" y="33" width="248" height="129" rx="12" class="c-region" stroke-width="1"/>
+
+        <!-- Connection paths (before components for correct z-order) -->
+        <g data-graph-role="automatic-crossover" style="--step:0">
+          <path data-graph-role="automatic-crossover-underlay" d="M 190 388 L 217 388 Q 225 388 225 380 L 225 289 Q 225 281 233 281 L 260 281" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="patient" data-edge-to="ios_shell" data-edge-label="choose" data-edge-key="0" data-edge-id="patient-to-shell" data-composition-points="190,388;225,388;225,281;260,281" data-composition-crossover="halo" data-composition-independent="true" d="M 190 388 L 217 388 Q 225 388 225 380 L 225 289 Q 225 281 233 281 L 260 281" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:1">
+          <path data-graph-role="automatic-crossover-underlay" d="M 355 322 L 355 470" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ios_shell" data-edge-to="import_flow" data-edge-label="state" data-edge-key="1" data-edge-id="shell-to-import" data-composition-points="355,322;355,470" data-composition-crossover="halo" data-composition-independent="true" d="M 355 322 L 355 470" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:2">
+          <path data-graph-role="automatic-crossover-underlay" d="M 450 511 L 492 511 Q 500 511 500 503 L 500 404 Q 500 396 508 396 L 550 396" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="import_flow" data-edge-to="transport" data-edge-label="commands" data-edge-key="2" data-edge-id="import-to-transport" data-composition-points="450,511;500,511;500,396;550,396" data-composition-crossover="halo" data-composition-independent="true" d="M 450 511 L 492 511 Q 500 511 500 503 L 500 404 Q 500 396 508 396 L 550 396" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:3">
+          <path data-graph-role="automatic-crossover-underlay" d="M 740 396 L 790 396" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="transport" data-edge-to="contract" data-edge-label="HTTP" data-edge-key="3" data-edge-id="transport-to-contract" data-composition-points="740,396;790,396" data-composition-crossover="halo" data-composition-independent="true" d="M 740 396 L 790 396" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:4">
+          <path data-graph-role="automatic-crossover-underlay" d="M 980 396 L 992 396 Q 1000 396 1000 388 L 1000 289 Q 1000 281 1008 281 L 1020 281" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="contract" data-edge-to="api" data-edge-label="API" data-edge-key="4" data-edge-id="contract-to-api" data-composition-points="980,396;1000,396;1000,281;1020,281" data-composition-crossover="halo" data-composition-independent="true" d="M 980 396 L 992 396 Q 1000 396 1000 388 L 1000 289 Q 1000 281 1008 281 L 1020 281" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:5">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1210 281 L 1260 281" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="service" data-edge-label="auth" data-edge-key="5" data-edge-id="api-to-service" data-composition-points="1210,281;1260,281" data-composition-crossover="halo" data-composition-independent="true" d="M 1210 281 L 1260 281" class="a-emphasis" data-animate="edge" style="--step:5" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:6">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1374 322 L 1374 380.5 Q 1374 388.5 1382 388.5 L 1542 388.5 Q 1550 388.5 1550 396.5 L 1550 455" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="service" data-edge-to="runtime" data-edge-label="runtime" data-edge-key="6" data-edge-id="service-to-runtime" data-composition-points="1374,322;1374,388.5;1550,388.5;1550,455" data-composition-crossover="halo" data-composition-independent="true" d="M 1374 322 L 1374 380.5 Q 1374 388.5 1382 388.5 L 1542 388.5 Q 1550 388.5 1550 396.5 L 1550 455" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:7">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1550 537 L 1550 565" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="runtime" data-edge-to="stores" data-edge-key="7" data-edge-id="runtime-to-stores" data-composition-points="1550,537;1550,565" data-composition-crossover="halo" data-composition-independent="true" d="M 1550 537 L 1550 565" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:8">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1460 281 L 1520 281" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="service" data-edge-to="audit" data-edge-key="8" data-edge-id="service-to-audit" data-composition-points="1460,281;1520,281" data-composition-crossover="halo" data-composition-independent="true" d="M 1460 281 L 1520 281" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:9">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1346 322 L 1346 435.5 Q 1346 443.5 1338 443.5 L 1088 443.5 Q 1080 443.5 1080 451.5 L 1080 565" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="service" data-edge-to="ai" data-edge-key="9" data-edge-id="service-to-ai" data-composition-points="1346,322;1346,443.5;1080,443.5;1080,565" data-composition-crossover="halo" data-composition-independent="true" d="M 1346 322 L 1346 435.5 Q 1346 443.5 1338 443.5 L 1088 443.5 Q 1080 443.5 1080 451.5 L 1080 565" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:10">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1180 606 L 1185 606 Q 1190 606 1190 611 L 1190 706 Q 1190 711 1195 711 L 1200 711" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ai" data-edge-to="review_gate" data-edge-label="eligibility" data-edge-key="10" data-edge-id="ai-to-review" data-composition-points="1180,606;1190,606;1190,711;1200,711" data-composition-crossover="halo" data-composition-independent="true" d="M 1180 606 L 1185 606 Q 1190 606 1190 611 L 1190 706 Q 1190 711 1195 711 L 1200 711" class="a-security" data-animate="edge" style="--step:10" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:11">
+          <path data-graph-role="automatic-crossover-underlay" d="M 1300 670 L 1300 504 Q 1300 496 1308 496 L 1352 496 Q 1360 496 1360 488 L 1360 322" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="review_gate" data-edge-to="service" data-edge-label="review" data-edge-key="11" data-edge-id="review-to-service" data-composition-points="1300,670;1300,496;1360,496;1360,322" data-composition-crossover="halo" data-composition-independent="true" d="M 1300 670 L 1300 504 Q 1300 496 1308 496 L 1352 496 Q 1360 496 1360 488 L 1360 322" class="a-security" data-animate="edge" style="--step:11" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        </g>
+        <g data-graph-role="automatic-crossover" style="--step:12">
+          <path data-graph-role="automatic-crossover-underlay" d="M 890 142 L 890 355" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ci" data-edge-to="contract" data-edge-label="checks" data-edge-key="12" data-edge-id="ci-to-contract" data-composition-points="890,142;890,355" data-composition-crossover="halo" data-composition-independent="true" d="M 890 142 L 890 355" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        </g>
+
+        <!-- Components -->
+        <g id="node-patient" data-node-id="patient" data-node-label="Patient / reviewer" tabindex="0" role="button" aria-label="Focus Patient / reviewer, selects · reviews · shares, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="selects · reviews · shares" data-node-context="Architecture component">
+          <title>Patient / reviewer · selects · reviews · shares · Architecture component</title>
+          <rect x="20" y="350" width="170" height="76" rx="6" class="c-mask"/>
+          <rect x="20" y="350" width="170" height="76" rx="6" class="c-external" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="person" class="semantic-sigil s-external" transform="translate(26 356) scale(0.6875)">
+            <circle cx="8" cy="4.5" r="2.5"/><path d="M3 14v-2a5 5 0 0 1 10 0v2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="105" y="386" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Patient / reviewer</text>
+        <text data-detail="context" x="105" y="402" class="t-muted" font-size="9" text-anchor="middle">selects · reviews · shares</text>
+        </g>
+
+        <g id="node-ios_shell" data-node-id="ios_shell" data-node-label="iOS client shell" tabindex="0" role="button" aria-label="Focus iOS client shell, SwiftUI · feature models, iOS client boundary" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="SwiftUI · feature models" data-node-tag="iOS 17+" data-node-context="iOS client boundary">
+          <title>iOS client shell · SwiftUI · feature models · iOS client boundary · iOS 17+</title>
+          <rect x="260" y="240" width="190" height="82" rx="6" class="c-mask"/>
+          <rect x="260" y="240" width="190" height="82" rx="6" class="c-frontend" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(266 246) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="355" y="279" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">iOS client shell</text>
+        <text data-detail="context" x="355" y="295" class="t-muted" font-size="9" text-anchor="middle">SwiftUI · feature models</text>
+        <text data-detail="fine" x="355" y="314" class="t-frontend" font-size="7" text-anchor="middle">iOS 17+</text>
+        </g>
+
+        <g id="node-import_flow" data-node-id="import_flow" data-node-label="Import + review flow" tabindex="0" role="button" aria-label="Focus Import + review flow, bounded upload · retry · facts, iOS client boundary" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="bounded upload · retry · facts" data-node-context="iOS client boundary">
+          <title>Import + review flow · bounded upload · retry · facts · iOS client boundary</title>
+          <rect x="260" y="470" width="190" height="82" rx="6" class="c-mask"/>
+          <rect x="260" y="470" width="190" height="82" rx="6" class="c-frontend" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-frontend" transform="translate(266 476) scale(0.6875)">
+            <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="355" y="509" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Import + review flow</text>
+        <text data-detail="context" x="355" y="525" class="t-muted" font-size="9" text-anchor="middle">bounded upload · retry · facts</text>
+        </g>
+
+        <g id="node-transport" data-node-id="transport" data-node-label="Typed API transport" tabindex="0" role="button" aria-label="Focus Typed API transport, URLSession · injected auth, iOS client boundary" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="URLSession · injected auth" data-node-context="iOS client boundary">
+          <title>Typed API transport · URLSession · injected auth · iOS client boundary</title>
+          <rect x="550" y="355" width="190" height="82" rx="6" class="c-mask"/>
+          <rect x="550" y="355" width="190" height="82" rx="6" class="c-frontend" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-frontend" transform="translate(556 361) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="645" y="394" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Typed API transport</text>
+        <text data-detail="context" x="645" y="410" class="t-muted" font-size="9" text-anchor="middle">URLSession · injected auth</text>
+        </g>
+
+        <g id="node-contract" data-node-id="contract" data-node-label="OpenAPI contract" tabindex="0" role="button" aria-label="Focus OpenAPI contract, frozen typed boundary, Provider-neutral service boundary" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="frozen typed boundary" data-node-tag="v0.3.0" data-node-context="Provider-neutral service boundary">
+          <title>OpenAPI contract · frozen typed boundary · Provider-neutral service boundary · v0.3.0</title>
+          <rect x="790" y="355" width="190" height="82" rx="6" class="c-mask"/>
+          <rect x="790" y="355" width="190" height="82" rx="6" class="c-cloud" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(796 361) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="885" y="394" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">OpenAPI contract</text>
+        <text data-detail="context" x="885" y="410" class="t-muted" font-size="9" text-anchor="middle">frozen typed boundary</text>
+        <text data-detail="fine" x="885" y="429" class="t-cloud" font-size="7" text-anchor="middle">v0.3.0</text>
+        </g>
+
+        <g id="node-api" data-node-id="api" data-node-label="HTTP API adapter" tabindex="0" role="button" aria-label="Focus HTTP API adapter, auth · routes · readiness, Provider-neutral service boundary" aria-pressed="false" data-node-kind="backend" data-node-sublabel="auth · routes · readiness" data-node-context="Provider-neutral service boundary">
+          <title>HTTP API adapter · auth · routes · readiness · Provider-neutral service boundary</title>
+          <rect x="1020" y="240" width="190" height="82" rx="6" class="c-mask"/>
+          <rect x="1020" y="240" width="190" height="82" rx="6" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1026 246) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1115" y="279" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">HTTP API adapter</text>
+        <text data-detail="context" x="1115" y="295" class="t-muted" font-size="9" text-anchor="middle">auth · routes · readiness</text>
+        </g>
+
+        <g id="node-service" data-node-id="service" data-node-label="API service" tabindex="0" role="button" aria-label="Focus API service, ownership · idempotency · audit, Provider-neutral service boundary" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ownership · idempotency · audit" data-node-tag="provider-neutral" data-node-context="Provider-neutral service boundary">
+          <title>API service · ownership · idempotency · audit · Provider-neutral service boundary · provider-neutral</title>
+          <rect x="1260" y="240" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="1260" y="240" width="200" height="82" rx="6" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1266 246) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1360" y="279" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">API service</text>
+        <text data-detail="context" x="1360" y="295" class="t-muted" font-size="9" text-anchor="middle">ownership · idempotency · audit</text>
+        <text data-detail="fine" x="1360" y="314" class="t-backend" font-size="7" text-anchor="middle">provider-neutral</text>
+        </g>
+
+        <g id="node-runtime" data-node-id="runtime" data-node-label="Runtime dependencies" tabindex="0" role="button" aria-label="Focus Runtime dependencies, readiness · injected adapters, Provider-neutral service boundary" aria-pressed="false" data-node-kind="backend" data-node-sublabel="readiness · injected adapters" data-node-context="Provider-neutral service boundary">
+          <title>Runtime dependencies · readiness · injected adapters · Provider-neutral service boundary</title>
+          <rect x="1450" y="455" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="1450" y="455" width="200" height="82" rx="6" class="c-backend" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1456 461) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1550" y="494" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Runtime dependencies</text>
+        <text data-detail="context" x="1550" y="510" class="t-muted" font-size="9" text-anchor="middle">readiness · injected adapters</text>
+        </g>
+
+        <g id="node-stores" data-node-id="stores" data-node-label="Storage adapters" tabindex="0" role="button" aria-label="Focus Storage adapters, metadata · bytes · jobs, Provider-neutral service boundary" aria-pressed="false" data-node-kind="database" data-node-sublabel="metadata · bytes · jobs" data-node-tag="SQLite / local" data-node-context="Provider-neutral service boundary">
+          <title>Storage adapters · metadata · bytes · jobs · Provider-neutral service boundary · SQLite / local</title>
+          <rect x="1450" y="565" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="1450" y="565" width="200" height="82" rx="6" class="c-database" data-animate="node" style="--step:8" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1456 571) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1550" y="604" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Storage adapters</text>
+        <text data-detail="context" x="1550" y="620" class="t-muted" font-size="9" text-anchor="middle">metadata · bytes · jobs</text>
+        <text data-detail="fine" x="1550" y="639" class="t-database" font-size="7" text-anchor="middle">SQLite / local</text>
+        </g>
+
+        <g id="node-ai" data-node-id="ai" data-node-label="AI pipeline" tabindex="0" role="button" aria-label="Focus AI pipeline, OCR → facts → conflicts → citations, Review + provenance boundary" aria-pressed="false" data-node-kind="backend" data-node-sublabel="OCR → facts → conflicts → citations" data-node-tag="offline / synthetic" data-node-context="Review + provenance boundary">
+          <title>AI pipeline · OCR → facts → conflicts → citations · Review + provenance boundary · offline / synthetic</title>
+          <rect x="980" y="565" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="980" y="565" width="200" height="82" rx="6" class="c-backend" data-animate="node" style="--step:10" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-backend" transform="translate(986 571) scale(0.6875)">
+            <path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1080" y="604" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">AI pipeline</text>
+        <text data-detail="context" x="1080" y="620" class="t-muted" font-size="9" text-anchor="middle">OCR → facts → conflicts → citations</text>
+        <text data-detail="fine" x="1080" y="639" class="t-backend" font-size="7" text-anchor="middle">offline / synthetic</text>
+        </g>
+
+        <g id="node-review_gate" data-node-id="review_gate" data-node-label="Doctor-view gate" tabindex="0" role="button" aria-label="Focus Doctor-view gate, source · review · conflict checks, Review + provenance boundary" aria-pressed="false" data-node-kind="security" data-node-sublabel="source · review · conflict checks" data-node-tag="delivery blocked" data-node-context="Review + provenance boundary">
+          <title>Doctor-view gate · source · review · conflict checks · Review + provenance boundary · delivery blocked</title>
+          <rect x="1200" y="670" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="1200" y="670" width="200" height="82" rx="6" class="c-security" data-animate="node" style="--step:11" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(1206 676) scale(0.6875)">
+            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
+            <path d="m5.8 8 1.5 1.5 3-3"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1300" y="709" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Doctor-view gate</text>
+        <text data-detail="context" x="1300" y="725" class="t-muted" font-size="9" text-anchor="middle">source · review · conflict checks</text>
+        <text data-detail="fine" x="1300" y="744" class="t-security" font-size="7" text-anchor="middle">delivery blocked</text>
+        </g>
+
+        <g id="node-audit" data-node-id="audit" data-node-label="Audit + version boundary" tabindex="0" role="button" aria-label="Focus Audit + version boundary, scalar events · revocable shares, Provider-neutral service boundary" aria-pressed="false" data-node-kind="database" data-node-sublabel="scalar events · revocable shares" data-node-context="Provider-neutral service boundary">
+          <title>Audit + version boundary · scalar events · revocable shares · Provider-neutral service boundary</title>
+          <rect x="1520" y="240" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="1520" y="240" width="200" height="82" rx="6" class="c-database" data-animate="node" style="--step:9" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(1526 246) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1620" y="279" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Audit + version boundary</text>
+        <text data-detail="context" x="1620" y="295" class="t-muted" font-size="9" text-anchor="middle">scalar events · revocable shares</text>
+        </g>
+
+        <g id="node-ci" data-node-id="ci" data-node-label="CI + CodeQL" tabindex="0" role="button" aria-label="Focus CI + CodeQL, PR · main · weekly scans, Repository delivery boundary" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="PR · main · weekly scans" data-node-tag="integration gate" data-node-context="Repository delivery boundary">
+          <title>CI + CodeQL · PR · main · weekly scans · Repository delivery boundary · integration gate</title>
+          <rect x="790" y="60" width="200" height="82" rx="6" class="c-mask"/>
+          <rect x="790" y="60" width="200" height="82" rx="6" class="c-cloud" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-cloud" transform="translate(796 66) scale(0.6875)">
+            <circle cx="8" cy="8" r="5.3"/>
+            <path d="m5.2 8 1.8 1.8 3.8-4"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="890" y="99" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">CI + CodeQL</text>
+        <text data-detail="context" x="890" y="115" class="t-muted" font-size="9" text-anchor="middle">PR · main · weekly scans</text>
+        <text data-detail="fine" x="890" y="134" class="t-cloud" font-size="7" text-anchor="middle">integration gate</text>
+        </g>
+
+        <!-- Connection labels -->
+        <g data-detail="context" data-edge-from="patient" data-edge-to="ios_shell" data-edge-label="choose" data-edge-key="0" data-edge-id="patient-to-shell">
+          <rect x="205.6" y="314.5" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="225" y="324.5" class="t-edge-emphasis" font-size="8" text-anchor="middle">choose</text>
+        </g>
+        <g data-detail="context" data-edge-from="ios_shell" data-edge-to="import_flow" data-edge-label="state" data-edge-key="1" data-edge-id="shell-to-import">
+          <rect x="315" y="389" width="34" height="14" rx="3" class="c-mask"/>
+          <text x="332" y="399" class="t-edge-default" font-size="8" text-anchor="middle">state</text>
+        </g>
+        <g data-detail="context" data-edge-from="import_flow" data-edge-to="transport" data-edge-label="commands" data-edge-key="2" data-edge-id="import-to-transport">
+          <rect x="475.8" y="433.5" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="500" y="443.5" class="t-edge-emphasis" font-size="8" text-anchor="middle">commands</text>
+        </g>
+        <g data-detail="context" data-edge-from="transport" data-edge-to="contract" data-edge-label="HTTP" data-edge-key="3" data-edge-id="transport-to-contract">
+          <rect x="750" y="376" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="765" y="386" class="t-edge-emphasis" font-size="8" text-anchor="middle">HTTP</text>
+        </g>
+        <g data-detail="context" data-edge-from="contract" data-edge-to="api" data-edge-label="API" data-edge-key="4" data-edge-id="contract-to-api">
+          <rect x="985" y="318.5" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="1000" y="328.5" class="t-edge-default" font-size="8" text-anchor="middle">API</text>
+        </g>
+        <g data-detail="context" data-edge-from="api" data-edge-to="service" data-edge-label="auth" data-edge-key="5" data-edge-id="api-to-service">
+          <rect x="1220" y="261" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="1235" y="271" class="t-edge-emphasis" font-size="8" text-anchor="middle">auth</text>
+        </g>
+        <g data-detail="context" data-edge-from="service" data-edge-to="runtime" data-edge-label="runtime" data-edge-key="6" data-edge-id="service-to-runtime">
+          <rect x="1440.2" y="368.5" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="1462" y="378.5" class="t-edge-default" font-size="8" text-anchor="middle">runtime</text>
+        </g>
+
+
+
+        <g data-detail="context" data-edge-from="ai" data-edge-to="review_gate" data-edge-label="eligibility" data-edge-key="10" data-edge-id="ai-to-review">
+          <rect x="1121.1999999999998" y="651.5" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="1152.6" y="661.5" class="t-edge-security" font-size="8" text-anchor="middle">eligibility</text>
+        </g>
+        <g data-detail="context" data-edge-from="review_gate" data-edge-to="service" data-edge-label="review" data-edge-key="11" data-edge-id="review-to-service">
+          <rect x="1310.6" y="476" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="1330" y="486" class="t-edge-security" font-size="8" text-anchor="middle">review</text>
+        </g>
+        <g data-detail="context" data-edge-from="ci" data-edge-to="contract" data-edge-label="checks" data-edge-key="12" data-edge-id="ci-to-contract">
+          <rect x="845.2" y="241.5" width="38.8" height="14" rx="3" class="c-mask"/>
+          <text x="864.6" y="251.5" class="t-edge-dashed" font-size="8" text-anchor="middle">checks</text>
+        </g>
+
+        <!-- Boundary labels (foreground masks keep routes out of titles) -->
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="iOS client boundary">
+          <rect data-graph-role="structural-frame-label-mask" x="236" y="217" width="141.50452752903226" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="240" y="232.53548487096774" class="t-cloud" font-size="11.535484870967743" font-weight="600">iOS client boundary</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="region" data-composition-frame-label="Provider-neutral service boundary">
+          <rect data-graph-role="structural-frame-label-mask" x="766" y="217" width="238.4026004451613" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="770" y="232.53548487096774" class="t-cloud" font-size="11.535484870967743" font-weight="600">Provider-neutral service boundary</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="2" data-composition-frame-kind="security-group" data-composition-frame-label="Review + provenance boundary">
+          <rect data-graph-role="structural-frame-label-mask" x="956" y="542" width="203.79614583225808" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="960" y="557.5354848709677" class="t-security" font-size="11.535484870967743" font-weight="600">Review + provenance boundary</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="3" data-composition-frame-kind="region" data-composition-frame-label="Repository delivery boundary">
+          <rect data-graph-role="structural-frame-label-mask" x="770" y="37" width="203.79614583225808" height="19" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="774" y="52.53548487096774" class="t-cloud" font-size="11.535484870967743" font-weight="600">Repository delivery boundary</text>
+        </g>
+
+        <!-- Legend -->
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="804" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="824" data-legend-width="83">
+            <rect x="40" y="815" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="824" class="t-muted" font-size="10" font-weight="500">Frontend</text>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="145" data-legend-baseline="824" data-legend-width="78">
+            <rect x="145" y="815" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="167" y="824" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Database" data-legend-x="245" data-legend-baseline="824" data-legend-width="83">
+            <rect x="245" y="815" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="267" y="824" class="t-muted" font-size="10" font-weight="500">Database</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="350" data-legend-baseline="824" data-legend-width="68">
+            <rect x="350" y="815" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="372" y="824" class="t-muted" font-size="10" font-weight="500">Cloud</text>
+          </g>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Security" data-legend-x="440" data-legend-baseline="824" data-legend-width="83">
+            <rect x="440" y="815" width="16" height="10" rx="2.5" class="c-security" stroke-width="1"/>
+            <text x="462" y="824" class="t-muted" font-size="10" font-weight="500">Security</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="545" data-legend-baseline="824" data-legend-width="83">
+            <rect x="545" y="815" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="567" y="824" class="t-muted" font-size="10" font-weight="500">External</text>
+          </g>
+        </g>
+      </svg>

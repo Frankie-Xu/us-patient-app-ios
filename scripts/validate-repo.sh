@@ -35,6 +35,10 @@ scan_args=()
 for pattern in "${secret_patterns[@]}"; do
   scan_args+=(--pattern "$pattern")
 done
+# Archify's checked-in interactive viewer contains its own JavaScript variable
+# named `token`; scan the source candidate and all repository code, while
+# keeping generated viewer implementation out of credential-shape matching.
+scan_args+=(--exclude '.archify/*/*.html' --exclude '.archify/*/*/*.html')
 python3 "$script_dir/scan-repo.py" --root "$repo_root" "${scan_args[@]}" >> "$secret_matches" 2>/dev/null
 scan_status=$?
 set -e
