@@ -171,6 +171,7 @@ def target_settings(bundle_id: str, product_name: str, *, app: bool = False, tes
     }
     if app:
         settings.update({
+            "DEVELOPMENT_TEAM": "QH6389JMZY",
             "GENERATE_INFOPLIST_FILE": "NO",
             "INFOPLIST_FILE": q("Resources/Info.plist"),
             "INFOPLIST_KEY_CFBundleDisplayName": q("Patient App"),
