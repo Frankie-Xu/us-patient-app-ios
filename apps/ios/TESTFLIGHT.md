@@ -39,6 +39,9 @@ for the signed archive, crash monitoring, and App Store Connect handoff.
 
 - `xcodebuild -project apps/ios/PatientApp.xcodeproj -scheme PatientApp-Debug -configuration Release archive`
   succeeds on a signing-enabled macOS runner.
+- The workflow runs `scripts/ios/prepare_archive_metadata.py` after archiving so
+  Xcode 27 archives include the `ApplicationProperties` metadata required by
+  `xcodebuild -exportArchive`.
 - `swift test --package-path apps/ios` passes on the release commit.
 - `PatientApp.xcodeproj` uses iOS 17.0 as its minimum deployment target and
   `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` are set for the release.

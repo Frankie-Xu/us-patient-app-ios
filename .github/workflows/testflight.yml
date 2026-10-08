@@ -82,7 +82,7 @@ jobs:
           <plist version="1.0">
           <dict>
             <key>method</key>
-            <string>app-store</string>
+            <string>app-store-connect</string>
             <key>signingStyle</key>
             <string>automatic</string>
             <key>destination</key>
@@ -106,6 +106,7 @@ jobs:
           else
             xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
           fi
+          python3 scripts/ios/prepare_archive_metadata.py "$archive_path"
           echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
       - name: Export IPA
         if: steps.config.outputs.configured == 'true'
