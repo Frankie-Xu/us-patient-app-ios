@@ -408,6 +408,18 @@ def main() -> None:
         else:
             debug_settings = target_settings({"PatientAppDomain": "com.johannisxu.uspatientapp.domain", "PatientAppUI": "com.johannisxu.uspatientapp.ui", "PatientApp": "com.johannisxu.uspatientapp", "PatientAppDomainTests": "com.johannisxu.uspatientapp.domainTests", "PatientAppUITests": "com.johannisxu.uspatientapp.uiTests", "PatientAppLaunchUITests": "com.johannisxu.uspatientapp.launchUITests"}[label], label, app=label == "PatientApp", test=label.endswith("Tests"), ui_test=label == "PatientAppLaunchUITests")
             release_settings = dict(debug_settings)
+            if label in {"PatientAppDomain", "PatientAppUI"}:
+                release_settings.update({
+                    "CODE_SIGN_IDENTITY": q("Apple Distribution"),
+                    "CODE_SIGN_STYLE": "Manual",
+                    "DEVELOPMENT_TEAM": "QH6389JMZY",
+                })
+            elif label == "PatientApp":
+                release_settings.update({
+                    "CODE_SIGN_IDENTITY": q("Apple Distribution"),
+                    "CODE_SIGN_STYLE": "Manual",
+                    "PROVISIONING_PROFILE_SPECIFIER": q("US Patient App App Store 2026"),
+                })
             debug_settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
             release_settings["DEBUG_INFORMATION_FORMAT"] = q("dwarf-with-dsym")
         configs.extend([config(debug_id, "Debug", debug_settings), config(release_id, "Release", release_settings)])
