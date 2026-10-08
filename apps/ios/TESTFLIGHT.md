@@ -19,7 +19,7 @@ signing material, App Store Connect keys, or patient data in Git.
 | --- | --- | --- |
 | IOS_XCODE_PROJECT | Variable | Path to the .xcodeproj or .xcworkspace |
 | IOS_XCODE_SCHEME | Variable | Release scheme |
-| IOS_EXPORT_OPTIONS | Variable | Path to an export-options plist |
+| IOS_EXPORT_OPTIONS | Variable (optional) | Path to an export-options plist; if omitted, CI generates a temporary App Store export plist from `APPLE_TEAM_ID` |
 | IOS_TESTFLIGHT_UPLOAD | Variable | true only when a real upload is intended |
 | APPLE_TEAM_ID | Secret | Signing team |
 | APP_STORE_CONNECT_KEY_ID | Secret | App Store Connect API key id |
@@ -27,8 +27,10 @@ signing material, App Store Connect keys, or patient data in Git.
 | APP_STORE_CONNECT_PRIVATE_KEY | Secret | API key contents, injected at runtime |
 
 The workflow exits with a notice when IOS_XCODE_PROJECT is not configured. This keeps
-package-only pull requests green while the Xcode host is being prepared. It performs a
-real archive/upload only when all variables are set and IOS_TESTFLIGHT_UPLOAD=true.
+package-only pull requests green while the Xcode host is being prepared. It generates
+export options in the runner's temporary directory unless IOS_EXPORT_OPTIONS is set,
+and performs a real archive/upload only when all required values are set and
+IOS_TESTFLIGHT_UPLOAD=true.
 
 ## Release checklist
 
