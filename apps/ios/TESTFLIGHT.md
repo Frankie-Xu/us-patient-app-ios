@@ -7,8 +7,8 @@ signing material, App Store Connect keys, or patient data in Git.
 ## One-time Xcode setup
 
 1. Open `apps/ios/PatientApp.xcodeproj` and select the shared `PatientApp-Debug` scheme.
-2. Set the production bundle identifier and signing team in the host configuration; the
-   checked-in `com.example.patientapp` identifier is for deterministic local builds only.
+2. Set the signing team in the host configuration. The registered App ID is
+   `com.johannisxu.uspatientapp`; use the same identifier for the signed release build.
 3. Create an App Store Connect API key with the minimum role needed to upload builds.
 4. Store the certificate and provisioning profile in the repository or organization
    secret store as encrypted values. Use a dedicated CI keychain; do not commit .p12,

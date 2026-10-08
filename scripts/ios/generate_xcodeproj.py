@@ -405,7 +405,7 @@ def main() -> None:
         if label == "PROJECT":
             debug_settings = release_settings = project_settings()
         else:
-            debug_settings = target_settings({"PatientAppDomain": "com.example.patientapp.domain", "PatientAppUI": "com.example.patientapp.ui", "PatientApp": "com.example.patientapp", "PatientAppDomainTests": "com.example.patientapp.domainTests", "PatientAppUITests": "com.example.patientapp.uiTests", "PatientAppLaunchUITests": "com.example.patientapp.launchUITests"}[label], label, app=label == "PatientApp", test=label.endswith("Tests"), ui_test=label == "PatientAppLaunchUITests")
+            debug_settings = target_settings({"PatientAppDomain": "com.johannisxu.uspatientapp.domain", "PatientAppUI": "com.johannisxu.uspatientapp.ui", "PatientApp": "com.johannisxu.uspatientapp", "PatientAppDomainTests": "com.johannisxu.uspatientapp.domainTests", "PatientAppUITests": "com.johannisxu.uspatientapp.uiTests", "PatientAppLaunchUITests": "com.johannisxu.uspatientapp.launchUITests"}[label], label, app=label == "PatientApp", test=label.endswith("Tests"), ui_test=label == "PatientAppLaunchUITests")
             release_settings = dict(debug_settings)
             debug_settings["DEBUG_INFORMATION_FORMAT"] = "dwarf"
             release_settings["DEBUG_INFORMATION_FORMAT"] = q("dwarf-with-dsym")

@@ -45,7 +45,7 @@ Build settings for action build and target PatientApp:
     INFOPLIST_FILE = Resources/Info.plist
     IPHONEOS_DEPLOYMENT_TARGET = 17.0
     MARKETING_VERSION = 0.1.0
-    PRODUCT_BUNDLE_IDENTIFIER = com.example.patientapp
+    PRODUCT_BUNDLE_IDENTIFIER = com.johannisxu.uspatientapp
     SWIFT_VERSION = 6.0
     TARGET_NAME = PatientApp
 SETTINGS
@@ -84,7 +84,7 @@ fi
 echo "default configuration: passed"
 
 run_capture "${base_env[@]}" \
-  IOS_EXPECTED_BUNDLE_ID=com.example.patientapp.production \
+  IOS_EXPECTED_BUNDLE_ID=com.johannisxu.uspatientapp.production \
   IOS_EXPECTED_MARKETING_VERSION=1.0.0 \
   "$preflight"
 if [[ "$status" -ne 1 ]] || \
