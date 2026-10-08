@@ -72,9 +72,10 @@ xcodebuild test -project apps/ios/PatientApp.xcodeproj \
   -scheme PatientAppTests -destination 'platform=iOS Simulator'
 ```
 
-The current checked-in bundle identifier is intentionally an example value.
-Set the real team, bundle identifier, export options, and App Store Connect
-secrets only in the CI/host secret store immediately before a signed archive.
+The registered App ID is `com.johannisxu.uspatientapp` for Team ID
+`QH6389JMZY`; the Xcode project and release-preflight fixture use that value.
+Keep signing certificates, export options, and App Store Connect secrets only
+in the CI/host secret store immediately before a signed archive.
 
 ## TestFlight handoff
 
