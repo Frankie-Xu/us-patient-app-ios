@@ -577,7 +577,8 @@ private extension PatientAPIClientError {
         case .server: "The service could not load records. Try again."
         case .transport: "The records could not be loaded. Try again."
         case .decoding, .invalidRequest, .invalidBaseURL, .unsupported: "The service returned an unsupported record list."
-        case .versionConflict, .validation, .shareExpired, .shareRevoked: "The records changed. Try again."
+        case .versionConflict, .validation: "The records changed. Try again."
+        case .shareExpired, .shareRevoked: "The shared record is no longer available."
         }
     }
 }

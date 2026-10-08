@@ -244,12 +244,13 @@ private extension PatientAPIClientError {
         case .missingBearerToken, .unauthorized: "Sign in to view your account history."
         case .forbidden: "You do not have permission to view this account history."
         case .notFound: "Account history is unavailable."
-        case .versionConflict, .shareExpired, .shareRevoked: "Account history changed. Try again."
+        case .versionConflict: "Account history changed. Try again."
         case .validation: "The account history request needs attention."
         case .server: "The account history service is unavailable."
         case .transport: "Could not load account history. Try again."
         case .decoding: "The service returned unsupported account history."
         case .unsupported: "Account history is unavailable with the current service."
+        case .shareExpired, .shareRevoked: "The shared account history is no longer available."
         }
     }
 }
@@ -399,7 +400,8 @@ private extension PatientAPIClientError {
         case .unauthorized, .missingBearerToken: "Sign in to load visit preparation."
         case .forbidden: "You do not have permission to load this visit."
         case .unsupported: "Visit preparation is unavailable with the current service."
-        case .server, .transport, .decoding, .invalidBaseURL, .invalidRequest, .validation, .versionConflict, .shareExpired, .shareRevoked: "Visit preparation could not be loaded."
+        case .server, .transport, .decoding, .invalidBaseURL, .invalidRequest, .validation, .versionConflict: "Visit preparation could not be loaded."
+        case .shareExpired, .shareRevoked: "The visit preparation share is no longer available."
         }
     }
 
@@ -411,7 +413,8 @@ private extension PatientAPIClientError {
         case .notFound: "This visit is no longer available."
         case .versionConflict: "This visit changed. Reload it before sharing."
         case .unsupported: "Sharing is unavailable with the current service."
-        case .server, .transport, .decoding, .invalidBaseURL, .shareExpired, .shareRevoked: "The share could not be created. Try again."
+        case .server, .transport, .decoding, .invalidBaseURL: "The share could not be created. Try again."
+        case .shareExpired, .shareRevoked: "This share is no longer active."
         }
     }
 }
