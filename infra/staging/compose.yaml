@@ -1,0 +1,184 @@
+name: patient-app-staging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - staging-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${STAGING_POSTGRES_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  localstack:
+    # Official LocalStack Community 3.8 accepts the persistence flags but
+    # does not restore S3 state after a restart. This maintained compatible
+    # image adds on-disk S3 persistence while retaining the same S3 API.
+    image: gresau/localstack-persist@sha256:7750acf7089e75c9584e671d4594d54c8776b8a4bc57a0c18e4e92cff3d17267
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      # Persist only S3 state to the named volume. The image keeps the
+      # LocalStack-compatible gateway and persists on each change.
+      PERSIST_DEFAULT: "0"
+      PERSIST_S3: "1"
+    volumes:
+      - staging-s3-data:/persisted-data
+    ports:
+      - "${STAGING_S3_PORT:-59000}:4566"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -fsS http://127.0.0.1:4566/_localstack/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  s3-init:
+    build:
+      context: ../..
+      dockerfile: infra/staging/Dockerfile
+      target: s3-init
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: http://localstack:4566
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - staging-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/staging/Dockerfile
+      target: api
+    environment:
+      APP_ENV: staging
+      API_BASE_URL: ${API_BASE_URL:?API_BASE_URL is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      OBJECT_STORAGE_ENDPOINT: http://localstack:4566
+      OBJECT_STORAGE_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      OBJECT_STORAGE_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ENDPOINT: http://localstack:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      REDIS_QUEUE: ${REDIS_QUEUE:-patient-app-processing}
+      AI_PROVIDER: ${AI_PROVIDER:-stub}
+      STAGING_DATA_CLASSIFICATION: ${STAGING_DATA_CLASSIFICATION:-deidentified}
+      STAGING_AUTH_USERNAME: ${STAGING_AUTH_USERNAME:?STAGING_AUTH_USERNAME is required}
+      STAGING_AUTH_PASSWORD: ${STAGING_AUTH_PASSWORD:?STAGING_AUTH_PASSWORD is required}
+      STAGING_AUTH_SECRET: ${STAGING_AUTH_SECRET:?STAGING_AUTH_SECRET is required}
+      STAGING_AUTH_ISSUER: ${STAGING_AUTH_ISSUER:-local-staging}
+      STAGING_AUTH_AUDIENCE: ${STAGING_AUTH_AUDIENCE:-patient-app}
+      STAGING_AUTH_SUBJECT: ${STAGING_AUTH_SUBJECT:-staging-patient}
+      STAGING_AUTH_ACCESS_TTL_SECONDS: ${STAGING_AUTH_ACCESS_TTL_SECONDS:-900}
+      STAGING_AUTH_REFRESH_TTL_SECONDS: ${STAGING_AUTH_REFRESH_TTL_SECONDS:-2592000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      s3-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    ports:
+      - "${STAGING_API_PORT:-58000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/staging/Dockerfile
+      target: worker
+    environment:
+      APP_ENV: staging
+      WORKER_PORT: 8081
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      OBJECT_STORAGE_ENDPOINT: http://localstack:4566
+      OBJECT_STORAGE_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ENDPOINT: http://localstack:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      REDIS_QUEUE: ${REDIS_QUEUE:-patient-app-processing}
+      STAGING_DATA_CLASSIFICATION: ${STAGING_DATA_CLASSIFICATION:-deidentified}
+      WORKER_MODE: ${WORKER_MODE:-queue-consumer-fixture-ocr}
+      OCR_PROVIDER: ${OCR_PROVIDER:-fixture}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL:-}
+      DASHSCOPE_MODEL: ${DASHSCOPE_MODEL:-qwen3.5-ocr}
+      DASHSCOPE_OCR_TASK: ${DASHSCOPE_OCR_TASK:-text_recognition}
+      DASHSCOPE_TIMEOUT_SECONDS: ${DASHSCOPE_TIMEOUT_SECONDS:-60}
+      DASHSCOPE_MAX_PDF_PAGES: ${DASHSCOPE_MAX_PDF_PAGES:-20}
+      DASHSCOPE_PDF_RASTER_DPI: ${DASHSCOPE_PDF_RASTER_DPI:-150}
+      # External provider egress is opt-in through the ignored staging env.
+      HTTP_PROXY: ${STAGING_HTTP_PROXY:-}
+      HTTPS_PROXY: ${STAGING_HTTPS_PROXY:-}
+      ALL_PROXY: ${STAGING_ALL_PROXY:-}
+      NO_PROXY: ${STAGING_NO_PROXY:-localhost,127.0.0.1,postgres,localstack,redis,api,worker}
+      WORKER_CONSUMER_ENABLED: ${WORKER_CONSUMER_ENABLED:-1}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-3}
+      WORKER_RETRY_BACKOFF_SECONDS: ${WORKER_RETRY_BACKOFF_SECONDS:-1}
+      WORKER_LEASE_SECONDS: ${WORKER_LEASE_SECONDS:-60}
+      WORKER_METADATA_WAIT_ATTEMPTS: ${WORKER_METADATA_WAIT_ATTEMPTS:-3}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      s3-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${STAGING_WORKER_PORT:-58001}:8081"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  staging-postgres-data:
+  staging-s3-data:
+  staging-redis-data:

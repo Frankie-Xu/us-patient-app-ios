@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+import threading
 import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -78,6 +79,11 @@ class ApiService:
         # Raw share tokens live only in this process memory for idempotent replay.
         # The store receives only a digest, so a durable adapter never persists a token.
         self._ephemeral_share_tokens: dict[str, str] = {}
+        # A checksum replay with a new idempotency key must not race into two
+        # metadata records.  Provider-backed stores should enforce the same
+        # invariant transactionally; this lock closes the gap for the local
+        # service and keeps concurrent requests deterministic in tests.
+        self._document_dedupe_lock = threading.RLock()
 
     def _id(self) -> str:
         return str(uuid.uuid4())
@@ -131,6 +137,27 @@ class ApiService:
         request_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
         self.store.remember_idempotency(IdempotencyRecord(key, auth.subject_id, request_hash, status, {"value": response}))
 
+    def _find_document_by_checksum(self, owner_id: str, *, size_bytes: int, sha256: str) -> Document | None:
+        """Return an active document with the same account-scoped content.
+
+        The owner is part of the deduplication boundary: a matching checksum in
+        another account must never be observable or reused.  Size is checked as
+        a collision guard, while filename and media type remain presentation
+        metadata and therefore do not prevent a content replay.  Deleted
+        records are excluded so a user can intentionally upload a replacement.
+        """
+        normalized = sha256.lower()
+        for candidate in self.store.list_resources("documents"):
+            if not isinstance(candidate, Document) or candidate.owner_id != owner_id:
+                continue
+            if candidate.status == DocumentStatus.DELETED:
+                continue
+            if candidate.size_bytes != size_bytes:
+                continue
+            if candidate.sha256.lower() == normalized:
+                return candidate
+        return None
+
     def create_document(
         self,
         auth: AuthContext,
@@ -142,15 +169,33 @@ class ApiService:
         idempotency_key: str,
     ) -> Document:
         require_scope(auth, Scope.DOCUMENTS_WRITE)
-        payload = {"filename": filename, "media_type": media_type, "size_bytes": size_bytes, "sha256": sha256}
-        replay = self._idempotent(auth, idempotency_key, payload)
-        if replay is not None:
-            return self.store.get_resource("documents", replay["value"]["id"])
-        document = Document(self._id(), auth.subject_id, filename, media_type, size_bytes, sha256, created_at=self.clock(), updated_at=self.clock())
-        self.store.save_resource("documents", document)
-        self._audit(auth, "document.created", "document", document.id)
-        self._remember(auth, idempotency_key, payload, {"id": document.id})
-        return document
+        # SHA-256 is case-insensitive on the wire but canonicalized here so a
+        # retry that changes only hex casing remains the same idempotent request.
+        normalized_sha256 = sha256.lower() if isinstance(sha256, str) else sha256
+        payload = {"filename": filename, "media_type": media_type, "size_bytes": size_bytes, "sha256": normalized_sha256}
+        with self._document_dedupe_lock:
+            replay = self._idempotent(auth, idempotency_key, payload)
+            if replay is not None:
+                return self.store.get_resource("documents", replay["value"]["id"])
+
+            existing = self._find_document_by_checksum(
+                auth.subject_id,
+                size_bytes=size_bytes,
+                sha256=normalized_sha256,
+            )
+            if existing is not None:
+                # Keep a receipt for this new key so subsequent retries are a
+                # normal idempotent replay, while leaving the existing resource
+                # version and metadata untouched.
+                self._audit(auth, "document.deduplicated", "document", existing.id, reason="checksum")
+                self._remember(auth, idempotency_key, payload, {"id": existing.id}, status=201)
+                return existing
+
+            document = Document(self._id(), auth.subject_id, filename, media_type, size_bytes, normalized_sha256, created_at=self.clock(), updated_at=self.clock())
+            self.store.save_resource("documents", document)
+            self._audit(auth, "document.created", "document", document.id)
+            self._remember(auth, idempotency_key, payload, {"id": document.id}, status=201)
+            return document
 
     def create_upload_session(self, auth: AuthContext, *, document_id: str, idempotency_key: str) -> UploadSession:
         require_scope(auth, Scope.DOCUMENTS_WRITE)

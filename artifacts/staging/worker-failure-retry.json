@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "retryable_provider_error": {
+    "first_failure": "queued",
+    "backoff": "bounded_exponential",
+    "maximum_attempt_failure": "failed"
+  },
+  "terminal_provider_error": {
+    "status": "failed",
+    "requeued": false,
+    "error_code": "OCR_PROVIDER_REJECTED"
+  },
+  "idempotency": {
+    "duplicate_job": "not_created",
+    "duplicate_document": "deduplicated"
+  },
+  "review_gate": {
+    "low_confidence_auto_confirm": false,
+    "missing_source_auto_confirm": false,
+    "conflict_auto_confirm": false
+  },
+  "phi_used": false
+}

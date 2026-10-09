@@ -2,10 +2,30 @@ import SwiftUI
 
 /// Stable accessibility identifiers shared by the SwiftUI shell and UI tests.
 public enum PatientAccessibilityIdentifier {
+    public static let loginIdentifier = "patient.login.identifier"
+    public static let loginUsername = "patient.login.username"
+    public static let loginPassword = "patient.login.password"
+    public static let loginSubmit = "patient.login.submit"
+    public static let loginRetry = "patient.login.retry"
     public static let homeImportFile = "patient.home.import-file"
     public static let homeImportSynthetic = "patient.home.import-synthetic"
+    public static let homeImportPhotos = "patient.home.import-photos"
+    public static let homeImportCamera = "patient.home.import-camera"
+    public static let homeUploadQueue = "patient.home.upload-queue"
+    public static let uploadProgress = "patient.upload.progress"
+    public static let tabHome = "patient.tab.home"
+    public static let tabRecords = "patient.tab.records"
+    public static let tabReview = "patient.tab.review"
+    public static let tabVisits = "patient.tab.visits"
+    public static let tabTasks = "patient.tab.tasks"
+    public static let tabAccount = "patient.tab.account"
     public static let recordsList = "patient.records.list"
     public static let reviewFactsList = "patient.review.facts"
+    public static let reviewFact = "patient.review.fact"
+    public static let reviewFactIssue = "patient.review.fact-issue"
+    public static let reviewFactSource = "patient.review.fact-source"
+    public static let reviewFactConfirm = "patient.review.fact-confirm"
+    public static let reviewContinuePrompt = "patient.review.continue-prompt"
     public static let retry = "patient.retry"
     public static let offlineBanner = "patient.offline"
 }
@@ -31,6 +51,17 @@ public enum PatientStatusState: Equatable, Sendable, CaseIterable {
         }
     }
 
+    public var localizationKey: String {
+        switch self {
+        case .loading: "status.loading.title"
+        case .failure: "status.failure.title"
+        case .empty: "status.empty.title"
+        case .offline: "status.offline.title"
+        case .retry: "status.retry.title"
+        case .success: "status.success.title"
+        }
+    }
+
     public var systemImage: String {
         switch self {
         case .loading: "hourglass"
@@ -39,6 +70,10 @@ public enum PatientStatusState: Equatable, Sendable, CaseIterable {
         case .offline: "wifi.slash"
         case .success: "checkmark.circle"
         }
+    }
+
+    public var accessibilityIdentifier: String {
+        "patient.status.\(String(describing: self))"
     }
 }
 
@@ -87,6 +122,7 @@ public struct PatientStatusView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(state.title))
         .accessibilityValue(Text(message))
+        .accessibilityIdentifier(state.accessibilityIdentifier)
         .accessibilityAddTraits(state == .success ? .isStaticText : [])
     }
 }
@@ -102,7 +138,11 @@ public enum PatientLocalization {
             "status.offline.title": "You’re offline",
             "status.retry.title": "Try again",
             "status.success.title": "Completed",
-            "status.retry.action": "Retry"
+            "status.retry.action": "Retry",
+            "status.loading.hint": "Please wait while your records are prepared.",
+            "status.failure.hint": "The operation failed. Try again when you are ready.",
+            "status.offline.hint": "Your cached records remain available. We will resume when you reconnect.",
+            "status.success.hint": "The operation completed successfully."
         ],
         "zh-Hans": [
             "status.loading.title": "正在加载",
@@ -111,7 +151,11 @@ public enum PatientLocalization {
             "status.offline.title": "当前离线",
             "status.retry.title": "请重试",
             "status.success.title": "已完成",
-            "status.retry.action": "重试"
+            "status.retry.action": "重试",
+            "status.loading.hint": "请稍候，正在准备你的记录。",
+            "status.failure.hint": "操作失败，可以在准备好后重试。",
+            "status.offline.hint": "仍可查看缓存记录，网络恢复后会继续处理。",
+            "status.success.hint": "操作已成功完成。"
         ]
     ]
 
@@ -121,7 +165,14 @@ public enum PatientLocalization {
         if let localized = fallback[resourceLanguage]?[key] {
             return localized
         }
+        #if SWIFT_PACKAGE
         return Bundle.module.localizedString(forKey: key, value: key, table: "Localizable")
+        #else
+        // The Xcode target ships the same strings through its synchronized
+        // source group. Keep the deterministic fallback available when the
+        // generated package resource accessor is not present.
+        return key
+        #endif
     }
 
     public static func hasResource(_ language: String) -> Bool {

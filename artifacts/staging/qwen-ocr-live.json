@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "container_smoke_passed",
+  "classification": "synthetic",
+  "region": "us-east-1",
+  "workspace_id": "ws-ex6zhqfa8j85yokx",
+  "model": "qwen-vl-ocr",
+  "provider": "aliyun-bailian",
+  "request_media_type": "image/png",
+  "text_length": 18,
+  "synthetic_marker_detected": true,
+  "qwen35_ocr_probe": "model_not_found_in_us_east_1",
+  "container_worker": {
+    "mode": "queue-consumer-qwen-vl-ocr",
+    "consumer_enabled": true,
+    "classification": "deidentified",
+    "external_egress": "host_gateway_proxy",
+    "text_length": 18,
+    "synthetic_marker_detected": true
+  },
+  "credentials": "not_recorded",
+  "phi": "not_used"
+}

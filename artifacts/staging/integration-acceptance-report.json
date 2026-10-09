@@ -1,0 +1,190 @@
+{
+  "authentication": {
+    "mode": "session_login",
+    "verification": "live_http"
+  },
+  "blockers": [],
+  "check": "staging_integration_smoke",
+  "data_classification": "synthetic",
+  "fixture": "synthetic-local-staging-v2",
+  "implemented": [
+    "HTTP readiness and provider health",
+    "upload and idempotency",
+    "processing enqueue and worker completion detection",
+    "fact source spans, manual review, and version conflicts",
+    "share access, expiry, revoke, and audit history",
+    "optional provider restart retention check"
+  ],
+  "live": {
+    "audit_history": {
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "authentication": {
+      "mode": "session_login",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "fact_review": {
+      "manual_confirmation": "required",
+      "status": "passed",
+      "verification": "live_http",
+      "version_conflict": "passed"
+    },
+    "facts": {
+      "input": "synthetic_fixture",
+      "low_confidence_auto_confirm": false,
+      "source_spans": "present",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "processing": {
+      "document_state": "ready",
+      "input_media_type": "image/png",
+      "ocr_provider": "provider",
+      "queue": "enqueued",
+      "status": "passed",
+      "verification": "live_http+provider_worker",
+      "worker_completed": true
+    },
+    "readiness": {
+      "http_status": 200,
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "retention": {
+      "metadata": "retained",
+      "object": "retained",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "share": {
+      "active_access": "passed",
+      "expiry_access": "passed",
+      "revoke_access": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "upload": {
+      "duplicate_checksum": "deduplicated",
+      "duplicate_idempotency": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "upload_content": {
+      "same_bytes_replay": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    }
+  },
+  "log_policy": "opaque statuses only; no PHI, source text, tokens, credentials, or opaque IDs",
+  "mock": {
+    "source": "deterministic_ai_fixture",
+    "stages": {
+      "conflict_gate": "passed",
+      "doctor_brief": "passed",
+      "pdf_export": "passed"
+    },
+    "status": "passed",
+    "verification": "mock"
+  },
+  "mock_fixture": {
+    "source": "deterministic_ai_fixture",
+    "stages": {
+      "conflict_gate": "passed",
+      "doctor_brief": "passed",
+      "pdf_export": "passed"
+    },
+    "status": "passed",
+    "verification": "mock"
+  },
+  "not_validated": [
+    {
+      "reason": "no_HTTP_route_in_current_contract; deterministic fixture covers projection",
+      "stage": "doctor_brief"
+    },
+    {
+      "reason": "no_HTTP_route_in_current_contract",
+      "stage": "visit_questions"
+    },
+    {
+      "reason": "no_HTTP_route_in_current_contract; deterministic fixture covers export bytes",
+      "stage": "pdf_export"
+    },
+    {
+      "reason": "local signed staging session; external identity provider not configured",
+      "stage": "oauth_jwt"
+    }
+  ],
+  "schema_version": 2,
+  "stages": {
+    "audit_history": {
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "authentication": {
+      "mode": "session_login",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "fact_review": {
+      "manual_confirmation": "required",
+      "status": "passed",
+      "verification": "live_http",
+      "version_conflict": "passed"
+    },
+    "facts": {
+      "input": "synthetic_fixture",
+      "low_confidence_auto_confirm": false,
+      "source_spans": "present",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "processing": {
+      "document_state": "ready",
+      "input_media_type": "image/png",
+      "ocr_provider": "provider",
+      "queue": "enqueued",
+      "status": "passed",
+      "verification": "live_http+provider_worker",
+      "worker_completed": true
+    },
+    "readiness": {
+      "http_status": 200,
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "retention": {
+      "metadata": "retained",
+      "object": "retained",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "share": {
+      "active_access": "passed",
+      "expiry_access": "passed",
+      "revoke_access": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "upload": {
+      "duplicate_checksum": "deduplicated",
+      "duplicate_idempotency": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    },
+    "upload_content": {
+      "same_bytes_replay": "passed",
+      "status": "passed",
+      "verification": "live_http"
+    }
+  },
+  "status": "passed",
+  "worker": {
+    "consumer": "enabled",
+    "mode": "queue-consumer-qwen-vl-ocr",
+    "pipeline": "provider",
+    "status": "ready",
+    "verification": "live_http"
+  }
+}

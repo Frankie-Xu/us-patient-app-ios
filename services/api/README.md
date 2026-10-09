@@ -97,3 +97,33 @@ build_local_runtime factory writes SQLite files only under the caller-provided
 local directory and wires the synthetic lifecycle adapters. It is intended for
 contract tests and staging rehearsals; production startup must inject approved
 provider implementations after Issue #37 decisions are accepted.
+
+## Real staging provider adapters
+
+Phase 47 adds optional adapters in `provider_adapters.py` for a staging
+PostgreSQL metadata store, an S3-compatible object store (including MinIO), and
+a Redis metadata-only processing queue. Install the optional dependencies with
+`pip install -e 'services/api[staging]'`, then provide `DATABASE_URL` (or
+`POSTGRES_DSN`), `S3_BUCKET`/`S3_ENDPOINT`, and `REDIS_URL`. Credentials remain
+in the provider SDK's normal environment or workload identity chain and are
+never written to the repository or logs. `ProviderSettings.from_environment()`
+only reads endpoint and queue settings.
+
+The PostgreSQL adapter applies
+`services/api/migrations/001_provider_adapters.sql` on startup and enforces
+optimistic version checks plus actor-scoped idempotency. The object adapter
+stores a SHA-256 object metadata value and treats a retry with identical bytes
+as a no-op; changed bytes under an existing key are rejected. Redis job
+messages contain only `job_id` and string metadata and use a durable SETNX
+marker to prevent duplicate enqueue. Each adapter reports false readiness and
+raises `DependencyUnavailableError` when its SDK or service is unavailable.
+
+Run provider adapter unit tests without cloud services:
+
+```sh
+python3 -m unittest services.api.tests.test_provider_adapters
+```
+
+When staging services are available, set `STAGING_INTEGRATION=1` and run the
+deployment's integration job with synthetic fixtures. Never use real patient
+records in local or staging fixtures.

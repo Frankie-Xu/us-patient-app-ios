@@ -1,0 +1,20 @@
+{
+  "dataset_id": "patient-app-ai-staging",
+  "dataset_version": "1.0.0",
+  "delivery_blocked": true,
+  "metrics": {
+    "conflicts": 1.0,
+    "cost_usd_total": 0.0,
+    "latency_ms_average": 0.0,
+    "latency_ms_total": 0.0,
+    "low_confidence_claims": 1.0,
+    "missing_source_span_claims": 2.0,
+    "review_required_rate": 1.0,
+    "summary_ready_cases": 0.0
+  },
+  "model_provider": "deterministic-stub",
+  "model_version": "1",
+  "report_schema": "patient-app-ai/staging-regression-report",
+  "sample_count": 3,
+  "schema_version": "1.0.0"
+}

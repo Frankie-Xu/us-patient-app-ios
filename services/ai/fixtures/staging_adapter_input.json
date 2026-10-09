@@ -1,0 +1,31 @@
+{
+  "dataset_id": "patient-app-ai-staging-deidentified",
+  "version": "1.0.0",
+  "data_classification": "deidentified",
+  "cases": [
+    {
+      "case_id": "staging-bilingual-clean",
+      "source_ref": "deid:record:clean",
+      "source_type": "deidentified_record",
+      "language": "bilingual",
+      "data_classification": "deidentified",
+      "document_text": "  FACT\t{\"claim_id\":\"deid-clean-001\",\"confidence\":1.0,\"normalized_key\":\"medication:example-a:status\",\"normalized_value\":\"active\",\"review_status\":\"needs_review\",\"source_ref\":\"deid:record:clean:page-1\",\"source_type\":\"deidentified_record\",\"source_span\":{\"start\":0,\"end\":34,\"page\":1},\"text_en\":\"Example medication A is active.\",\"text_zh\":\"示例药物 A 正在使用。\"}  \n\n  FACT\t{\"claim_id\":\"deid-clean-002\",\"confidence\":0.95,\"normalized_key\":\"symptom:example:status\",\"normalized_value\":\"stable\",\"review_status\":\"needs_review\",\"source_ref\":\"deid:record:clean:page-1\",\"source_type\":\"deidentified_record\",\"source_span\":{\"start\":0,\"end\":32,\"page\":1},\"text_en\":\"Example symptom is stable.\",\"text_zh\":\"示例症状稳定。\"}"
+    },
+    {
+      "case_id": "staging-low-confidence-missing-span",
+      "source_ref": "deid:record:review",
+      "source_type": "deidentified_record",
+      "language": "bilingual",
+      "data_classification": "deidentified",
+      "document_text": "FACT\t{\"claim_id\":\"deid-review-001\",\"confidence\":0.4,\"normalized_key\":\"lab:example:status\",\"normalized_value\":\"review\",\"review_status\":\"needs_review\",\"source_ref\":\"deid:record:review:page-1\",\"source_type\":\"deidentified_record\",\"text_en\":\"Example lab requires review.\",\"text_zh\":\"示例检验需要复核。\"}"
+    },
+    {
+      "case_id": "staging-conflict",
+      "source_ref": "deid:record:conflict",
+      "source_type": "deidentified_record",
+      "language": "bilingual",
+      "data_classification": "deidentified",
+      "document_text": "FACT\t{\"claim_id\":\"deid-conflict-001\",\"confidence\":0.98,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"once_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"deid:record:conflict:page-1\",\"source_type\":\"deidentified_record\",\"source_span\":{\"start\":0,\"end\":39,\"page\":1},\"text_en\":\"Example medication B is once daily.\",\"text_zh\":\"示例药物 B 每日一次。\"}\nFACT\t{\"claim_id\":\"deid-conflict-002\",\"confidence\":0.98,\"normalized_key\":\"medication:example-b:frequency\",\"normalized_value\":\"twice_daily\",\"review_status\":\"needs_review\",\"source_ref\":\"deid:record:conflict:page-2\",\"source_type\":\"deidentified_record\",\"source_span\":{\"start\":0,\"end\":40,\"page\":1},\"text_en\":\"Example medication B is twice daily.\",\"text_zh\":\"示例药物 B 每日两次。\"}"
+    }
+  ]
+}

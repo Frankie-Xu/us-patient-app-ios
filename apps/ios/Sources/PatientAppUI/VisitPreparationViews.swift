@@ -66,6 +66,7 @@ struct VisitsView: View {
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Visits")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabVisits)
             .sheet(item: $sharingVisit) { visit in
                 ShareVisitSheet(visit: visit, model: share, pack: pack)
             }
@@ -146,6 +147,7 @@ struct TasksView: View {
                 Section { Text("Use fictional information in this development preview.").font(.footnote) }
             }
             .navigationTitle("Tasks")
+            .accessibilityIdentifier(PatientAccessibilityIdentifier.tabTasks)
             .task {
                 if case .idle = history.state { await history.load() }
             }
@@ -284,7 +286,13 @@ private struct ShareVisitSheet: View {
                 case .revoking:
                     Section { ProgressView("Revoking share…") }
                 case let .created(creation):
-                    ShareCreationSection(creation: creation, revoke: { _Concurrency.Task { await model.revoke() } }, busy: model.isBusy)
+                    ShareCreationSection(
+                        creation: creation,
+                        revoke: { _Concurrency.Task { await model.revoke() } },
+                        busy: model.isBusy || model.isRefreshingStatus,
+                        canRevoke: model.accessStatus?.isAccessible ?? !model.isRefreshingStatus
+                    )
+                    ShareAccessStatusSection(model: model)
                 case let .revoked(version):
                     Section("Share revoked") {
                         Text("The share token is no longer active.")
@@ -294,6 +302,7 @@ private struct ShareVisitSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    ShareAccessStatusSection(model: model)
                 case .failed:
                     Section {
                         if let error = model.error {
@@ -363,6 +372,7 @@ private struct ShareCreationSection: View {
     let creation: ShareCreation
     let revoke: () -> Void
     let busy: Bool
+    let canRevoke: Bool
 
     var body: some View {
         Section("Share token") {
@@ -378,7 +388,7 @@ private struct ShareCreationSection: View {
                     .foregroundStyle(.secondary)
             }
             Button("Revoke share", role: .destructive, action: revoke)
-                .disabled(busy)
+                .disabled(busy || !canRevoke)
         }
     }
 }

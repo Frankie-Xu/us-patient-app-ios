@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "worker_mode": "queue-consumer-qwen-vl-ocr",
+  "consumer_enabled": true,
+  "data_classification": "deidentified",
+  "proxy_injected_from_ignored_env": true,
+  "no_proxy_local_services": true,
+  "container_endpoint_smoke": {
+    "status": "success",
+    "model": "qwen-vl-ocr",
+    "request_media_type": "image/png",
+    "text_length": 18,
+    "synthetic_marker_detected": true
+  },
+  "credentials_recorded": false,
+  "phi_used": false
+}

@@ -35,6 +35,10 @@ public struct AuthenticatedPatientAPIClient: PatientAPIClient, Sendable {
     public func listTasks() async throws -> [Task] { try await withAuthorization { try await client.listTasks() } }
     public func createShare(_ request: ShareCreateRequest) async throws -> ShareCreation { try await withAuthorization { try await client.createShare(request) } }
     public func revokeShare(id: UUID) async throws -> ShareVersion { try await withAuthorization { try await client.revokeShare(id: id) } }
+    public func shareStatus(id: UUID) async throws -> ShareAccessStatus { try await withAuthorization { try await client.shareStatus(id: id) } }
+    public func exportPDF(documentID: UUID, documentVersion: Int) async throws -> PDFExportArtifact {
+        try await withAuthorization { try await client.exportPDF(documentID: documentID, documentVersion: documentVersion) }
+    }
 
     private func withAuthorization<T: Sendable>(_ operation: () async throws -> T) async throws -> T {
         guard case let .signedIn(initialSession) = await authSession.authState() else {

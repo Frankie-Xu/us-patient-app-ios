@@ -16,6 +16,7 @@ Package.resolved
 .env
 .env.*
 !.env.example
+!.env.staging.example
 *.p12
 *.mobileprovision
 *.cer
@@ -34,4 +35,3 @@ Secrets.swift
 fixtures/private/
 tmp/
 coverage/
-

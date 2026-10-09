@@ -76,6 +76,17 @@ High and critical errors, unresolved conflicts, missing claims and provenance
 failures set `delivery_blocked=true`. A report can therefore be used as a
 delivery gate without treating a metric average as a safety decision.
 
+`staging_adapter.py` composes these existing seams for a local/staging
+workflow. `StagingInput` accepts only synthetic or de-identified bilingual
+fixtures, `normalize_ocr_text` applies deterministic OCR cleanup, and
+`StagingAdapter` exposes source spans, review decisions and conflict gates
+without duplicating extraction. Every emitted claim remains review-required by
+default; explicit review IDs may confirm a claim for a deterministic demo, but
+low confidence, missing source spans and conflicts continue to block delivery.
+`SummaryProvider` is replaceable, with `DeterministicSummaryProvider` as the
+provider-free double. Each run records provider/version, latency and cost, and
+`regression_report()` emits an opaque, no-content staging report.
+
 Run the boundary checks from the repository root:
 
 ```sh

@@ -330,6 +330,11 @@ class SQLiteMetadataStore:
         identifier = getattr(value, "id", None)
         if not identifier:
             raise ValueError("resource id is required")
+        # UploadSession is intentionally immutable by document version but has
+        # no own optimistic-concurrency field. Keep the durable row's storage
+        # version stable for such resources while preserving strict monotonic
+        # checks for Document, Fact, Job, and other versioned models.
+        versioned = hasattr(value, "version")
         version = int(getattr(value, "version", 1))
         owner_id = str(getattr(value, "owner_id", ""))
         payload = json.dumps(_encode_storage(value), sort_keys=True, separators=(",", ":"))
@@ -342,8 +347,10 @@ class SQLiteMetadataStore:
                 actual_version = int(row[0])
                 if expected_version is not None and actual_version != expected_version:
                     raise VersionConflictError("expected version does not match current version")
-                if version <= actual_version:
+                if versioned and version <= actual_version:
                     raise VersionConflictError("updated version must be greater than current version")
+                if not versioned:
+                    version = actual_version
                 connection.execute(
                     "UPDATE resources SET owner_id = ?, version = ?, payload = ? WHERE resource_type = ? AND identifier = ?",
                     (owner_id, version, payload, resource_type, identifier),

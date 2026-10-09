@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-06",
+  "classification": "synthetic-no-phi",
+  "project": "apps/ios/PatientApp.xcodeproj",
+  "schemes": {
+    "release": "PatientApp-Debug (Release)",
+    "tests": "PatientAppTests"
+  },
+  "toolchain": {
+    "xcode": "27.0 (27A266a)",
+    "sdk": "iOS Simulator 27.0",
+    "destination": "iPhone 18 Pro / 39E5F9B7-5C5B-477B-B573-725920F120A3"
+  },
+  "checks": {
+    "ios_release_preflight": "passed with 2 expected warnings",
+    "ios_release_preflight_regressions": "passed",
+    "xcodebuild_list": "passed",
+    "debug_simulator_build": "passed",
+    "release_simulator_build": "passed",
+    "xctest": {
+      "status": "passed",
+      "domain_tests": 72,
+      "ui_model_tests": 53,
+      "xcui_application_tests": 3,
+      "failures": 0
+    },
+    "staging_smoke": "passed",
+    "ai_staging_regression": "passed (3 cases; delivery_blocked=true)",
+    "contract_drift": "passed (19 routes)",
+    "python_compile": "passed",
+    "api_pytest": "not runnable on managed host: PEP 668 blocks dependency installation",
+    "ai_pytest": "not runnable on managed host: pytest is unavailable",
+    "repository_validation": "passed",
+    "git_diff_check": "passed"
+  },
+  "app_metadata": {
+    "bundle_identifier": "com.example.patientapp",
+    "marketing_version": "0.1.0",
+    "build_number": "1",
+    "minimum_ios": "17.0",
+    "privacy_manifest": "apps/ios/Resources/PrivacyInfo.xcprivacy",
+    "camera_photo_usage_descriptions": "present",
+    "background_processing": "enabled"
+  },
+  "release_blockers": [
+    "example bundle identifier must be replaced for distribution",
+    "Apple Team and distribution signing are not configured",
+    "TestFlight publishing permissions are not configured",
+    "remote staging and external OAuth/JWT issuer remain external dependencies"
+  ]
+}

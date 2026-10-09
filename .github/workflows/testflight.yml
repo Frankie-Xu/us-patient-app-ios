@@ -55,20 +55,47 @@ jobs:
             echo "configured=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          for required in IOS_XCODE_SCHEME IOS_EXPORT_OPTIONS APPLE_TEAM_ID; do
+          for required in IOS_XCODE_SCHEME APPLE_TEAM_ID; do
             if [[ -z "${!required:-}" ]]; then
               echo "::error::Missing release configuration $required"
               exit 1
             fi
           done
+          if [[ ! "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "::error::APPLE_TEAM_ID must be a 10-character Apple Team ID"
+            exit 1
+          fi
           if [[ ! -f "$IOS_XCODE_PROJECT" ]]; then
             echo "::error::Configured Xcode project does not exist: $IOS_XCODE_PROJECT"
             exit 1
           fi
-          if [[ ! -f "$IOS_EXPORT_OPTIONS" ]]; then
-            echo "::error::Configured export options plist does not exist: $IOS_EXPORT_OPTIONS"
-            exit 1
+          export_options_path="${IOS_EXPORT_OPTIONS:-$RUNNER_TEMP/PatientAppExportOptions.plist}"
+          if [[ -n "${IOS_EXPORT_OPTIONS:-}" ]]; then
+            if [[ ! -f "$export_options_path" ]]; then
+              echo "::error::Configured export options plist does not exist: $export_options_path"
+              exit 1
+            fi
+          else
+            cat > "$export_options_path" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>destination</key>
+            <string>export</string>
+          <key>teamID</key>
+          <string>${APPLE_TEAM_ID}</string>
+          <key>uploadSymbols</key>
+          <false/>
+          </dict>
+          </plist>
+          PLIST
           fi
+          echo "export_options_path=$export_options_path" >> "$GITHUB_OUTPUT"
           echo "configured=true" >> "$GITHUB_OUTPUT"
       - name: Archive release build
         if: steps.config.outputs.configured == 'true'
@@ -77,17 +104,18 @@ jobs:
           set -euo pipefail
           archive_path="$RUNNER_TEMP/PatientApp.xcarchive"
           if [[ "$IOS_XCODE_PROJECT" == *.xcworkspace ]]; then
-            xcodebuild -workspace "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            xcodebuild -workspace "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive
           else
-            xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive
           fi
+          python3 scripts/ios/prepare_archive_metadata.py "$archive_path"
           echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
       - name: Export IPA
         if: steps.config.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild -exportArchive -archivePath "$ARCHIVE_PATH" -exportOptionsPlist "$IOS_EXPORT_OPTIONS" -exportPath "$RUNNER_TEMP/export"
+          xcodebuild -exportArchive -archivePath "$ARCHIVE_PATH" -exportOptionsPlist "${{ steps.config.outputs.export_options_path }}" -exportPath "$RUNNER_TEMP/export"
       - name: Upload to TestFlight when explicitly enabled
         if: steps.config.outputs.configured == 'true' && env.IOS_TESTFLIGHT_UPLOAD == 'true'
         shell: bash
@@ -106,7 +134,12 @@ jobs:
             echo "::error::No IPA was produced by the export step"
             exit 1
           fi
-          xcrun iTMSTransporter -m upload -assetFile "$ipa_path" -apiKey "$APP_STORE_CONNECT_KEY_ID" -apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" -apiPrivateKey "$key_path"
+          xcrun altool --upload-app \
+            -f "$ipa_path" \
+            --api-key "$APP_STORE_CONNECT_KEY_ID" \
+            --api-issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --p8-file-path "$key_path" \
+            --output-format json
       - name: Keep upload disabled by default
         if: steps.config.outputs.configured == 'true' && env.IOS_TESTFLIGHT_UPLOAD != 'true'
         run: echo "::notice::Archive/export completed; set IOS_TESTFLIGHT_UPLOAD=true for an intentional upload."

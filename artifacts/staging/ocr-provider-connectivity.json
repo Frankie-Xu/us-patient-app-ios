@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic",
+  "region": "us-east-1",
+  "workspace_id": "ws-ex6zhqfa8j85yokx",
+  "success": {
+    "status": "success",
+    "model": "qwen-vl-ocr",
+    "elapsed_ms": 1864.41,
+    "text_length": 18,
+    "synthetic_marker_detected": true
+  },
+  "model_missing": {
+    "status": "failed",
+    "model": "qwen3.5-ocr",
+    "elapsed_ms": 613.07,
+    "error_code": "OCR_PROVIDER_REJECTED",
+    "retryable": false
+  },
+  "response_body_recorded": false,
+  "authorization_recorded": false,
+  "source_bytes_recorded": false,
+  "phi_used": false
+}
