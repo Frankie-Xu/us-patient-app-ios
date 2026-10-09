@@ -46,6 +46,9 @@ def prepare(archive: Path) -> bool:
     apps = sorted(products.glob("*.app"))
     if not info_path.exists() or len(apps) != 1:
         raise SystemExit("archive must contain one application and an Info.plist")
+    if any(path.is_file() for path in (archive / "Products").rglob("*")
+           if products not in path.parents):
+        raise SystemExit("archive contains standalone products; set SKIP_INSTALL=YES on framework targets")
 
     info = _plist(info_path)
     app = apps[0]

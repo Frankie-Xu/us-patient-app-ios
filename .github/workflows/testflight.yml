@@ -87,8 +87,10 @@ jobs:
             <string>automatic</string>
             <key>destination</key>
             <string>export</string>
-            <key>teamID</key>
-            <string>${APPLE_TEAM_ID}</string>
+          <key>teamID</key>
+          <string>${APPLE_TEAM_ID}</string>
+          <key>uploadSymbols</key>
+          <false/>
           </dict>
           </plist>
           PLIST
@@ -102,9 +104,9 @@ jobs:
           set -euo pipefail
           archive_path="$RUNNER_TEMP/PatientApp.xcarchive"
           if [[ "$IOS_XCODE_PROJECT" == *.xcworkspace ]]; then
-            xcodebuild -workspace "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            xcodebuild -workspace "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive
           else
-            xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            xcodebuild -project "$IOS_XCODE_PROJECT" -scheme "$IOS_XCODE_SCHEME" -configuration Release -sdk iphoneos -archivePath "$archive_path" archive
           fi
           python3 scripts/ios/prepare_archive_metadata.py "$archive_path"
           echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
@@ -132,7 +134,12 @@ jobs:
             echo "::error::No IPA was produced by the export step"
             exit 1
           fi
-          xcrun iTMSTransporter -m upload -assetFile "$ipa_path" -apiKey "$APP_STORE_CONNECT_KEY_ID" -apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" -apiPrivateKey "$key_path"
+          xcrun altool --upload-app \
+            -f "$ipa_path" \
+            --api-key "$APP_STORE_CONNECT_KEY_ID" \
+            --api-issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --p8-file-path "$key_path" \
+            --output-format json
       - name: Keep upload disabled by default
         if: steps.config.outputs.configured == 'true' && env.IOS_TESTFLIGHT_UPLOAD != 'true'
         run: echo "::notice::Archive/export completed; set IOS_TESTFLIGHT_UPLOAD=true for an intentional upload."

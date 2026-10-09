@@ -221,6 +221,24 @@ if [[ -s "$build_settings_file" ]]; then
         fail "Info.plist bundle key is missing: $key"
       fi
     done
+    icon_name="$(plist_value CFBundleIconName)"
+    if [[ "$icon_name" == "AppIcon" && -f "$repo_root/apps/ios/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json" ]]; then
+      pass "App icon asset catalog is configured"
+    else
+      fail "App icon asset catalog or CFBundleIconName is missing"
+    fi
+    permitted_task="$(/usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' "$info_plist" 2>/dev/null || true)"
+    if [[ "$permitted_task" == "patient-app.uploads" ]]; then
+      pass "Background upload task identifier is declared"
+    else
+      fail "BGTaskSchedulerPermittedIdentifiers is missing patient-app.uploads"
+    fi
+    for orientation in UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight; do
+      if /usr/libexec/PlistBuddy -c "Print :UISupportedInterfaceOrientations" "$info_plist" 2>/dev/null | grep -Fq "$orientation"; then
+        continue
+      fi
+      fail "Info.plist is missing supported orientation: $orientation"
+    done
   fi
 
   if [[ -n "$development_team" && -n "$code_sign_style" ]]; then

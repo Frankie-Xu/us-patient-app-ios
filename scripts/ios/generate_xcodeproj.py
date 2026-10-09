@@ -26,10 +26,13 @@ def q(value: str) -> str:
 
 def fs_group(label: str, path: str) -> tuple[str, str]:
     identifier = uid(f"group:{label}")
+    exceptions = ""
+    if label == "Resources":
+        exceptions = f"exceptions = ({uid('resources:exceptions')},);\n            "
     return identifier, textwrap.dedent(f"""\
         {identifier} /* {label} */ = {{
             isa = PBXFileSystemSynchronizedRootGroup;
-            path = {q(path)};
+            {exceptions}path = {q(path)};
             sourceTree = \"<group>\";
         }};
     """)
@@ -164,6 +167,7 @@ def target_settings(bundle_id: str, product_name: str, *, app: bool = False, tes
         "PRODUCT_BUNDLE_IDENTIFIER": q(bundle_id),
         "PRODUCT_NAME": q(product_name),
         "SDKROOT": "iphoneos",
+        "SKIP_INSTALL": "NO" if app else "YES",
         "SWIFT_EMIT_LOC_STRINGS": "YES",
         "SWIFT_STRICT_CONCURRENCY": "minimal",
         "SWIFT_VERSION": "6.0",
@@ -171,6 +175,7 @@ def target_settings(bundle_id: str, product_name: str, *, app: bool = False, tes
     }
     if app:
         settings.update({
+            "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
             "DEVELOPMENT_TEAM": "QH6389JMZY",
             "GENERATE_INFOPLIST_FILE": "NO",
             "INFOPLIST_FILE": q("Resources/Info.plist"),
@@ -303,6 +308,13 @@ def main() -> None:
     for label, path in [("PatientAppDomain", "Sources/PatientAppDomain"), ("PatientAppUI", "Sources/PatientAppUI"), ("PatientApp", "Sources/PatientApp"), ("PatientAppDomainTests", "Tests/PatientAppDomainTests"), ("PatientAppUITests", "Tests/PatientAppUITests"), ("PatientAppLaunchUITests", "UITests"), ("Resources", "Resources")]:
         groups[label], obj = fs_group(label, path)
         group_objects.append(obj)
+    group_objects.append(textwrap.dedent(f"""\
+        {uid('resources:exceptions')} /* Resources membership exceptions */ = {{
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = ("Info.plist",);
+            target = {targets['PatientApp']} /* PatientApp */;
+        }};
+    """))
 
     product_ids = {}
     product_objects = []
@@ -437,6 +449,8 @@ def main() -> None:
     }
     for name in names:
         target_groups = [groups[name]]
+        if name == "PatientApp":
+            target_groups.append(groups["Resources"])
         target_objects.append(target(targets[name], name, product_ids[name], product_type_names[name], config_lists[name], phases[name], target_groups, dependency_map[name]))
 
     project_object = textwrap.dedent(f"""\
