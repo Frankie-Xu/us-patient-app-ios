@@ -179,7 +179,7 @@ jobs:
         run: bash scripts/run-api-readiness.sh services/api
       - name: Upload API readiness result
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: api-readiness-result
           path: artifacts/api-readiness.json
@@ -213,7 +213,7 @@ jobs:
         run: bash scripts/run-python-tests.sh services/ai
       - name: Upload AI golden regression result
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ai-golden-regression-result
           path: artifacts/ai-golden-regression.json
@@ -277,7 +277,7 @@ jobs:
           cat artifacts/release-evidence-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload release evidence manifest
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-evidence-manifest
           path: |
